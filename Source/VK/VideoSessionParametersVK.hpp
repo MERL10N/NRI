@@ -541,9 +541,9 @@ NRI_INLINE Result VideoSessionParametersVK::CreateAV1(VideoSessionVK& session) {
     if (vkResult != VK_SUCCESS || !feedbackInfo.hasOverrides || !dataSize)
         return Result::SUCCESS;
 
-    std::vector<uint8_t> data(dataSize);
-    vkResult = vk.GetEncodedVideoSessionParametersKHR(m_Device, &getInfo, &feedbackInfo, &dataSize, data.data());
-    if (vkResult != VK_SUCCESS || !feedbackInfo.hasOverrides || !ApplyVideoEncodeAV1SequenceHeaderOverrideVK(m_AV1SequenceHeader, data.data(), dataSize))
+    Scratch<uint8_t> data = NRI_ALLOCATE_SCRATCH(m_Device, uint8_t, dataSize);
+    vkResult = vk.GetEncodedVideoSessionParametersKHR(m_Device, &getInfo, &feedbackInfo, &dataSize, data);
+    if (vkResult != VK_SUCCESS || !feedbackInfo.hasOverrides || !ApplyVideoEncodeAV1SequenceHeaderOverrideVK(m_AV1SequenceHeader, data, dataSize))
         return Result::SUCCESS;
 
     vk.DestroyVideoSessionParametersKHR(m_Device, m_Handle, m_Device.GetVkAllocationCallbacks());
