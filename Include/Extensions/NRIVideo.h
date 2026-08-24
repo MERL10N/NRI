@@ -278,6 +278,8 @@ NriStruct(VideoCapabilities) {
     uint32_t resolvedMetadataOffsetAlignment;
     uint64_t metadataSize;         // minimum backend encode metadata range
     uint64_t resolvedMetadataSize; // minimum resolved metadata range
+    bool decodeDpbAndOutputCoincide; // decode output and reconstructed/DPB setup may use the same texture subresource
+    bool decodeDpbAndOutputDistinct; // decode output and reconstructed/DPB setup may use different texture subresources
 };
 
 NriStruct(VideoAV1Capabilities) {
@@ -324,7 +326,8 @@ NriStruct(VideoPictureDesc) {
 };
 
 NriStruct(VideoDecodePictureStates) {
-    Nri(AccessLayoutStage) decodeWrite;     // state required before CmdDecodeVideo writes the destination picture
+    Nri(AccessLayoutStage) decodeWrite;     // state required for a distinct or output-only destination picture
+    Nri(AccessLayoutStage) decodeDpb;       // state required for setup/reference pictures and a coincident destination picture
     Nri(AccessLayoutStage) afterDecode;     // optional state to transition to on the video decode queue after CmdDecodeVideo
     Nri(AccessLayoutStage) graphicsBefore;  // state to use as "before" when the graphics queue consumes the decoded picture
     bool releaseAfterDecode;                // if true, caller should record decodeWrite -> afterDecode on the video decode queue
@@ -831,7 +834,7 @@ NriStruct(VideoDecodeDesc) {
     NriPtr(VideoSessionParameters) parameters;
     Nri(VideoBitstreamRange) bitstream;
     NriPtr(VideoPicture) dstPicture;
-    NriOptional NriPtr(VideoPicture) setupPicture; // if provided, used as the reconstructed/DPB setup reference instead of "dstPicture"
+    NriOptional NriPtr(VideoPicture) setupPicture; // reconstructed/DPB setup picture; required for distinct mode, may alias "dstPicture" in coincide mode
     NriOptional const NriPtr(VideoReference) references;
     NriOptional uint32_t referenceNum;
     uint32_t dstSlot;

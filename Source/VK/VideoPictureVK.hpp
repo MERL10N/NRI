@@ -12,6 +12,8 @@ NRI_INLINE Result VideoPictureVK::Create(const VideoPictureDesc& videoPictureDes
 
     TextureVK& texture = *(TextureVK*)videoPictureDesc.texture;
     const TextureDesc& textureDesc = texture.GetDesc();
+    m_Texture = &texture;
+    m_Layer = videoPictureDesc.layer;
 
     VkImageViewCreateInfo createInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     VkImageViewUsageCreateInfo usageInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO};

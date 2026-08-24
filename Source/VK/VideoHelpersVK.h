@@ -56,7 +56,7 @@ inline void FillVideoEncodeRateControlVK(const VideoEncodeRateControlDesc& desc,
     info.initialVirtualBufferSizeInMs = desc.initialVirtualBufferSizeMs ? desc.initialVirtualBufferSizeMs : info.virtualBufferSizeInMs;
 }
 
-inline VkVideoReferenceSlotInfoKHR GetVideoEncodeSetupReferenceSlotForBeginVK(const VkVideoReferenceSlotInfoKHR& setupReferenceSlot) {
+inline VkVideoReferenceSlotInfoKHR GetVideoSetupReferenceSlotForBeginVK(const VkVideoReferenceSlotInfoKHR& setupReferenceSlot) {
     VkVideoReferenceSlotInfoKHR beginReferenceSlot = setupReferenceSlot;
     beginReferenceSlot.slotIndex = -1;
     return beginReferenceSlot;

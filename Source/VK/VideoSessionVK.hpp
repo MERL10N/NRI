@@ -357,6 +357,9 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
         NRI_REPORT_ERROR(&m_Device, "vkGetPhysicalDeviceVideoCapabilitiesKHR failed for operation 0x%X, format %u, result %d", operation, (uint32_t)videoSessionDesc.format, vkResult);
     }
     NRI_RETURN_ON_BAD_VKRESULT(&m_Device, vkResult, "vkGetPhysicalDeviceVideoCapabilitiesKHR");
+    if (videoSessionDesc.type == VideoSessionType::DECODE)
+        m_DecodeCapabilityFlags = decodeCapabilities.flags;
+
     if (videoSessionDesc.type == VideoSessionType::ENCODE) {
         m_RateControlModes = GetSupportedVideoEncodeRateControlModesVK(encodeCapabilities.rateControlModes);
         if (videoSessionDesc.codec == VideoCodec::H264) {
@@ -578,6 +581,10 @@ static Result NRI_CALL GetVideoCapabilities(const Device& device, const VideoSes
     NRI_RETURN_ON_BAD_VKRESULT(&deviceVK, vkResult, "vkGetPhysicalDeviceVideoCapabilitiesKHR");
 
     FillVideoCapabilitiesVK(videoCapabilities, videoSessionDesc, capabilities);
+    if (videoSessionDesc.type == VideoSessionType::DECODE) {
+        videoCapabilities.decodeDpbAndOutputCoincide = (decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_COINCIDE_BIT_KHR) != 0;
+        videoCapabilities.decodeDpbAndOutputDistinct = (decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_DISTINCT_BIT_KHR) != 0;
+    }
 
     const bool isExtentSupported = videoSessionDesc.width >= videoCapabilities.widthMin
         && videoSessionDesc.height >= videoCapabilities.heightMin

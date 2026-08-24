@@ -1297,6 +1297,7 @@ static void NRI_CALL DestroyVideoPicture(VideoPicture* videoPicture) {
 static Result NRI_CALL GetVideoDecodePictureStates(const VideoPicture&, VideoDecodePictureStates& states) {
     states = {};
     states.decodeWrite = {AccessBits::VIDEO_DECODE_WRITE, Layout::VIDEO_DECODE_DST, StageBits::VIDEO_DECODE};
+    states.decodeDpb = states.decodeWrite;
     states.afterDecode = {AccessBits::NONE, Layout::GENERAL, StageBits::NONE};
     states.graphicsBefore = states.afterDecode;
     states.releaseAfterDecode = true;

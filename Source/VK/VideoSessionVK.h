@@ -36,6 +36,14 @@ struct VideoSessionVK final : public DebugNameBase {
         return m_RateControlModes;
     }
 
+    inline bool SupportsDecodeDpbAndOutputCoincide() const {
+        return (m_DecodeCapabilityFlags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_COINCIDE_BIT_KHR) != 0;
+    }
+
+    inline bool SupportsDecodeDpbAndOutputDistinct() const {
+        return (m_DecodeCapabilityFlags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_DISTINCT_BIT_KHR) != 0;
+    }
+
     inline VkVideoEncodeAV1CapabilityFlagsKHR GetAV1CapabilityFlags() const {
         return m_AV1CapabilityFlags;
     }
@@ -172,6 +180,7 @@ private:
     uint32_t m_BitstreamOffsetAlignment = 1;
     uint32_t m_BitstreamSizeAlignment = 1;
     uint32_t m_RateControlModes = 0;
+    VkVideoDecodeCapabilityFlagsKHR m_DecodeCapabilityFlags = 0;
     VkVideoEncodeAV1CapabilityFlagsKHR m_AV1CapabilityFlags = 0;
     uint32_t m_AV1MaxSingleReferenceCount = 0;
     uint32_t m_AV1SingleReferenceNameMask = 0;
