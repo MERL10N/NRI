@@ -666,6 +666,20 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
         }
     }
 
+    // Queue family properties
+    uint32_t familyNum = 0;
+    m_VK.GetPhysicalDeviceQueueFamilyProperties2(m_PhysicalDevice, &familyNum, nullptr);
+
+    Scratch<VkQueueFamilyProperties2> familyProps2 = NRI_ALLOCATE_SCRATCH(*this, VkQueueFamilyProperties2, familyNum);
+    Scratch<VkQueueFamilyVideoPropertiesKHR> familyVideoProps = NRI_ALLOCATE_SCRATCH(*this, VkQueueFamilyVideoPropertiesKHR, familyNum);
+    for (uint32_t i = 0; i < familyNum; i++) {
+        familyProps2[i] = {VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2};
+        familyVideoProps[i] = {VK_STRUCTURE_TYPE_QUEUE_FAMILY_VIDEO_PROPERTIES_KHR};
+        familyProps2[i].pNext = &familyVideoProps[i];
+    }
+
+    m_VK.GetPhysicalDeviceQueueFamilyProperties2(m_PhysicalDevice, &familyNum, familyProps2);
+
     // Queue family indices
     std::array<uint32_t, (size_t)QueueType::MAX_NUM> queueFamilyIndices = {};
     queueFamilyIndices.fill(INVALID_FAMILY_INDEX);
@@ -675,24 +689,11 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
             queueFamilyIndices[(size_t)queueFamilyVKDesc.queueType] = queueFamilyVKDesc.familyIndex;
 
             if (queueFamilyVKDesc.queueType == QueueType::VIDEO_DECODE && queueFamilyVKDesc.queueNum)
-                m_VideoCodecOperations[(size_t)QueueType::VIDEO_DECODE] = VIDEO_DECODE_CODEC_OPERATION_MASK;
+                m_VideoCodecOperations[(size_t)QueueType::VIDEO_DECODE] = familyVideoProps[queueFamilyVKDesc.familyIndex].videoCodecOperations & VIDEO_DECODE_CODEC_OPERATION_MASK;
             else if (queueFamilyVKDesc.queueType == QueueType::VIDEO_ENCODE && queueFamilyVKDesc.queueNum)
-                m_VideoCodecOperations[(size_t)QueueType::VIDEO_ENCODE] = VIDEO_ENCODE_CODEC_OPERATION_MASK;
+                m_VideoCodecOperations[(size_t)QueueType::VIDEO_ENCODE] = familyVideoProps[queueFamilyVKDesc.familyIndex].videoCodecOperations & VIDEO_ENCODE_CODEC_OPERATION_MASK;
         }
     } else {
-        uint32_t familyNum = 0;
-        m_VK.GetPhysicalDeviceQueueFamilyProperties2(m_PhysicalDevice, &familyNum, nullptr);
-
-        Scratch<VkQueueFamilyProperties2> familyProps2 = NRI_ALLOCATE_SCRATCH(*this, VkQueueFamilyProperties2, familyNum);
-        Scratch<VkQueueFamilyVideoPropertiesKHR> familyVideoProps = NRI_ALLOCATE_SCRATCH(*this, VkQueueFamilyVideoPropertiesKHR, familyNum);
-        for (uint32_t i = 0; i < familyNum; i++) {
-            familyProps2[i] = {VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2};
-            familyVideoProps[i] = {VK_STRUCTURE_TYPE_QUEUE_FAMILY_VIDEO_PROPERTIES_KHR};
-            familyProps2[i].pNext = &familyVideoProps[i];
-        }
-
-        m_VK.GetPhysicalDeviceQueueFamilyProperties2(m_PhysicalDevice, &familyNum, familyProps2);
-
         std::array<uint32_t, (size_t)QueueType::MAX_NUM> scores = {};
         for (uint32_t i = 0; i < familyNum; i++) {
             const VkQueueFamilyProperties& familyProps = familyProps2[i].queueFamilyProperties;
@@ -737,6 +738,35 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
 
     if (!isWrapper)
         ProcessDeviceExtensions(desiredDeviceExts, desc.disableVKRayTracing, desc.deviceLostInfoLevel);
+
+    { // Video codec operations enabled on the device
+        VkVideoCodecOperationFlagsKHR enabledDecodeCodecOperations = 0;
+        VkVideoCodecOperationFlagsKHR enabledEncodeCodecOperations = 0;
+        const bool isVideoQueueEnabled = IsExtensionSupported(VK_KHR_VIDEO_QUEUE_EXTENSION_NAME, desiredDeviceExts);
+        const bool isVideoDecodeQueueEnabled = isVideoQueueEnabled && IsExtensionSupported(VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME, desiredDeviceExts);
+        const bool isVideoEncodeQueueEnabled = isVideoQueueEnabled && IsExtensionSupported(VK_KHR_VIDEO_ENCODE_QUEUE_EXTENSION_NAME, desiredDeviceExts);
+
+        if (isVideoDecodeQueueEnabled && IsExtensionSupported(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME, desiredDeviceExts))
+            enabledDecodeCodecOperations |= VK_VIDEO_CODEC_OPERATION_DECODE_H264_BIT_KHR;
+
+        if (isVideoDecodeQueueEnabled && IsExtensionSupported(VK_KHR_VIDEO_DECODE_H265_EXTENSION_NAME, desiredDeviceExts))
+            enabledDecodeCodecOperations |= VK_VIDEO_CODEC_OPERATION_DECODE_H265_BIT_KHR;
+
+        if (isVideoDecodeQueueEnabled && IsExtensionSupported(VK_KHR_VIDEO_DECODE_AV1_EXTENSION_NAME, desiredDeviceExts))
+            enabledDecodeCodecOperations |= VK_VIDEO_CODEC_OPERATION_DECODE_AV1_BIT_KHR;
+
+        if (isVideoEncodeQueueEnabled && IsExtensionSupported(VK_KHR_VIDEO_ENCODE_H264_EXTENSION_NAME, desiredDeviceExts))
+            enabledEncodeCodecOperations |= VK_VIDEO_CODEC_OPERATION_ENCODE_H264_BIT_KHR;
+
+        if (isVideoEncodeQueueEnabled && IsExtensionSupported(VK_KHR_VIDEO_ENCODE_H265_EXTENSION_NAME, desiredDeviceExts))
+            enabledEncodeCodecOperations |= VK_VIDEO_CODEC_OPERATION_ENCODE_H265_BIT_KHR;
+
+        if (isVideoEncodeQueueEnabled && IsExtensionSupported(VK_KHR_VIDEO_ENCODE_AV1_EXTENSION_NAME, desiredDeviceExts))
+            enabledEncodeCodecOperations |= VK_VIDEO_CODEC_OPERATION_ENCODE_AV1_BIT_KHR;
+
+        m_VideoCodecOperations[(size_t)QueueType::VIDEO_DECODE] &= enabledDecodeCodecOperations;
+        m_VideoCodecOperations[(size_t)QueueType::VIDEO_ENCODE] &= enabledEncodeCodecOperations;
+    }
 
     NRI_REPORT_INFO(this, "Using Vulkan v1.%u (%u device extensions initialized)", m_MinorVersion, (uint32_t)desiredDeviceExts.size());
 
