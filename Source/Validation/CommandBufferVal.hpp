@@ -1184,6 +1184,19 @@ static inline bool IsVideoAV1InterFrameWithoutReferences(VideoEncodeFrameType fr
     return (frameType == VideoEncodeFrameType::P || frameType == VideoEncodeFrameType::B) && referenceNum == 0;
 }
 
+static inline bool AreVideoDecodeSliceOffsetsValid(const uint32_t* offsets, uint32_t offsetNum, uint64_t bitstreamSize) {
+    constexpr uint32_t annexBStartCodeSize = 4;
+    if (!offsets || !offsetNum)
+        return false;
+
+    for (uint32_t i = 0; i < offsetNum; i++) {
+        if ((uint64_t)offsets[i] + annexBStartCodeSize >= bitstreamSize || (i && offsets[i] <= offsets[i - 1]))
+            return false;
+    }
+
+    return true;
+}
+
 static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& videoDecodeDesc) {
     const VideoAV1DecodePictureDesc& desc = *videoDecodeDesc.av1PictureDesc;
     if (desc.tileNum == 0 || desc.tileNum > 64 || !desc.tiles)
@@ -1324,6 +1337,16 @@ NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecode
 
     if (videoDecodeDesc.argumentNum != 0 && !videoDecodeDesc.arguments) {
         NRI_REPORT_ERROR(&m_Device, "'arguments' is NULL");
+        return;
+    }
+
+    if (videoDecodeDesc.h264PictureDesc && !AreVideoDecodeSliceOffsetsValid(videoDecodeDesc.h264PictureDesc->sliceOffsets, videoDecodeDesc.h264PictureDesc->sliceOffsetNum, videoDecodeDesc.bitstream.size)) {
+        NRI_REPORT_ERROR(&m_Device, "'h264PictureDesc->sliceOffsets' is invalid");
+        return;
+    }
+
+    if (videoDecodeDesc.h265PictureDesc && !AreVideoDecodeSliceOffsetsValid(videoDecodeDesc.h265PictureDesc->sliceSegmentOffsets, videoDecodeDesc.h265PictureDesc->sliceSegmentOffsetNum, videoDecodeDesc.bitstream.size)) {
+        NRI_REPORT_ERROR(&m_Device, "'h265PictureDesc->sliceSegmentOffsets' is invalid");
         return;
     }
 

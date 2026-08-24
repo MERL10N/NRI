@@ -596,7 +596,7 @@ NriStruct(VideoH264DecodePictureDesc) {
     uint16_t idrPictureId;
     int32_t topFieldOrderCount;
     int32_t bottomFieldOrderCount;
-    const uint32_t* sliceOffsets;
+    const uint32_t* sliceOffsets; // offsets to 4-byte Annex-B start codes, relative to "VideoDecodeDesc::bitstream.offset"
     uint32_t sliceOffsetNum;
     bool hasReferenceSlot; // if false, VideoDecodeDesc::dstSlot is used
     uint32_t referenceSlot;
@@ -621,7 +621,7 @@ NriStruct(VideoH265DecodePictureDesc) {
     int32_t pictureOrderCount;
     uint8_t numDeltaPocsOfRefRpsIdx;
     uint16_t numBitsForShortTermRefPicSetInSlice;
-    const uint32_t* sliceSegmentOffsets;
+    const uint32_t* sliceSegmentOffsets; // offsets to 4-byte Annex-B start codes, relative to "VideoDecodeDesc::bitstream.offset"
     uint32_t sliceSegmentOffsetNum;
     NriOptional const NriPtr(VideoH265ReferenceDesc) references;
     NriOptional uint32_t referenceNum;
