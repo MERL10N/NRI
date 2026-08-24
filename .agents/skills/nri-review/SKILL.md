@@ -7,7 +7,7 @@ description: Review NRI repository changes with repo-specific C++/graphics-backe
 
 ## Overview
 
-Review NRI changes as a graphics API/backend reviewer. Prioritize correctness, validation-layer boundaries, backend SDK assumptions, ABI/API compatibility, and maintainer style rules over generic C++ preferences.
+Review NRI changes as a graphics API/backend reviewer. Prioritize correctness, validation-layer boundaries, backend SDK assumptions, public API contract quality, and maintainer style rules over generic C++ preferences.
 
 ## Workflow
 
@@ -48,7 +48,8 @@ D3D12-specific:
 - Keep `ID3D12DeviceBest`, version checks, and Agility-only calls consistent with `DeviceD3D12` and existing descriptor/pipeline patterns.
 
 API and build:
-- Public headers must preserve C/C++ compatibility macros (`NriStruct`, `NriEnum`, `NriBits`, `NriRef`, `NriPtr`, `NriNamespaceBegin/End`, `NriOptional`, `NriOut`, `NRI_CALL`) and ABI-sensitive layout.
+- Public headers must preserve C/C++ compatibility macros (`NriStruct`, `NriEnum`, `NriBits`, `NriRef`, `NriPtr`, `NriNamespaceBegin/End`, `NriOptional`, `NriOut`, `NRI_CALL`).
+- `NRI_VERSION 181` is work in progress and consumers are expected to recompile. Do not report ABI/layout/enum-number changes or require a version bump. Continue to flag C/C++ facade breakage, public semantic traps, and internal parity failures caused by those changes.
 - Public or extension API additions must update the header function-pointer table, `DeviceBase::FillFunctionTable`, validation table fill, supported backend table fills, extension support flags, and `nriGetInterface` compatibility behavior.
 - New enum values must update mapping arrays, validation checks, conversion helpers, and `NRI_VALIDATE_ARRAY*` coverage together.
 - CMake changes must preserve option names, dependency gating, warnings-as-errors behavior, explicit source lists, `target_sources`, `source_group`, and generator-expression style.
@@ -56,7 +57,7 @@ API and build:
 
 ## Finding Priorities
 
-- High severity: validation moved into backends, invalid public API behavior, native resource lifetime bugs, ABI-breaking public header changes, D3D12 SDK assumptions violated, or changes likely to break a backend build.
+- High severity: validation moved into backends, invalid public API behavior, native resource lifetime bugs, D3D12 SDK assumptions violated, or changes likely to break a backend build.
 - Medium severity: wrong helper placement, newly added enum `MAX_NUM` switch cases, missing failure cleanup, inconsistent wrapper unwrapping, bad version/feature gating, missing interface-table/source-list updates, or meaningful style violations in touched code.
 - Low severity: minor local style drift, unclear comments, or missed formatting when behavior is unaffected.
 
