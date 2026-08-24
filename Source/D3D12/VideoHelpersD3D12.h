@@ -58,7 +58,7 @@ inline void FillVideoCapabilitiesD3D12(VideoCapabilities& videoCapabilities, con
     videoCapabilities.metadataOffsetAlignment = 1;
     videoCapabilities.resolvedMetadataOffsetAlignment = 1;
     videoCapabilities.decodeDpbAndOutputCoincide = videoSessionDesc.type == VideoSessionType::DECODE;
-    videoCapabilities.decodeDpbAndOutputDistinct = videoSessionDesc.type == VideoSessionType::DECODE;
+    videoCapabilities.decodeDpbAndOutputDistinct = false;
 }
 
 inline void FillVideoDecodeAV1CapabilitiesD3D12(VideoAV1Capabilities& videoAV1Capabilities) {

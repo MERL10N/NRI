@@ -1310,11 +1310,17 @@ NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecode
     NRI_RETURN_ON_FAILURE(&m_Device, &parametersVal.GetSession() == &sessionVal, ReturnVoid(), "'parameters' must belong to 'session'");
     NRI_RETURN_ON_FAILURE(&m_Device, IsVideoPictureValidForSession(dstPictureVal, VideoPictureUsage::DECODE_OUTPUT, sessionVal.GetDesc()), ReturnVoid(), "'dstPicture' must have DECODE_OUTPUT usage and match the session format, codec and coded extent");
 
+    bool isDpbAndOutputDistinct = false;
+
     if (videoDecodeDesc.setupPicture) {
         VideoPictureVal& setupPictureVal = *(VideoPictureVal*)videoDecodeDesc.setupPicture;
 
         NRI_RETURN_ON_FAILURE(&m_Device, &setupPictureVal.GetDevice() == &m_Device && IsVideoPictureValidForSession(setupPictureVal, VideoPictureUsage::DECODE_REFERENCE, sessionVal.GetDesc()), ReturnVoid(), "'setupPicture' must belong to the command buffer device, have decode reference usage, and match the session format, codec and coded extent");
+
+        isDpbAndOutputDistinct = !setupPictureVal.IsSameSubresource(dstPictureVal);
     }
+
+    NRI_RETURN_ON_FAILURE(&m_Device, isDpbAndOutputDistinct ? capabilities.decodeDpbAndOutputDistinct : capabilities.decodeDpbAndOutputCoincide, ReturnVoid(), "the video session does not support the requested decode output and DPB setup mode");
 
     if (videoDecodeDesc.argumentNum > 10) {
         NRI_REPORT_ERROR(&m_Device, "'argumentNum' must be <= 10");

@@ -11,6 +11,7 @@
 
 ## Video Backend Discrepancies
 
+- Implement distinct D3D12 decode output and DPB setup pictures using `D3D12_VIDEO_DECODE_OUTPUT_STREAM_ARGUMENTS::ConversionArguments`. Query `D3D12_FEATURE_VIDEO_DECODE_CONVERSION_SUPPORT`, define how decode/output color spaces are supplied, and advertise `decodeDpbAndOutputDistinct` only when the requested conversion is supported.
 - NRISamples `VideoEncodeDecode` still has VK/D3D12 branches because some video requirements are not represented as backend-neutral NRI state yet.
 - Vulkan AV1 encode currently uses a reduced descriptor shape: CDEF/restoration/screen-content sequence options are disabled, several AV1 picture sub-descriptor pointers are omitted, and render size follows coded size. These differences come from the Vulkan AV1 encode path and driver-supported feature set not matching the D3D12 descriptor expectations one-to-one.
 - D3D12 AV1 encode currently enables segmentation where Vulkan does not. The sample carries this as a backend branch because the two backends require different AV1 picture descriptor details for otherwise similar encode requests.

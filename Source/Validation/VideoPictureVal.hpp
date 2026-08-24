@@ -2,9 +2,11 @@
 
 NRI_INLINE VideoPictureVal::VideoPictureVal(DeviceVal& device, VideoPicture* impl, const VideoPictureDesc& desc, const TextureDesc& textureDesc)
     : ObjectVal(device, (Object*)impl)
+    , m_Texture((TextureVal*)desc.texture)
     , m_Format(textureDesc.format)
     , m_Width(desc.width ? desc.width : textureDesc.width)
     , m_Height(desc.height ? desc.height : textureDesc.height)
+    , m_Layer(desc.layer)
     , m_Codec(textureDesc.videoCodec)
     , m_Usage(desc.usage) {
 }
@@ -19,4 +21,8 @@ NRI_INLINE VideoPictureUsage VideoPictureVal::GetUsage() const {
 
 NRI_INLINE bool VideoPictureVal::IsCompatibleWith(const VideoSessionDesc& sessionDesc) const {
     return m_Codec == sessionDesc.codec && IsVideoPictureCompatibleWithSession(m_Format, m_Width, m_Height, sessionDesc);
+}
+
+NRI_INLINE bool VideoPictureVal::IsSameSubresource(const VideoPictureVal& videoPicture) const {
+    return m_Texture == videoPicture.m_Texture && m_Layer == videoPicture.m_Layer;
 }
