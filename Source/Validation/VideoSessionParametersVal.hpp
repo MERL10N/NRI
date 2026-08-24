@@ -6,13 +6,9 @@ NRI_INLINE VideoSessionParametersVal::VideoSessionParametersVal(DeviceVal& devic
     if (!desc.h264Parameters)
         return;
 
-    for (uint32_t i = 0; i < desc.h264Parameters->sequenceParameterSetNum; i++)
-        m_H264SequenceParameterSetMask |= 1u << desc.h264Parameters->sequenceParameterSets[i].sequenceParameterSetId;
-
     for (uint32_t i = 0; i < desc.h264Parameters->pictureParameterSetNum; i++) {
         const VideoH264PictureParameterSetDesc& pictureParameterSet = desc.h264Parameters->pictureParameterSets[i];
-        m_H264PictureParameterSetMasks[pictureParameterSet.pictureParameterSetId / 64] |= 1ull << (pictureParameterSet.pictureParameterSetId % 64);
-        m_H264PictureParameterSetToSequence[pictureParameterSet.pictureParameterSetId] = pictureParameterSet.sequenceParameterSetId;
+        m_H264PpsToSpsPlusOne[pictureParameterSet.pictureParameterSetId] = (uint8_t)(pictureParameterSet.sequenceParameterSetId + 1);
     }
 }
 
@@ -28,8 +24,5 @@ NRI_INLINE bool VideoSessionParametersVal::IsH264ParameterSetValid(uint8_t seque
     if (sequenceParameterSetId >= 32)
         return false;
 
-    const bool hasSequenceParameterSet = (m_H264SequenceParameterSetMask & (1u << sequenceParameterSetId)) != 0;
-    const bool hasPictureParameterSet = (m_H264PictureParameterSetMasks[pictureParameterSetId / 64] & (1ull << (pictureParameterSetId % 64))) != 0;
-
-    return hasSequenceParameterSet && hasPictureParameterSet && m_H264PictureParameterSetToSequence[pictureParameterSetId] == sequenceParameterSetId;
+    return m_H264PpsToSpsPlusOne[pictureParameterSetId] == sequenceParameterSetId + 1;
 }

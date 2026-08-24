@@ -237,7 +237,7 @@ static inline bool IsVideoEncodeDpbLayoutValid(const VideoEncodeDesc& desc, uint
     }
 
     if (desc.h264PictureDesc) {
-        const VideoH264PictureDesc& picture = *desc.h264PictureDesc;
+        const VideoH264EncodePictureDesc& picture = *desc.h264PictureDesc;
 
         if (picture.referenceNum > maxReferenceNum || (picture.referenceNum && !picture.references))
             return false;
@@ -256,7 +256,7 @@ static inline bool IsVideoEncodeDpbLayoutValid(const VideoEncodeDesc& desc, uint
     }
 
     if (desc.av1PictureDesc) {
-        const VideoAV1PictureDesc& picture = *desc.av1PictureDesc;
+        const VideoAV1EncodePictureDesc& picture = *desc.av1PictureDesc;
 
         if (picture.referenceNum > maxReferenceNum || (picture.referenceNum && !picture.references))
             return false;
@@ -1775,7 +1775,7 @@ static Result NRI_CALL GetVideoEncodeFeedback(VideoSession& videoSession, Buffer
     return videoSessionVal.GetDevice().GetVideoInterfaceImpl().GetVideoEncodeFeedback(*videoSessionVal.GetImpl(), *resolvedMetadataReadbackVal.GetImpl(), resolvedMetadataOffset, feedback);
 }
 
-static Result NRI_CALL GetVideoEncodeAV1DecodeInfo(VideoSession& videoSession, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset,
+static Result NRI_CALL GetVideoAV1EncodeDecodeInfo(VideoSession& videoSession, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset,
     const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
     VideoSessionVal& videoSessionVal = (VideoSessionVal&)videoSession;
     BufferVal& resolvedMetadataReadbackVal = (BufferVal&)resolvedMetadataReadback;
@@ -1784,7 +1784,7 @@ static Result NRI_CALL GetVideoEncodeAV1DecodeInfo(VideoSession& videoSession, B
     NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), !desc.references || HasValidVideoAV1ReferenceKeys(desc.references, desc.referenceNum), Result::INVALID_ARGUMENT, "'references' contain inconsistent AV1 identities");
     NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), videoSessionVal.GetDesc().type == VideoSessionType::ENCODE && videoSessionVal.GetDesc().codec == VideoCodec::AV1 && &videoSessionVal.GetDevice() == &resolvedMetadataReadbackVal.GetDevice() && videoSessionVal.IsResolvedMetadataRangeValid(resolvedMetadataReadbackVal, resolvedMetadataOffset), Result::INVALID_ARGUMENT, "'resolvedMetadataReadback' must be a valid range from the AV1 encode session device");
 
-    return videoSessionVal.GetDevice().GetVideoInterfaceImpl().GetVideoEncodeAV1DecodeInfo(*videoSessionVal.GetImpl(), *resolvedMetadataReadbackVal.GetImpl(), resolvedMetadataOffset, desc, info);
+    return videoSessionVal.GetDevice().GetVideoInterfaceImpl().GetVideoAV1EncodeDecodeInfo(*videoSessionVal.GetImpl(), *resolvedMetadataReadbackVal.GetImpl(), resolvedMetadataOffset, desc, info);
 }
 
 Result DeviceVal::FillFunctionTable(VideoInterface& table) const {
@@ -1808,7 +1808,7 @@ Result DeviceVal::FillFunctionTable(VideoInterface& table) const {
     table.CmdEncodeVideo = ::CmdEncodeVideo;
     table.CmdResolveVideoEncodeFeedback = ::CmdResolveVideoEncodeFeedback;
     table.GetVideoEncodeFeedback = ::GetVideoEncodeFeedback;
-    table.GetVideoEncodeAV1DecodeInfo = ::GetVideoEncodeAV1DecodeInfo;
+    table.GetVideoAV1EncodeDecodeInfo = ::GetVideoAV1EncodeDecodeInfo;
 
     return Result::SUCCESS;
 }

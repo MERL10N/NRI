@@ -24,7 +24,7 @@ NriEnum(VideoDecodeArgumentType, uint8_t,
     SLICE_CONTROL
 );
 
-NriEnum(VideoEncodeFrameType, uint8_t,
+NriEnum(VideoFrameType, uint8_t,
     IDR,
     I,
     P,
@@ -330,8 +330,8 @@ NriStruct(VideoBitstreamRange) {
 NriStruct(VideoPictureDesc) {
     NriPtr(Texture) texture;
     Nri(VideoPictureUsage) usage;
-    NriOptional Nri(Dim_t) width;
-    NriOptional Nri(Dim_t) height;
+    NriOptional Nri(Dim_t) width;  // defaults to the texture width
+    NriOptional Nri(Dim_t) height; // defaults to the texture height
     NriOptional Nri(Dim_t) layer;
 };
 
@@ -569,8 +569,8 @@ NriStruct(VideoDecodeArgument) {
     const void* data;
 };
 
-NriStruct(VideoH264ReferenceDesc) {
-    Nri(VideoEncodeFrameType) frameType;
+NriStruct(VideoH264EncodeReferenceDesc) {
+    Nri(VideoFrameType) frameType;
     uint8_t temporalLayer;
     uint8_t listIndex;
     uint8_t longTermReference;
@@ -609,7 +609,7 @@ NriStruct(VideoH265ReferenceDesc) {
     uint32_t slot;
     int32_t pictureOrderCount;
     uint8_t temporalLayer;
-    Nri(VideoEncodeFrameType) frameType;
+    Nri(VideoFrameType) frameType;
     uint8_t longTerm;
     uint8_t listIndex;
 };
@@ -645,24 +645,24 @@ NriStruct(VideoEncodeRateControlDesc) {
 };
 
 NriStruct(VideoEncodePictureDesc) {
-    Nri(VideoEncodeFrameType) frameType;
+    Nri(VideoFrameType) frameType;
     uint8_t temporalLayer;
     uint16_t idrPictureId;
     uint32_t frameIndex;
     int32_t pictureOrderCount;
 };
 
-NriStruct(VideoH264PictureDesc) {
+NriStruct(VideoH264EncodePictureDesc) {
     uint8_t sequenceParameterSetId;
     uint8_t pictureParameterSetId;
-    NriOptional const NriPtr(VideoH264ReferenceDesc) references;
+    NriOptional const NriPtr(VideoH264EncodeReferenceDesc) references;
     NriOptional uint32_t referenceNum;
 };
 
 NriStruct(VideoAV1ReferenceDesc) {
     Nri(VideoAV1ReferenceName) name; // NONE describes an AV1 DPB slot that is not mapped to a current-frame reference name
     uint8_t refFrameIndex;
-    Nri(VideoEncodeFrameType) frameType;
+    Nri(VideoFrameType) frameType;
     uint8_t orderHint;
     uint32_t frameId;
     uint32_t slot;
@@ -760,7 +760,7 @@ NriStruct(VideoAV1FilmGrainDesc) {
     int16_t crOffset;
 };
 
-NriStruct(VideoAV1PictureDesc) {
+NriStruct(VideoAV1EncodePictureDesc) {
     uint32_t currentFrameId;
     uint8_t orderHint;
     uint8_t refreshFrameFlags;
@@ -797,7 +797,7 @@ NriStruct(VideoAV1DecodeTileDesc) {
 };
 
 NriStruct(VideoAV1DecodePictureDesc) {
-    Nri(VideoEncodeFrameType) frameType;
+    Nri(VideoFrameType) frameType;
     uint8_t orderHint;
     uint8_t refreshFrameFlags;
     Nri(VideoAV1ReferenceName) primaryReferenceName;
@@ -839,16 +839,16 @@ NriStruct(VideoDecodeDesc) {
     NriOptional const NriPtr(VideoReference) references;
     NriOptional uint32_t referenceNum;
     uint32_t dstSlot;
-    const NriPtr(VideoDecodeArgument) arguments;
-    uint32_t argumentNum;
-    NriOptional const NriPtr(VideoH264DecodePictureDesc) h264PictureDesc;
-    NriOptional const NriPtr(VideoH265DecodePictureDesc) h265PictureDesc;
-    NriOptional const NriPtr(VideoAV1DecodePictureDesc) av1PictureDesc;
+    NriOptional const NriPtr(VideoDecodeArgument) arguments; // native D3D12 frame arguments; if omitted, the neutral codec picture description is used
+    NriOptional uint32_t argumentNum;
+    NriOptional const NriPtr(VideoH264DecodePictureDesc) h264PictureDesc; // neutral H.264 picture description; required if "argumentNum" is 0
+    NriOptional const NriPtr(VideoH265DecodePictureDesc) h265PictureDesc; // neutral H.265 picture description; required if "argumentNum" is 0
+    NriOptional const NriPtr(VideoAV1DecodePictureDesc) av1PictureDesc;   // neutral AV1 picture description; required if "argumentNum" is 0
 };
 
 NriStruct(VideoEncodeFeedback) {
     uint64_t errorFlags;
-    uint64_t averageQP;
+    uint64_t averageQp;
     uint64_t intraCodingUnitNum;
     uint64_t interCodingUnitNum;
     uint64_t skipCodingUnitNum;
@@ -905,8 +905,8 @@ NriStruct(VideoEncodeDesc) {
     NriOptional const NriPtr(VideoReference) references;
     NriOptional uint32_t referenceNum;
     uint32_t reconstructedSlot;
-    NriOptional const NriPtr(VideoH264PictureDesc) h264PictureDesc;
-    NriOptional const NriPtr(VideoAV1PictureDesc) av1PictureDesc;
+    NriOptional const NriPtr(VideoH264EncodePictureDesc) h264PictureDesc;
+    NriOptional const NriPtr(VideoAV1EncodePictureDesc) av1PictureDesc;
     NriOptional const NriPtr(VideoH265ReferenceDesc) h265ReferenceDescs;
 };
 
@@ -949,7 +949,7 @@ NriStruct(VideoInterface) {
         // D3D12: resolves feedback during "CmdEncodeVideo".
         void            (NRI_CALL *CmdResolveVideoEncodeFeedback)   (NriRef(CommandBuffer) commandBuffer, NriRef(VideoSession) videoSession, NriRef(Buffer) resolvedMetadata, uint64_t resolvedMetadataOffset);
         Nri(Result)     (NRI_CALL *GetVideoEncodeFeedback)          (NriRef(VideoSession) videoSession, NriRef(Buffer) resolvedMetadataReadback, uint64_t resolvedMetadataOffset, NriOut NriRef(VideoEncodeFeedback) feedback);
-        Nri(Result)     (NRI_CALL *GetVideoEncodeAV1DecodeInfo)     (NriRef(VideoSession) videoSession, NriRef(Buffer) resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const NriRef(VideoAV1EncodeDecodeInfoDesc) desc, NriOut NriRef(VideoAV1EncodeDecodeInfo) info);
+        Nri(Result)     (NRI_CALL *GetVideoAV1EncodeDecodeInfo)     (NriRef(VideoSession) videoSession, NriRef(Buffer) resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const NriRef(VideoAV1EncodeDecodeInfoDesc) desc, NriOut NriRef(VideoAV1EncodeDecodeInfo) info);
     // }
 };
 

@@ -312,7 +312,7 @@ NRI_INLINE Result VideoSessionVK::GetEncodeAV1DecodeInfo(BufferVK& resolvedMetad
         return Result::FAILURE;
 
     if (desc.encodedPayloadHeader && desc.encodedPayloadHeaderSize)
-        return video_av1::GetVideoEncodeAV1DecodeInfoFromHeader(desc, info);
+        return video_av1::GetVideoAV1EncodeDecodeInfoFromHeader(desc, info);
 
     return Result::UNSUPPORTED;
 }
@@ -525,8 +525,7 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
     return Result::SUCCESS;
 }
 
-static Result NRI_CALL GetVideoCapabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
-    DeviceVK& deviceVK = (DeviceVK&)device;
+static inline Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
     const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
     if (!operation || !IsVideoCodecOperationSupportedVK(deviceVK, videoSessionDesc, operation))
         return Result::UNSUPPORTED;
@@ -619,13 +618,13 @@ static Result NRI_CALL GetVideoCapabilities(const Device& device, const VideoSes
     return isExtentSupported ? Result::SUCCESS : Result::UNSUPPORTED;
 }
 
-static Result NRI_CALL GetVideoAV1Capabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
+static inline Result GetVideoAV1CapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
     videoAV1Capabilities = {};
     if (videoSessionDesc.codec != VideoCodec::AV1)
         return Result::UNSUPPORTED;
 
     VideoCapabilities genericCapabilities = {};
-    Result genericResult = GetVideoCapabilities(device, videoSessionDesc, genericCapabilities);
+    Result genericResult = GetVideoCapabilitiesVK(deviceVK, videoSessionDesc, genericCapabilities);
     if (genericResult != Result::SUCCESS)
         return genericResult;
 
@@ -667,7 +666,6 @@ static Result NRI_CALL GetVideoAV1Capabilities(const Device& device, const Video
         encodeCapabilities.pNext = &encodeAV1Capabilities;
     }
 
-    DeviceVK& deviceVK = (DeviceVK&)device;
     const auto& vk = deviceVK.GetDispatchTable();
     VkResult vkResult = vk.GetPhysicalDeviceVideoCapabilitiesKHR(deviceVK, &profile, &capabilities);
     if (vkResult != VK_SUCCESS)

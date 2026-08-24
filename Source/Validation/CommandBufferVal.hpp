@@ -1072,8 +1072,8 @@ static inline bool IsVideoAV1ReferenceNameValid(VideoAV1ReferenceName name) {
     return (uint8_t)name < (uint8_t)VideoAV1ReferenceName::MAX_NUM;
 }
 
-static inline bool IsVideoEncodeFrameTypeValid(VideoEncodeFrameType frameType) {
-    return (uint8_t)frameType < (uint8_t)VideoEncodeFrameType::MAX_NUM;
+static inline bool IsVideoFrameTypeValid(VideoFrameType frameType) {
+    return (uint8_t)frameType < (uint8_t)VideoFrameType::MAX_NUM;
 }
 
 static inline bool IsVideoPictureUsageValid(const VideoPictureVal& picture, VideoPictureUsage usage) {
@@ -1123,16 +1123,16 @@ static inline const VideoH265ReferenceDesc* FindVideoH265ReferenceDesc(const Vid
     return nullptr;
 }
 
-static inline bool IsVideoEncodeH264ReferenceListValid(const VideoEncodeDesc& videoEncodeDesc, VideoEncodeFrameType frameType) {
-    const VideoH264PictureDesc* h264PictureDesc = videoEncodeDesc.h264PictureDesc;
+static inline bool IsVideoEncodeH264ReferenceListValid(const VideoEncodeDesc& videoEncodeDesc, VideoFrameType frameType) {
+    const VideoH264EncodePictureDesc* h264PictureDesc = videoEncodeDesc.h264PictureDesc;
     if (!h264PictureDesc || h264PictureDesc->referenceNum != videoEncodeDesc.referenceNum)
         return false;
 
     uint32_t list0ReferenceNum = 0;
     uint32_t list1ReferenceNum = 0;
     for (uint32_t i = 0; i < h264PictureDesc->referenceNum; i++) {
-        const VideoH264ReferenceDesc& reference = h264PictureDesc->references[i];
-        if (!IsVideoEncodeFrameTypeValid(reference.frameType) || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
+        const VideoH264EncodeReferenceDesc& reference = h264PictureDesc->references[i];
+        if (!IsVideoFrameTypeValid(reference.frameType) || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
             return false;
 
         if (reference.listIndex == 0)
@@ -1143,10 +1143,10 @@ static inline bool IsVideoEncodeH264ReferenceListValid(const VideoEncodeDesc& vi
             return false;
     }
 
-    return frameType != VideoEncodeFrameType::B || (list0ReferenceNum != 0 && list1ReferenceNum != 0);
+    return frameType != VideoFrameType::B || (list0ReferenceNum != 0 && list1ReferenceNum != 0);
 }
 
-static inline bool IsVideoEncodeH265ReferenceListValid(const VideoEncodeDesc& videoEncodeDesc, VideoEncodeFrameType frameType) {
+static inline bool IsVideoEncodeH265ReferenceListValid(const VideoEncodeDesc& videoEncodeDesc, VideoFrameType frameType) {
     if (!videoEncodeDesc.h265ReferenceDescs)
         return false;
 
@@ -1154,7 +1154,7 @@ static inline bool IsVideoEncodeH265ReferenceListValid(const VideoEncodeDesc& vi
     uint32_t list1ReferenceNum = 0;
     for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
         const VideoH265ReferenceDesc* reference = FindVideoH265ReferenceDesc(videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, videoEncodeDesc.references[i].slot);
-        if (!reference || !IsVideoEncodeFrameTypeValid(reference->frameType))
+        if (!reference || !IsVideoFrameTypeValid(reference->frameType))
             return false;
 
         if (reference->listIndex == 0)
@@ -1165,7 +1165,7 @@ static inline bool IsVideoEncodeH265ReferenceListValid(const VideoEncodeDesc& vi
             return false;
     }
 
-    return frameType != VideoEncodeFrameType::B || (list0ReferenceNum != 0 && list1ReferenceNum != 0);
+    return frameType != VideoFrameType::B || (list0ReferenceNum != 0 && list1ReferenceNum != 0);
 }
 
 static inline bool IsVideoAV1TileLayoutValid(const VideoAV1TileLayoutDesc& desc) {
@@ -1180,8 +1180,8 @@ static inline bool IsVideoAV1LoopRestorationDescValid(const VideoAV1LoopRestorat
     return desc.lrUvShift <= desc.lrUnitShift;
 }
 
-static inline bool IsVideoAV1InterFrameWithoutReferences(VideoEncodeFrameType frameType, uint32_t referenceNum) {
-    return (frameType == VideoEncodeFrameType::P || frameType == VideoEncodeFrameType::B) && referenceNum == 0;
+static inline bool IsVideoAV1InterFrameWithoutReferences(VideoFrameType frameType, uint32_t referenceNum) {
+    return (frameType == VideoFrameType::P || frameType == VideoFrameType::B) && referenceNum == 0;
 }
 
 static inline bool AreVideoDecodeSliceOffsetsValid(const uint32_t* offsets, uint32_t offsetNum, uint64_t bitstreamSize) {
@@ -1214,7 +1214,7 @@ static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& video
     if (desc.frameHeaderOffset >= videoDecodeDesc.bitstream.size)
         return false;
 
-    if (!IsVideoEncodeFrameTypeValid(desc.frameType))
+    if (!IsVideoFrameTypeValid(desc.frameType))
         return false;
 
     if (IsVideoAV1InterFrameWithoutReferences(desc.frameType, videoDecodeDesc.referenceNum))
@@ -1237,7 +1237,7 @@ static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& video
 
     for (uint32_t i = 0; i < desc.referenceNum; i++) {
         const VideoAV1ReferenceDesc& reference = desc.references[i];
-        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoEncodeFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8)
+        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8)
             return false;
 
         if (reference.name != VideoAV1ReferenceName::NONE && !HasVideoReferenceSlot(videoDecodeDesc.references, videoDecodeDesc.referenceNum, reference.slot))
@@ -1254,7 +1254,7 @@ static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& video
 }
 
 static inline bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& videoEncodeDesc) {
-    const VideoAV1PictureDesc& desc = *videoEncodeDesc.av1PictureDesc;
+    const VideoAV1EncodePictureDesc& desc = *videoEncodeDesc.av1PictureDesc;
     if (desc.referenceNum > 8 || (desc.referenceNum != 0 && !desc.references))
         return false;
 
@@ -1273,16 +1273,16 @@ static inline bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& video
     if (desc.refreshFrameFlags && !videoEncodeDesc.reconstructedPicture)
         return false;
 
-    const VideoEncodeFrameType frameType = videoEncodeDesc.pictureDesc ? videoEncodeDesc.pictureDesc->frameType : VideoEncodeFrameType::IDR;
-    if (!IsVideoEncodeFrameTypeValid(frameType))
+    const VideoFrameType frameType = videoEncodeDesc.pictureDesc ? videoEncodeDesc.pictureDesc->frameType : VideoFrameType::IDR;
+    if (!IsVideoFrameTypeValid(frameType))
         return false;
 
-    if ((frameType == VideoEncodeFrameType::IDR || frameType == VideoEncodeFrameType::I) && videoEncodeDesc.referenceNum)
+    if ((frameType == VideoFrameType::IDR || frameType == VideoFrameType::I) && videoEncodeDesc.referenceNum)
         return false;
 
     for (uint32_t i = 0; i < desc.referenceNum; i++) {
         const VideoAV1ReferenceDesc& reference = desc.references[i];
-        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoEncodeFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8 || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
+        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8 || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
             return false;
     }
 
@@ -1483,12 +1483,12 @@ NRI_INLINE void CommandBufferVal::EncodeVideo(const VideoEncodeDesc& videoEncode
         return;
     }
 
-    VideoEncodeFrameType frameType = videoEncodeDesc.pictureDesc ? videoEncodeDesc.pictureDesc->frameType : VideoEncodeFrameType::IDR;
+    VideoFrameType frameType = videoEncodeDesc.pictureDesc ? videoEncodeDesc.pictureDesc->frameType : VideoFrameType::IDR;
 
     if (videoEncodeDesc.flags & VideoEncodeBits::FORCE_KEY_FRAME)
-        frameType = VideoEncodeFrameType::IDR;
+        frameType = VideoFrameType::IDR;
 
-    if (!IsVideoEncodeFrameTypeValid(frameType)) {
+    if (!IsVideoFrameTypeValid(frameType)) {
         NRI_REPORT_ERROR(&m_Device, "'pictureDesc->frameType' is invalid");
         return;
     }
@@ -1498,7 +1498,7 @@ NRI_INLINE void CommandBufferVal::EncodeVideo(const VideoEncodeDesc& videoEncode
         return;
     }
 
-    if ((sessionVal.GetDesc().codec == VideoCodec::H264 || sessionVal.GetDesc().codec == VideoCodec::H265) && frameType == VideoEncodeFrameType::B && videoEncodeDesc.referenceNum == 0) {
+    if ((sessionVal.GetDesc().codec == VideoCodec::H264 || sessionVal.GetDesc().codec == VideoCodec::H265) && frameType == VideoFrameType::B && videoEncodeDesc.referenceNum == 0) {
         NRI_REPORT_ERROR(&m_Device, "H.264 and H.265 B frames require at least one List0 and one List1 reference");
         return;
     }

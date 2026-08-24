@@ -22,10 +22,10 @@
 #include "QueueVK.h"
 #include "SwapChainVK.h"
 #include "TextureVK.h"
+#include "TransferContextVK.h"
 #include "VideoPictureVK.h"
 #include "VideoSessionParametersVK.h"
 #include "VideoSessionVK.h"
-#include "TransferContextVK.h"
 
 #include "HelperInterface.h"
 #include "ImguiInterface.h"
@@ -42,7 +42,6 @@ using namespace nri;
 #include "DescriptorPoolVK.hpp"
 #include "DescriptorSetVK.hpp"
 #include "DescriptorVK.hpp"
-#include "TransferContextVK.hpp"
 #include "DeviceVK.hpp"
 #include "FenceVK.hpp"
 #include "MemoryVK.hpp"
@@ -54,6 +53,7 @@ using namespace nri;
 #include "QueueVK.hpp"
 #include "SwapChainVK.hpp"
 #include "TextureVK.hpp"
+#include "TransferContextVK.hpp"
 #include "VideoPictureVK.hpp"
 #include "VideoSessionParametersVK.hpp"
 #include "VideoSessionVK.hpp"
@@ -1154,6 +1154,14 @@ Result DeviceVK::FillFunctionTable(RayTracingInterface& table) const {
 //============================================================================================================================================================================================
 #pragma region[  Video  ]
 
+static Result NRI_CALL GetVideoCapabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
+    return GetVideoCapabilitiesVK((DeviceVK&)device, videoSessionDesc, videoCapabilities);
+}
+
+static Result NRI_CALL GetVideoAV1Capabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
+    return GetVideoAV1CapabilitiesVK((DeviceVK&)device, videoSessionDesc, videoAV1Capabilities);
+}
+
 static Result NRI_CALL CreateVideoSession(Device& device, const VideoSessionDesc& videoSessionDesc, VideoSession*& videoSession) {
     return ((DeviceVK&)device).CreateImplementation<VideoSessionVK>(videoSession, videoSessionDesc);
 }
@@ -1236,7 +1244,7 @@ static Result NRI_CALL GetVideoEncodeFeedback(VideoSession& videoSession, Buffer
     return ((VideoSessionVK&)videoSession).GetEncodeFeedback((BufferVK&)resolvedMetadataReadback, resolvedMetadataOffset, feedback);
 }
 
-static Result NRI_CALL GetVideoEncodeAV1DecodeInfo(VideoSession& videoSession, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
+static Result NRI_CALL GetVideoAV1EncodeDecodeInfo(VideoSession& videoSession, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
     return ((VideoSessionVK&)videoSession).GetEncodeAV1DecodeInfo((BufferVK&)resolvedMetadataReadback, resolvedMetadataOffset, desc, info);
 }
 
@@ -1261,7 +1269,7 @@ Result DeviceVK::FillFunctionTable(VideoInterface& table) const {
     table.CmdEncodeVideo = ::CmdEncodeVideo;
     table.CmdResolveVideoEncodeFeedback = ::CmdResolveVideoEncodeFeedback;
     table.GetVideoEncodeFeedback = ::GetVideoEncodeFeedback;
-    table.GetVideoEncodeAV1DecodeInfo = ::GetVideoEncodeAV1DecodeInfo;
+    table.GetVideoAV1EncodeDecodeInfo = ::GetVideoAV1EncodeDecodeInfo;
 
     return Result::SUCCESS;
 }

@@ -572,8 +572,8 @@ static uint32_t GetVideoDecodeAV1ReferenceNameIndexD3D12(VideoAV1ReferenceName n
     }
 }
 
-static uint8_t GetVideoDecodeAV1FrameTypeD3D12(VideoEncodeFrameType frameType) {
-    return (frameType == VideoEncodeFrameType::IDR || frameType == VideoEncodeFrameType::I) ? 0 : 1;
+static uint8_t GetVideoDecodeAV1FrameTypeD3D12(VideoFrameType frameType) {
+    return (frameType == VideoFrameType::IDR || frameType == VideoFrameType::I) ? 0 : 1;
 }
 
 struct VideoDecodeReferenceLayoutD3D12 {
@@ -1371,25 +1371,25 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
 }
 
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
-inline bool IsVideoEncodeFrameTypeSupportedByD3D12(VideoCodec codec, VideoEncodeFrameType frameType, bool isBFrameSupported) {
-    return frameType != VideoEncodeFrameType::B || ((codec == VideoCodec::H264 || codec == VideoCodec::H265) && isBFrameSupported);
+inline bool IsVideoFrameTypeSupportedByD3D12(VideoCodec codec, VideoFrameType frameType, bool isBFrameSupported) {
+    return frameType != VideoFrameType::B || ((codec == VideoCodec::H264 || codec == VideoCodec::H265) && isBFrameSupported);
 }
 
-inline bool IsVideoEncodePictureUsedAsReferenceD3D12(VideoCodec codec, VideoEncodeFrameType frameType, uint32_t maxReferenceNum, bool hasReconstructedPicture, uint8_t av1RefreshFrameFlags) {
+inline bool IsVideoEncodePictureUsedAsReferenceD3D12(VideoCodec codec, VideoFrameType frameType, uint32_t maxReferenceNum, bool hasReconstructedPicture, uint8_t av1RefreshFrameFlags) {
     if (!maxReferenceNum || !hasReconstructedPicture)
         return false;
 
-    if ((codec == VideoCodec::H264 || codec == VideoCodec::H265) && frameType == VideoEncodeFrameType::B)
+    if ((codec == VideoCodec::H264 || codec == VideoCodec::H265) && frameType == VideoFrameType::B)
         return false;
 
     return codec != VideoCodec::AV1 || av1RefreshFrameFlags != 0;
 }
 
-inline uint8_t GetVideoEncodeQPByFrameTypeD3D12(const VideoEncodeRateControlDesc& rateControlDesc, VideoEncodeFrameType frameType) {
-    return frameType == VideoEncodeFrameType::B ? rateControlDesc.qpB : (frameType == VideoEncodeFrameType::P ? rateControlDesc.qpP : rateControlDesc.qpI);
+inline uint8_t GetVideoEncodeQPByFrameTypeD3D12(const VideoEncodeRateControlDesc& rateControlDesc, VideoFrameType frameType) {
+    return frameType == VideoFrameType::B ? rateControlDesc.qpB : (frameType == VideoFrameType::P ? rateControlDesc.qpP : rateControlDesc.qpI);
 }
 
-static const VideoH264ReferenceDesc* FindVideoEncodeH264ReferenceDesc(const VideoH264PictureDesc* h264PictureDesc, uint32_t slot) {
+static const VideoH264EncodeReferenceDesc* FindVideoEncodeH264ReferenceDesc(const VideoH264EncodePictureDesc* h264PictureDesc, uint32_t slot) {
     if (!h264PictureDesc)
         return nullptr;
 
@@ -1401,13 +1401,13 @@ static const VideoH264ReferenceDesc* FindVideoEncodeH264ReferenceDesc(const Vide
     return nullptr;
 }
 
-static D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE GetVideoEncodeAV1FrameTypeD3D12(VideoEncodeFrameType frameType) {
+static D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE GetVideoEncodeAV1FrameTypeD3D12(VideoFrameType frameType) {
     switch (frameType) {
-        case VideoEncodeFrameType::IDR:
-        case VideoEncodeFrameType::I:
+        case VideoFrameType::IDR:
+        case VideoFrameType::I:
             return D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE_KEY_FRAME;
-        case VideoEncodeFrameType::P:
-        case VideoEncodeFrameType::B:
+        case VideoFrameType::P:
+        case VideoFrameType::B:
             return D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE_INTER_FRAME;
         default:
             return (D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE)-1;
@@ -1512,7 +1512,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
         referenceSubresources[i] = reference.GetSubresource();
 
         if (sessionDesc.codec == VideoCodec::H264) {
-            const VideoH264ReferenceDesc* referenceDesc = FindVideoEncodeH264ReferenceDesc(videoEncodeDesc.h264PictureDesc, videoEncodeDesc.references[i].slot);
+            const VideoH264EncodeReferenceDesc* referenceDesc = FindVideoEncodeH264ReferenceDesc(videoEncodeDesc.h264PictureDesc, videoEncodeDesc.references[i].slot);
             if (!referenceDesc) {
                 NRI_REPORT_ERROR(&m_Device, "'references[%u].slot' is not described by 'h264PictureDesc'", i);
                 return;
@@ -1618,27 +1618,27 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
         sequenceControl.FrameSubregionsLayoutData.pTilesPartition_AV1 = &av1Tiles;
     }
 
-    const VideoEncodePictureDesc defaultPicture = {VideoEncodeFrameType::IDR, 0, 0, 0, 0};
+    const VideoEncodePictureDesc defaultPicture = {VideoFrameType::IDR, 0, 0, 0, 0};
     VideoEncodePictureDesc pictureDesc = videoEncodeDesc.pictureDesc ? *videoEncodeDesc.pictureDesc : defaultPicture;
     if (videoEncodeDesc.flags & VideoEncodeBits::FORCE_KEY_FRAME)
-        pictureDesc.frameType = VideoEncodeFrameType::IDR;
-    if (!IsVideoEncodeFrameTypeSupportedByD3D12(sessionDesc.codec, pictureDesc.frameType, session.IsBFrameSupported())) {
+        pictureDesc.frameType = VideoFrameType::IDR;
+    if (!IsVideoFrameTypeSupportedByD3D12(sessionDesc.codec, pictureDesc.frameType, session.IsBFrameSupported())) {
         NRI_REPORT_ERROR(&m_Device, "D3D12 video encode session does not support the requested frame type");
         return;
     }
 
     D3D12_VIDEO_ENCODER_PICTURE_CONTROL_CODEC_DATA_H264 h264Picture = {};
     switch (pictureDesc.frameType) {
-        case VideoEncodeFrameType::IDR:
+        case VideoFrameType::IDR:
             h264Picture.FrameType = D3D12_VIDEO_ENCODER_FRAME_TYPE_H264_IDR_FRAME;
             break;
-        case VideoEncodeFrameType::I:
+        case VideoFrameType::I:
             h264Picture.FrameType = D3D12_VIDEO_ENCODER_FRAME_TYPE_H264_I_FRAME;
             break;
-        case VideoEncodeFrameType::P:
+        case VideoFrameType::P:
             h264Picture.FrameType = D3D12_VIDEO_ENCODER_FRAME_TYPE_H264_P_FRAME;
             break;
-        case VideoEncodeFrameType::B:
+        case VideoFrameType::B:
             h264Picture.FrameType = D3D12_VIDEO_ENCODER_FRAME_TYPE_H264_B_FRAME;
             break;
         default:
@@ -1658,16 +1658,16 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
     h264Picture.pReferenceFramesReconPictureDescriptors = videoEncodeDesc.referenceNum ? (D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_H264*)h264ReferenceDescriptors : nullptr;
 
     switch (pictureDesc.frameType) {
-        case VideoEncodeFrameType::IDR:
+        case VideoFrameType::IDR:
             hevcPicture.FrameType = D3D12_VIDEO_ENCODER_FRAME_TYPE_HEVC_IDR_FRAME;
             break;
-        case VideoEncodeFrameType::I:
+        case VideoFrameType::I:
             hevcPicture.FrameType = D3D12_VIDEO_ENCODER_FRAME_TYPE_HEVC_I_FRAME;
             break;
-        case VideoEncodeFrameType::P:
+        case VideoFrameType::P:
             hevcPicture.FrameType = D3D12_VIDEO_ENCODER_FRAME_TYPE_HEVC_P_FRAME;
             break;
-        case VideoEncodeFrameType::B:
+        case VideoFrameType::B:
             hevcPicture.FrameType = D3D12_VIDEO_ENCODER_FRAME_TYPE_HEVC_B_FRAME;
             break;
         default:
@@ -1765,13 +1765,13 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
             : D3D12_VIDEO_ENCODER_AV1_INTERPOLATION_FILTERS_SWITCHABLE;
         av1Picture.TxMode = (videoEncodeDesc.av1PictureDesc && videoEncodeDesc.av1PictureDesc->txMode)
             ? (D3D12_VIDEO_ENCODER_AV1_TX_MODE)videoEncodeDesc.av1PictureDesc->txMode
-            : (pictureDesc.frameType == VideoEncodeFrameType::P ? D3D12_VIDEO_ENCODER_AV1_TX_MODE_SELECT : D3D12_VIDEO_ENCODER_AV1_TX_MODE_LARGEST);
+            : (pictureDesc.frameType == VideoFrameType::P ? D3D12_VIDEO_ENCODER_AV1_TX_MODE_SELECT : D3D12_VIDEO_ENCODER_AV1_TX_MODE_LARGEST);
         av1Picture.OrderHint = videoEncodeDesc.av1PictureDesc ? videoEncodeDesc.av1PictureDesc->orderHint : (UINT)pictureDesc.pictureOrderCount;
         av1Picture.PictureIndex = videoEncodeDesc.av1PictureDesc ? videoEncodeDesc.av1PictureDesc->currentFrameId : pictureDesc.frameIndex;
         av1Picture.TemporalLayerIndexPlus1 = pictureDesc.temporalLayer + 1;
         av1Picture.SpatialLayerIndexPlus1 = 1;
         av1Picture.PrimaryRefFrame = 7;
-        av1Picture.RefreshFrameFlags = videoEncodeDesc.av1PictureDesc ? videoEncodeDesc.av1PictureDesc->refreshFrameFlags : (pictureDesc.frameType == VideoEncodeFrameType::IDR ? 0xFF : 0);
+        av1Picture.RefreshFrameFlags = videoEncodeDesc.av1PictureDesc ? videoEncodeDesc.av1PictureDesc->refreshFrameFlags : (pictureDesc.frameType == VideoFrameType::IDR ? 0xFF : 0);
         if (frameType == D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE_KEY_FRAME) {
             av1Picture.PrimaryRefFrame = 7;
             av1Picture.RefreshFrameFlags = 0xFF;
@@ -1873,7 +1873,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
 
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex] = {};
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].ReconstructedPictureResourceIndex = resourceIndex;
-                av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].TemporalLayerIndexPlus1 = reference.frameType == VideoEncodeFrameType::MAX_NUM ? 0 : 1;
+                av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].TemporalLayerIndexPlus1 = reference.frameType == VideoFrameType::MAX_NUM ? 0 : 1;
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].SpatialLayerIndexPlus1 = 1;
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].FrameType = GetVideoEncodeAV1FrameTypeD3D12(reference.frameType);
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].OrderHint = reference.orderHint;

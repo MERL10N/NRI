@@ -13,8 +13,6 @@ struct VideoSessionParametersVal final : public ObjectVal {
 
 private:
     VideoSessionVal& m_Session;
-    uint32_t m_H264SequenceParameterSetMask = 0;
-    std::array<uint64_t, 4> m_H264PictureParameterSetMasks = {};
-    std::array<uint8_t, 256> m_H264PictureParameterSetToSequence = {};
+    std::array<uint8_t, 256> m_H264PpsToSpsPlusOne = {};
 };
 } // namespace nri

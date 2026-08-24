@@ -102,7 +102,7 @@ static inline Result GetVideoEncodeFeedbackD3D12(BufferD3D12& resolvedMetadataRe
 
     feedback = {};
     feedback.errorFlags = d3d12Feedback.EncodeErrorFlags;
-    feedback.averageQP = d3d12Feedback.EncodeStats.AverageQP;
+    feedback.averageQp = d3d12Feedback.EncodeStats.AverageQP;
     feedback.intraCodingUnitNum = d3d12Feedback.EncodeStats.IntraCodingUnitsCount;
     feedback.interCodingUnitNum = d3d12Feedback.EncodeStats.InterCodingUnitsCount;
     feedback.skipCodingUnitNum = d3d12Feedback.EncodeStats.SkipCodingUnitsCount;
@@ -120,13 +120,13 @@ static inline Result GetVideoEncodeFeedbackD3D12(BufferD3D12& resolvedMetadataRe
 #endif
 }
 
-static inline Result GetVideoEncodeAV1DecodeInfoD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
+static inline Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
     info = {};
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
     if (desc.feedback->errorFlags || !desc.feedback->encodedBitstreamWrittenBytes || !desc.feedback->writtenSubregionNum)
         return Result::FAILURE;
     if (desc.encodedPayloadHeader && desc.encodedPayloadHeaderSize)
-        return video_av1::GetVideoEncodeAV1DecodeInfoFromHeader(desc, info);
+        return video_av1::GetVideoAV1EncodeDecodeInfoFromHeader(desc, info);
 
     const void* metadata = resolvedMetadataReadback.Map(resolvedMetadataOffset);
     if (!metadata)
@@ -183,7 +183,7 @@ static inline Result GetVideoEncodeAV1DecodeInfoD3D12(BufferD3D12& resolvedMetad
     for (uint32_t i = 0; i < 2; i++)
         info.loopFilter.modeDeltas[i] = (int8_t)post.LoopFilter.ModeDeltas[i];
 
-    info.picture.frameType = VideoEncodeFrameType::IDR;
+    info.picture.frameType = VideoFrameType::IDR;
     info.picture.orderHint = 0;
     info.picture.refreshFrameFlags = 0xFF;
     info.picture.primaryReferenceName = VideoAV1ReferenceName::NONE;
@@ -203,7 +203,7 @@ static inline Result GetVideoEncodeAV1DecodeInfoD3D12(BufferD3D12& resolvedMetad
         if (post.PrimaryRefFrame > 7 || !video_av1::BuildInterFrameReferences(desc, refFrameIndices, info))
             return Result::FAILURE;
 
-        info.picture.frameType = VideoEncodeFrameType::P;
+        info.picture.frameType = VideoFrameType::P;
         info.picture.refreshFrameFlags = 0;
         info.picture.primaryReferenceName = video_av1::GetReferenceNameFromReferenceIndex((uint32_t)post.PrimaryRefFrame);
         info.picture.flags = VideoAV1PictureBits::SHOW_FRAME;

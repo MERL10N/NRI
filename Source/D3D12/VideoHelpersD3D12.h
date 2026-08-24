@@ -162,7 +162,7 @@ struct VideoEncodeHEVCReferenceListsD3D12 {
 };
 
 inline bool BuildVideoEncodeHEVCReferenceListsD3D12(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs, uint32_t referenceNum,
-    VideoEncodeFrameType frameType, int32_t currentPictureOrderCount, VideoEncodeHEVCReferenceListsD3D12& lists) {
+    VideoFrameType frameType, int32_t currentPictureOrderCount, VideoEncodeHEVCReferenceListsD3D12& lists) {
     lists = {};
 
     if (referenceNum > VIDEO_HEVC_MAX_REFERENCE_NUM) {
@@ -192,7 +192,7 @@ inline bool BuildVideoEncodeHEVCReferenceListsD3D12(const VideoReference* refere
 
             lists.list0[lists.list0Num++] = i;
         } else if (referenceDesc->listIndex == 1) {
-            if (frameType != VideoEncodeFrameType::B) {
+            if (frameType != VideoFrameType::B) {
                 lists.failingReference = i;
                 lists.invalidPictureOrderCount = true;
                 return false;

@@ -317,43 +317,43 @@ static inline void UpdateRenderingExtent(const DescriptorVK& descriptorVK, Dim_t
     layerNum = std::min(layerNum, texViewDesc.layerOrSliceNum);
 }
 
-static inline StdVideoH264PictureType GetVideoEncodeH264PictureTypeVK(VideoEncodeFrameType frameType) {
+static inline StdVideoH264PictureType GetVideoEncodeH264PictureTypeVK(VideoFrameType frameType) {
     switch (frameType) {
-        case VideoEncodeFrameType::IDR:
+        case VideoFrameType::IDR:
             return STD_VIDEO_H264_PICTURE_TYPE_IDR;
-        case VideoEncodeFrameType::I:
+        case VideoFrameType::I:
             return STD_VIDEO_H264_PICTURE_TYPE_I;
-        case VideoEncodeFrameType::P:
+        case VideoFrameType::P:
             return STD_VIDEO_H264_PICTURE_TYPE_P;
-        case VideoEncodeFrameType::B:
+        case VideoFrameType::B:
             return STD_VIDEO_H264_PICTURE_TYPE_B;
         default:
             return STD_VIDEO_H264_PICTURE_TYPE_INVALID;
     }
 }
 
-static inline StdVideoH265PictureType GetVideoEncodeH265PictureTypeVK(VideoEncodeFrameType frameType) {
+static inline StdVideoH265PictureType GetVideoEncodeH265PictureTypeVK(VideoFrameType frameType) {
     switch (frameType) {
-        case VideoEncodeFrameType::IDR:
+        case VideoFrameType::IDR:
             return STD_VIDEO_H265_PICTURE_TYPE_IDR;
-        case VideoEncodeFrameType::I:
+        case VideoFrameType::I:
             return STD_VIDEO_H265_PICTURE_TYPE_I;
-        case VideoEncodeFrameType::P:
+        case VideoFrameType::P:
             return STD_VIDEO_H265_PICTURE_TYPE_P;
-        case VideoEncodeFrameType::B:
+        case VideoFrameType::B:
             return STD_VIDEO_H265_PICTURE_TYPE_B;
         default:
             return STD_VIDEO_H265_PICTURE_TYPE_INVALID;
     }
 }
 
-static inline StdVideoAV1FrameType GetVideoEncodeAV1FrameTypeVK(VideoEncodeFrameType frameType) {
+static inline StdVideoAV1FrameType GetVideoEncodeAV1FrameTypeVK(VideoFrameType frameType) {
     switch (frameType) {
-        case VideoEncodeFrameType::IDR:
-        case VideoEncodeFrameType::I:
+        case VideoFrameType::IDR:
+        case VideoFrameType::I:
             return STD_VIDEO_AV1_FRAME_TYPE_KEY;
-        case VideoEncodeFrameType::P:
-        case VideoEncodeFrameType::B:
+        case VideoFrameType::P:
+        case VideoFrameType::B:
             return STD_VIDEO_AV1_FRAME_TYPE_INTER;
         default:
             return STD_VIDEO_AV1_FRAME_TYPE_INVALID;
@@ -369,7 +369,7 @@ static inline bool HasVideoEncodeReferenceSlot(const VideoEncodeDesc& videoEncod
     return false;
 }
 
-static inline const VideoH264ReferenceDesc* FindVideoEncodeH264ReferenceDesc(const VideoH264PictureDesc* h264PictureDesc, uint32_t slot) {
+static inline const VideoH264EncodeReferenceDesc* FindVideoEncodeH264ReferenceDesc(const VideoH264EncodePictureDesc* h264PictureDesc, uint32_t slot) {
     if (!h264PictureDesc)
         return nullptr;
 
@@ -381,7 +381,7 @@ static inline const VideoH264ReferenceDesc* FindVideoEncodeH264ReferenceDesc(con
     return nullptr;
 }
 
-static inline const VideoAV1ReferenceDesc* FindVideoEncodeAV1ReferenceDesc(const VideoAV1PictureDesc* av1PictureDesc, uint32_t slot) {
+static inline const VideoAV1ReferenceDesc* FindVideoEncodeAV1ReferenceDesc(const VideoAV1EncodePictureDesc* av1PictureDesc, uint32_t slot) {
     if (!av1PictureDesc)
         return nullptr;
 
@@ -842,10 +842,10 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         return;
     }
 
-    const VideoEncodePictureDesc defaultPicture = {VideoEncodeFrameType::IDR, 0, 0, 0, 0};
+    const VideoEncodePictureDesc defaultPicture = {VideoFrameType::IDR, 0, 0, 0, 0};
     VideoEncodePictureDesc pictureDesc = videoEncodeDesc.pictureDesc ? *videoEncodeDesc.pictureDesc : defaultPicture;
     if (videoEncodeDesc.flags & VideoEncodeBits::FORCE_KEY_FRAME)
-        pictureDesc.frameType = VideoEncodeFrameType::IDR;
+        pictureDesc.frameType = VideoFrameType::IDR;
     const VideoEncodeRateControlDesc defaultRateControl = {VideoEncodeRateControlMode::CQP, 26, 28, 30, 0, 51, 30, 1, 0, 0, 0, 0, 0};
     const VideoEncodeRateControlDesc& rateControlDesc = videoEncodeDesc.rateControlDesc ? *videoEncodeDesc.rateControlDesc : defaultRateControl;
     if ((uint32_t)rateControlDesc.mode >= (uint32_t)VideoEncodeRateControlMode::MAX_NUM || (rateControlDesc.mode != VideoEncodeRateControlMode::CQP && !rateControlDesc.targetBitrate)
@@ -857,11 +857,11 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         NRI_REPORT_ERROR(&m_Device, "Unsupported Vulkan video encode rate control mode");
         return;
     }
-    if (!IsVideoEncodeFrameTypeSupportedByVK(session.GetDesc().codec, pictureDesc.frameType)) {
+    if (!IsVideoFrameTypeSupportedByVK(session.GetDesc().codec, pictureDesc.frameType)) {
         NRI_REPORT_ERROR(&m_Device, "Vulkan video encode sessions are aligned with the no-B-frame parity target");
         return;
     }
-    if (pictureDesc.frameType == VideoEncodeFrameType::B) {
+    if (pictureDesc.frameType == VideoFrameType::B) {
         if (session.GetDesc().codec == VideoCodec::H264 && (!session.GetH264MaxBPictureL0ReferenceCount() || !session.GetH264MaxL1ReferenceCount())) {
             NRI_REPORT_ERROR(&m_Device, "Vulkan H.264 encode session does not support B-frame references");
             return;
@@ -921,7 +921,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
                 ref = STD_VIDEO_H264_NO_REFERENCE_PICTURE;
 
             if (videoEncodeDesc.referenceNum) {
-                const VideoH264PictureDesc* h264PictureDesc = videoEncodeDesc.h264PictureDesc;
+                const VideoH264EncodePictureDesc* h264PictureDesc = videoEncodeDesc.h264PictureDesc;
                 if (!h264PictureDesc) {
                     NRI_REPORT_ERROR(&m_Device, "'h264PictureDesc' must be valid when H.264 encode uses references");
                     return;
@@ -934,7 +934,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
                 uint8_t list0Num = 0;
                 uint8_t list1Num = 0;
                 for (uint32_t i = 0; i < h264PictureDesc->referenceNum; i++) {
-                    const VideoH264ReferenceDesc& reference = h264PictureDesc->references[i];
+                    const VideoH264EncodeReferenceDesc& reference = h264PictureDesc->references[i];
                     if (!HasVideoEncodeReferenceSlot(videoEncodeDesc, reference.slot)) {
                         NRI_REPORT_ERROR(&m_Device, "'h264PictureDesc->references[%u].slot' is not present in 'references'", i);
                         return;
@@ -961,7 +961,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
                         return;
                     }
                 }
-                if (pictureDesc.frameType == VideoEncodeFrameType::B) {
+                if (pictureDesc.frameType == VideoFrameType::B) {
                     if (list0Num > session.GetH264MaxBPictureL0ReferenceCount()) {
                         NRI_REPORT_ERROR(&m_Device, "H.264 B-frame List0 reference count exceeds Vulkan device limit");
                         return;
@@ -976,11 +976,11 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
                 h264StdPicture.pRefLists = &h264ReferenceLists;
             }
 
-            h264StdPicture.flags.IdrPicFlag = pictureDesc.frameType == VideoEncodeFrameType::IDR;
+            h264StdPicture.flags.IdrPicFlag = pictureDesc.frameType == VideoFrameType::IDR;
             isUsedAsReferencePicture = IsVideoEncodePictureUsedAsReferenceVK(session.GetDesc().codec, pictureDesc.frameType,
                 session.GetDesc().maxReferenceNum, videoEncodeDesc.reconstructedPicture != nullptr, 0);
             h264StdPicture.flags.is_reference = isUsedAsReferencePicture;
-            h264StdPicture.flags.no_output_of_prior_pics_flag = pictureDesc.frameType == VideoEncodeFrameType::IDR;
+            h264StdPicture.flags.no_output_of_prior_pics_flag = pictureDesc.frameType == VideoFrameType::IDR;
             h264StdPicture.seq_parameter_set_id = videoEncodeDesc.h264PictureDesc ? videoEncodeDesc.h264PictureDesc->sequenceParameterSetId : 0;
             h264StdPicture.pic_parameter_set_id = videoEncodeDesc.h264PictureDesc ? videoEncodeDesc.h264PictureDesc->pictureParameterSetId : 0;
             h264StdPicture.idr_pic_id = pictureDesc.idrPictureId;
@@ -988,9 +988,9 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
             h264StdPicture.frame_num = pictureDesc.frameIndex;
             h264StdPicture.PicOrderCnt = pictureDesc.pictureOrderCount;
             h264StdPicture.temporal_id = pictureDesc.temporalLayer;
-            h264SliceHeader.slice_type = pictureDesc.frameType == VideoEncodeFrameType::B ? STD_VIDEO_H264_SLICE_TYPE_B : (pictureDesc.frameType == VideoEncodeFrameType::P ? STD_VIDEO_H264_SLICE_TYPE_P : STD_VIDEO_H264_SLICE_TYPE_I);
+            h264SliceHeader.slice_type = pictureDesc.frameType == VideoFrameType::B ? STD_VIDEO_H264_SLICE_TYPE_B : (pictureDesc.frameType == VideoFrameType::P ? STD_VIDEO_H264_SLICE_TYPE_P : STD_VIDEO_H264_SLICE_TYPE_I);
             h264SliceHeader.disable_deblocking_filter_idc = STD_VIDEO_H264_DISABLE_DEBLOCKING_FILTER_IDC_DISABLED;
-            h264SliceInfo.constantQp = pictureDesc.frameType == VideoEncodeFrameType::B ? rateControlDesc.qpB : (pictureDesc.frameType == VideoEncodeFrameType::P ? rateControlDesc.qpP : rateControlDesc.qpI);
+            h264SliceInfo.constantQp = pictureDesc.frameType == VideoFrameType::B ? rateControlDesc.qpB : (pictureDesc.frameType == VideoFrameType::P ? rateControlDesc.qpP : rateControlDesc.qpI);
             h264SliceInfo.pStdSliceHeader = &h264SliceHeader;
             h264Picture.naluSliceEntryCount = 1;
             h264Picture.pNaluSliceEntries = &h264SliceInfo;
@@ -1017,12 +1017,12 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
             h265StdPicture.pps_pic_parameter_set_id = 0;
             h265StdPicture.PicOrderCntVal = pictureDesc.pictureOrderCount;
             h265StdPicture.TemporalId = pictureDesc.temporalLayer;
-            h265StdPicture.flags.IrapPicFlag = pictureDesc.frameType == VideoEncodeFrameType::IDR || pictureDesc.frameType == VideoEncodeFrameType::I;
+            h265StdPicture.flags.IrapPicFlag = pictureDesc.frameType == VideoFrameType::IDR || pictureDesc.frameType == VideoFrameType::I;
             isUsedAsReferencePicture = IsVideoEncodePictureUsedAsReferenceVK(session.GetDesc().codec, pictureDesc.frameType,
                 session.GetDesc().maxReferenceNum, videoEncodeDesc.reconstructedPicture != nullptr, 0);
             h265StdPicture.flags.is_reference = isUsedAsReferencePicture;
             h265StdPicture.flags.pic_output_flag = true;
-            h265StdPicture.flags.no_output_of_prior_pics_flag = pictureDesc.frameType == VideoEncodeFrameType::IDR;
+            h265StdPicture.flags.no_output_of_prior_pics_flag = pictureDesc.frameType == VideoFrameType::IDR;
             h265StdPicture.flags.short_term_ref_pic_set_sps_flag = false;
             h265StdPicture.flags.slice_temporal_mvp_enabled_flag = false;
             for (uint8_t& entry : h265ReferenceLists.RefPicList0)
@@ -1048,7 +1048,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
 
                 const uint32_t list0ReferenceNum = hevcLists.list0Num;
                 const uint32_t list1ReferenceNum = hevcLists.list1Num;
-                if (pictureDesc.frameType == VideoEncodeFrameType::B) {
+                if (pictureDesc.frameType == VideoFrameType::B) {
                     if (list0ReferenceNum > session.GetH265MaxBPictureL0ReferenceCount()) {
                         NRI_REPORT_ERROR(&m_Device, "H.265 B-frame List0 reference count exceeds Vulkan device limit");
                         return;
@@ -1101,7 +1101,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
             h265SliceHeader.flags.num_ref_idx_active_override_flag = h265ReferenceLists.num_ref_idx_l0_active_minus1 != 0 || h265ReferenceLists.num_ref_idx_l1_active_minus1 != 0;
             h265SliceHeader.flags.mvd_l1_zero_flag = false;
             h265SliceHeader.flags.collocated_from_l0_flag = false;
-            h265SliceHeader.slice_type = pictureDesc.frameType == VideoEncodeFrameType::B ? STD_VIDEO_H265_SLICE_TYPE_B : (pictureDesc.frameType == VideoEncodeFrameType::P ? STD_VIDEO_H265_SLICE_TYPE_P : STD_VIDEO_H265_SLICE_TYPE_I);
+            h265SliceHeader.slice_type = pictureDesc.frameType == VideoFrameType::B ? STD_VIDEO_H265_SLICE_TYPE_B : (pictureDesc.frameType == VideoFrameType::P ? STD_VIDEO_H265_SLICE_TYPE_P : STD_VIDEO_H265_SLICE_TYPE_I);
             h265SliceHeader.MaxNumMergeCand = 5;
             h265SliceInfo.constantQp = GetVideoEncodeQPByFrameTypeVK(rateControlDesc, pictureDesc.frameType);
             h265SliceInfo.pStdSliceSegmentHeader = &h265SliceHeader;
@@ -1118,7 +1118,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         case VideoCodec::AV1: {
             for (int32_t& slotIndex : av1Picture.referenceNameSlotIndices)
                 slotIndex = -1;
-            const VideoAV1PictureDesc* av1PictureDesc = videoEncodeDesc.av1PictureDesc;
+            const VideoAV1EncodePictureDesc* av1PictureDesc = videoEncodeDesc.av1PictureDesc;
             if (!IsVideoEncodeAV1KeyFrameReferenceStateValidVK(pictureDesc.frameType, videoEncodeDesc.referenceNum)) {
                 NRI_REPORT_ERROR(&m_Device, "AV1 key frames must not reference previous pictures");
                 return;
@@ -1128,7 +1128,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
             av1StdPicture.current_frame_id = av1PictureDesc ? av1PictureDesc->currentFrameId : pictureDesc.frameIndex;
             av1StdPicture.order_hint = av1PictureDesc ? av1PictureDesc->orderHint : (uint8_t)pictureDesc.pictureOrderCount;
             av1StdPicture.primary_ref_frame = STD_VIDEO_AV1_PRIMARY_REF_NONE;
-            av1StdPicture.refresh_frame_flags = av1PictureDesc ? av1PictureDesc->refreshFrameFlags : (pictureDesc.frameType == VideoEncodeFrameType::IDR ? 0xFF : 0);
+            av1StdPicture.refresh_frame_flags = av1PictureDesc ? av1PictureDesc->refreshFrameFlags : (pictureDesc.frameType == VideoFrameType::IDR ? 0xFF : 0);
             av1StdPicture.render_width_minus_1 = (uint16_t)(session.GetDesc().width - 1);
             av1StdPicture.render_height_minus_1 = (uint16_t)(session.GetDesc().height - 1);
             av1StdPicture.interpolation_filter = STD_VIDEO_AV1_INTERPOLATION_FILTER_EIGHTTAP;
@@ -1292,10 +1292,10 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
             av1StdPicture.pExtensionHeader = &av1ExtensionHeader;
             const bool hasActiveAv1References = videoEncodeDesc.referenceNum != 0;
             av1Picture.predictionMode = hasActiveAv1References
-                ? (pictureDesc.frameType == VideoEncodeFrameType::B ? VK_VIDEO_ENCODE_AV1_PREDICTION_MODE_BIDIRECTIONAL_COMPOUND_KHR : VK_VIDEO_ENCODE_AV1_PREDICTION_MODE_SINGLE_REFERENCE_KHR)
+                ? (pictureDesc.frameType == VideoFrameType::B ? VK_VIDEO_ENCODE_AV1_PREDICTION_MODE_BIDIRECTIONAL_COMPOUND_KHR : VK_VIDEO_ENCODE_AV1_PREDICTION_MODE_SINGLE_REFERENCE_KHR)
                 : VK_VIDEO_ENCODE_AV1_PREDICTION_MODE_INTRA_ONLY_KHR;
             av1Picture.rateControlGroup = hasActiveAv1References
-                ? (pictureDesc.frameType == VideoEncodeFrameType::B ? VK_VIDEO_ENCODE_AV1_RATE_CONTROL_GROUP_BIPREDICTIVE_KHR : VK_VIDEO_ENCODE_AV1_RATE_CONTROL_GROUP_PREDICTIVE_KHR)
+                ? (pictureDesc.frameType == VideoFrameType::B ? VK_VIDEO_ENCODE_AV1_RATE_CONTROL_GROUP_BIPREDICTIVE_KHR : VK_VIDEO_ENCODE_AV1_RATE_CONTROL_GROUP_PREDICTIVE_KHR)
                 : VK_VIDEO_ENCODE_AV1_RATE_CONTROL_GROUP_INTRA_KHR;
             if (av1Picture.predictionMode == VK_VIDEO_ENCODE_AV1_PREDICTION_MODE_SINGLE_REFERENCE_KHR) {
                 if (session.GetAV1MaxSingleReferenceCount() == 0 || !HasVideoEncodeAV1ReferenceNameVK(av1Picture.referenceNameSlotIndices, session.GetAV1SingleReferenceNameMask())) {
@@ -1362,7 +1362,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         referenceSlots[i].pPictureResource = &picture.GetResource();
 
         if (session.GetDesc().codec == VideoCodec::H264) {
-            const VideoH264ReferenceDesc* referenceDesc = FindVideoEncodeH264ReferenceDesc(videoEncodeDesc.h264PictureDesc, videoEncodeDesc.references[i].slot);
+            const VideoH264EncodeReferenceDesc* referenceDesc = FindVideoEncodeH264ReferenceDesc(videoEncodeDesc.h264PictureDesc, videoEncodeDesc.references[i].slot);
             if (!referenceDesc) {
                 NRI_REPORT_ERROR(&m_Device, "'references[%u].slot' is not described by 'h264PictureDesc'", i);
                 return;
@@ -1485,7 +1485,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         qualityLevelInfo.pNext = &rateControlInfo;
         if (session.DoesAV1RequireGopRemainingFrames() && rateControlDesc.mode != VideoEncodeRateControlMode::CQP) {
             av1GopRemainingFrameInfo.useGopRemainingFrames = VK_TRUE;
-            av1GopRemainingFrameInfo.gopRemainingIntra = (pictureDesc.frameType == VideoEncodeFrameType::IDR || pictureDesc.frameType == VideoEncodeFrameType::I) ? 1 : 0;
+            av1GopRemainingFrameInfo.gopRemainingIntra = (pictureDesc.frameType == VideoFrameType::IDR || pictureDesc.frameType == VideoFrameType::I) ? 1 : 0;
             av1GopRemainingFrameInfo.gopRemainingPredictive = av1RateControlInfo.gopFrameCount ? av1RateControlInfo.gopFrameCount - 1 : 0;
             av1GopRemainingFrameInfo.gopRemainingBipredictive = av1RateControlInfo.consecutiveBipredictiveFrameCount;
             av1GopRemainingFrameInfo.pNext = &rateControlInfo;

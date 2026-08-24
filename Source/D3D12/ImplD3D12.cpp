@@ -1247,8 +1247,8 @@ static Result NRI_CALL GetVideoEncodeFeedback(VideoSession&, Buffer& resolvedMet
     return GetVideoEncodeFeedbackD3D12((BufferD3D12&)resolvedMetadataReadback, resolvedMetadataOffset, feedback);
 }
 
-static Result NRI_CALL GetVideoEncodeAV1DecodeInfo(VideoSession&, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
-    return GetVideoEncodeAV1DecodeInfoD3D12((BufferD3D12&)resolvedMetadataReadback, resolvedMetadataOffset, desc, info);
+static Result NRI_CALL GetVideoAV1EncodeDecodeInfo(VideoSession&, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
+    return GetVideoAV1EncodeDecodeInfoD3D12((BufferD3D12&)resolvedMetadataReadback, resolvedMetadataOffset, desc, info);
 }
 
 Result DeviceD3D12::FillFunctionTable(VideoInterface& table) const {
@@ -1272,7 +1272,7 @@ Result DeviceD3D12::FillFunctionTable(VideoInterface& table) const {
     table.CmdEncodeVideo = ::CmdEncodeVideo;
     table.CmdResolveVideoEncodeFeedback = ::CmdResolveVideoEncodeFeedback;
     table.GetVideoEncodeFeedback = ::GetVideoEncodeFeedback;
-    table.GetVideoEncodeAV1DecodeInfo = ::GetVideoEncodeAV1DecodeInfo;
+    table.GetVideoAV1EncodeDecodeInfo = ::GetVideoAV1EncodeDecodeInfo;
 
     return Result::SUCCESS;
 }

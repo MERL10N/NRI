@@ -570,7 +570,7 @@ inline bool ParseGeneratedInterFrameHeader(const uint8_t* payload, size_t availa
     if (requireTilePayload)
         info.tiles[0] = {(uint32_t)tileDataOffset, (uint32_t)(fullPayloadSize - tileDataOffset), 0, 0, 0xFF};
 
-    info.picture.frameType = VideoEncodeFrameType::P;
+    info.picture.frameType = VideoFrameType::P;
     info.picture.orderHint = (uint8_t)orderHint;
     info.picture.refreshFrameFlags = (uint8_t)refreshFrameFlags;
     info.picture.primaryReferenceName = GetReferenceNameFromReferenceIndex(primaryRefFrame);
@@ -1222,7 +1222,7 @@ inline bool ParseGeneratedKeyFrameHeader(const uint8_t* payload, size_t availabl
     info.tileLayout.tileSizeBytesMinus1 = (uint8_t)tileSizeBytesMinus1;
     info.tileLayout.uniformSpacing = uniformTileSpacing;
     info.tileLayout.contextUpdateTileId = (uint16_t)contextUpdateTileId;
-    info.picture.frameType = VideoEncodeFrameType::IDR;
+    info.picture.frameType = VideoFrameType::IDR;
     info.picture.orderHint = (uint8_t)orderHint;
     info.picture.refreshFrameFlags = 0xFF;
     info.picture.primaryReferenceName = VideoAV1ReferenceName::NONE;
@@ -1238,7 +1238,7 @@ inline bool ParseGeneratedKeyFrameHeader(const uint8_t* payload, size_t availabl
     return true;
 }
 
-inline Result GetVideoEncodeAV1DecodeInfoFromHeader(const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
+inline Result GetVideoAV1EncodeDecodeInfoFromHeader(const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
     const bool hasRequiredInput = desc.feedback && desc.sequence && desc.encodedPayloadHeader && desc.encodedPayloadHeaderSize && desc.feedback->encodedBitstreamWrittenBytes;
 
     if (!hasRequiredInput)
