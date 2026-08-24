@@ -463,15 +463,15 @@ NriBits(StageBits, uint32_t,
     RESOLVE                         = NriBit(21),   // Invoked by "CmdResolveTexture"
     CLEAR_STORAGE                   = NriBit(22),   // Invoked by "CmdClearStorage"
 
-    // Video
-    VIDEO_DECODE                    = NriBit(23),   // Invoked by "CmdDecodeVideo"
-    VIDEO_ENCODE                    = NriBit(24),   // Invoked by "CmdEncodeVideo"
-
     // Modifiers
-    INDIRECT                        = NriBit(25),   // Invoked by "Indirect" commands (used in addition to other bits)
+    INDIRECT                        = NriBit(23),   // Invoked by "Indirect" commands (used in addition to other bits)
 
     // Host
     HOST                            = NriBit(24),   // Invoked by "UploadHostMemoryToTexture" and "ReadbackTextureToHostMemory"
+
+    // Video
+    VIDEO_DECODE                    = NriBit(25),   // Invoked by "CmdDecodeVideo"
+    VIDEO_ENCODE                    = NriBit(26),   // Invoked by "CmdEncodeVideo"
 
     // Umbrella stages
     TESSELLATION_SHADERS            = NriMember(StageBits, TESS_CONTROL_SHADER)
@@ -552,7 +552,7 @@ NriBits(AccessBits, uint32_t,
     HOST_READ                       = NriBit(23),   // R        HOST
     HOST_WRITE                      = NriBit(24),   //  W       HOST
 
-        // Video
+    // Video
     VIDEO_DECODE_READ               = NriBit(25),   // R        VIDEO_DECODE
     VIDEO_DECODE_WRITE              = NriBit(26),   //  W       VIDEO_DECODE
     VIDEO_ENCODE_READ               = NriBit(27),   // R        VIDEO_ENCODE

@@ -295,7 +295,6 @@ DeviceD3D12::DeviceD3D12(const CallbackInterface& callbacks, const AllocationCal
           Vector<QueueD3D12*>(GetStdAllocator()),
           Vector<QueueD3D12*>(GetStdAllocator()),
           Vector<QueueD3D12*>(GetStdAllocator()),
-      } {
       }
     , m_TransferContexts(GetStdAllocator()) {
     m_FreeDescriptors.resize(D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES, Vector<DescriptorHandle>(GetStdAllocator()));
@@ -1976,7 +1975,7 @@ Result DeviceD3D12::UploadHostMemoryToTexture(QueueD3D12& queue, const UploadHos
             });
 
             uint32_t barrierNum = (uint32_t)(end - restorationBarriersBegin);
-            ID3D12GraphicsCommandList* commandList = context->GetCommandBuffer();
+            ID3D12GraphicsCommandList* commandList = context->GetCommandBuffer().GetGraphicsCommandList();
             commandList->ResourceBarrier(barrierNum, restorationBarriersBegin);
         }
 

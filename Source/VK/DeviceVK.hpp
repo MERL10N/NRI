@@ -73,7 +73,7 @@ static constexpr VkBufferUsageFlags GetBufferUsageFlags(const BufferDesc& buffer
     VkBufferUsageFlags flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // TODO: ban "the opposite" for UPLOAD/READBACK?
 
     constexpr uint32_t videoUsageMask = (uint32_t)BufferUsageBits::VIDEO_DECODE | (uint32_t)BufferUsageBits::VIDEO_ENCODE;
-    const uint32_t usageMask = (uint32_t)bufferUsageBits;
+    const uint32_t usageMask = (uint32_t)bufferDesc.usage;
     const bool isVideoOnly = (usageMask & videoUsageMask) != 0 && (usageMask & ~videoUsageMask) == 0;
     if (isDeviceAddressSupported && !isVideoOnly)
         flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -115,10 +115,10 @@ static constexpr VkBufferUsageFlags GetBufferUsageFlags(const BufferDesc& buffer
     if (bufferDesc.usage & BufferUsageBits::SHADER_RESOURCE_STORAGE)
         flags |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
 
-    if (bufferUsageBits & BufferUsageBits::VIDEO_DECODE)
+    if (bufferDesc.usage & BufferUsageBits::VIDEO_DECODE)
         flags |= VK_BUFFER_USAGE_VIDEO_DECODE_SRC_BIT_KHR;
 
-    if (bufferUsageBits & BufferUsageBits::VIDEO_ENCODE)
+    if (bufferDesc.usage & BufferUsageBits::VIDEO_ENCODE)
         flags |= VK_BUFFER_USAGE_VIDEO_ENCODE_DST_BIT_KHR;
 
     return flags;

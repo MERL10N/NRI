@@ -128,7 +128,7 @@ static inline D3D12_BARRIER_SYNC GetBarrierSyncFlags(StageBits stageBits, Access
     if (stageBits & StageBits::HOST)
         flags |= D3D12_BARRIER_SYNC_ALL;
 
-  if (stageBits & StageBits::VIDEO_DECODE)
+    if (stageBits & StageBits::VIDEO_DECODE)
         flags |= D3D12_BARRIER_SYNC_VIDEO_DECODE;
 
     if (stageBits & StageBits::VIDEO_ENCODE)
