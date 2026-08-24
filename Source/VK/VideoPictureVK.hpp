@@ -61,7 +61,7 @@ NRI_INLINE Result VideoPictureVK::Create(const VideoPictureDesc& videoPictureDes
     m_Resource = {VK_STRUCTURE_TYPE_VIDEO_PICTURE_RESOURCE_INFO_KHR};
     m_Resource.codedExtent.width = videoPictureDesc.width ? videoPictureDesc.width : textureDesc.width;
     m_Resource.codedExtent.height = videoPictureDesc.height ? videoPictureDesc.height : textureDesc.height;
-    m_Resource.baseArrayLayer = videoPictureDesc.layer;
+    m_Resource.baseArrayLayer = 0;
     m_Resource.imageViewBinding = m_ImageView;
 
     return Result::SUCCESS;
