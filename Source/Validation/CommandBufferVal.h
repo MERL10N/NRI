@@ -5,9 +5,10 @@
 namespace nri {
 
 struct CommandBufferVal final : public ObjectVal {
-    CommandBufferVal(DeviceVal& device, CommandBuffer* commandBuffer, bool isWrapped)
+    CommandBufferVal(DeviceVal& device, CommandBuffer* commandBuffer, QueueType queueType, bool isWrapped)
         : ObjectVal(device, commandBuffer)
         , m_DescriptorSets(device.GetStdAllocator())
+        , m_QueueType(queueType)
         , m_IsRecordingStarted(isWrapped)
         , m_IsWrapped(isWrapped) {
     }
@@ -104,6 +105,7 @@ private:
     PipelineVal* m_Pipeline = nullptr;
     uint32_t m_RenderTargetNum = 0;
     int32_t m_AnnotationStack = 0;
+    QueueType m_QueueType = QueueType::MAX_NUM;
     bool m_IsRecordingStarted = false;
     bool m_IsWrapped = false;
     bool m_IsRenderPass = false;

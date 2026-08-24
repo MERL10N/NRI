@@ -1294,6 +1294,7 @@ static inline bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& video
 
 NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecodeDesc) {
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
+    NRI_RETURN_ON_FAILURE(&m_Device, m_QueueType == QueueType::VIDEO_DECODE, ReturnVoid(), "the command buffer must belong to a VIDEO_DECODE queue");
     NRI_RETURN_ON_FAILURE(&m_Device, videoDecodeDesc.session && videoDecodeDesc.parameters && videoDecodeDesc.bitstream.buffer && videoDecodeDesc.bitstream.size && videoDecodeDesc.dstPicture, ReturnVoid(), "'session', 'parameters', 'bitstream.buffer', 'bitstream.size' and 'dstPicture' must be valid");
 
     VideoSessionVal& sessionVal = *(VideoSessionVal*)videoDecodeDesc.session;
@@ -1383,6 +1384,7 @@ NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecode
 
 NRI_INLINE void CommandBufferVal::EncodeVideo(const VideoEncodeDesc& videoEncodeDesc) {
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
+    NRI_RETURN_ON_FAILURE(&m_Device, m_QueueType == QueueType::VIDEO_ENCODE, ReturnVoid(), "the command buffer must belong to a VIDEO_ENCODE queue");
 
     if (videoEncodeDesc.rateControlDesc && !IsVideoEncodeRateControlDescValid(*videoEncodeDesc.rateControlDesc)) {
         NRI_REPORT_ERROR(&m_Device, "'rateControlDesc' is invalid");

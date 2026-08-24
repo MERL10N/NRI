@@ -26,6 +26,25 @@ static inline bool IsRayTracingShaderStageValid(StageBits shaderStages, StageBit
     return n == 1;
 }
 
+#if NRI_ENABLE_D3D12_SUPPORT
+static inline QueueType GetQueueTypeD3D12(D3D12_COMMAND_LIST_TYPE commandListType) {
+    switch (commandListType) {
+        case D3D12_COMMAND_LIST_TYPE_DIRECT:
+            return QueueType::GRAPHICS;
+        case D3D12_COMMAND_LIST_TYPE_COMPUTE:
+            return QueueType::COMPUTE;
+        case D3D12_COMMAND_LIST_TYPE_COPY:
+            return QueueType::COPY;
+        case D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE:
+            return QueueType::VIDEO_DECODE;
+        case D3D12_COMMAND_LIST_TYPE_VIDEO_ENCODE:
+            return QueueType::VIDEO_ENCODE;
+        default:
+            return QueueType::MAX_NUM;
+    }
+}
+#endif
+
 static inline bool IsShaderStageSupported(const DeviceDesc& deviceDesc, StageBits shaderStages) {
     if ((shaderStages & StageBits::TESSELLATION_SHADERS) != 0 && !deviceDesc.features.tessellationShader)
         return false;
@@ -196,7 +215,7 @@ NRI_INLINE Result DeviceVal::GetQueue(QueueType queueType, uint32_t queueIndex, 
     if (result == Result::SUCCESS) {
         const uint32_t index = (uint32_t)queueType;
         if (!m_Queues[index])
-            m_Queues[index] = Allocate<QueueVal>(GetAllocationCallbacks(), *this, queueImpl);
+            m_Queues[index] = Allocate<QueueVal>(GetAllocationCallbacks(), *this, queueImpl, queueType);
 
         queue = (Queue*)m_Queues[index];
     }
@@ -209,14 +228,14 @@ NRI_INLINE Result DeviceVal::WaitIdle() {
 }
 
 NRI_INLINE Result DeviceVal::CreateCommandAllocator(const Queue& queue, CommandAllocator*& commandAllocator) {
-    auto queueImpl = NRI_GET_IMPL(Queue, &queue);
+    const QueueVal& queueVal = (const QueueVal&)queue;
 
     CommandAllocator* commandAllocatorImpl = nullptr;
-    Result result = m_iCoreImpl.CreateCommandAllocator(*queueImpl, commandAllocatorImpl);
+    Result result = m_iCoreImpl.CreateCommandAllocator(*queueVal.GetImpl(), commandAllocatorImpl);
 
     commandAllocator = nullptr;
     if (result == Result::SUCCESS)
-        commandAllocator = (CommandAllocator*)Allocate<CommandAllocatorVal>(GetAllocationCallbacks(), *this, commandAllocatorImpl);
+        commandAllocator = (CommandAllocator*)Allocate<CommandAllocatorVal>(GetAllocationCallbacks(), *this, commandAllocatorImpl, queueVal.GetType());
 
     return result;
 }
@@ -1200,7 +1219,7 @@ NRI_INLINE Result DeviceVal::CreateCommandAllocator(const CommandAllocatorVKDesc
 
     commandAllocator = nullptr;
     if (result == Result::SUCCESS)
-        commandAllocator = (CommandAllocator*)Allocate<CommandAllocatorVal>(GetAllocationCallbacks(), *this, commandAllocatorImpl);
+        commandAllocator = (CommandAllocator*)Allocate<CommandAllocatorVal>(GetAllocationCallbacks(), *this, commandAllocatorImpl, commandAllocatorVKDesc.queueType);
 
     return result;
 }
@@ -1214,7 +1233,7 @@ NRI_INLINE Result DeviceVal::CreateCommandBuffer(const CommandBufferVKDesc& comm
 
     commandBuffer = nullptr;
     if (result == Result::SUCCESS)
-        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, true);
+        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, commandBufferVKDesc.queueType, true);
 
     return result;
 }
@@ -1344,7 +1363,7 @@ NRI_INLINE Result DeviceVal::CreateCommandBuffer(const CommandBufferD3D11Desc& c
 
     commandBuffer = nullptr;
     if (result == Result::SUCCESS)
-        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, true);
+        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, QueueType::GRAPHICS, true);
 
     return result;
 }
@@ -1382,12 +1401,15 @@ NRI_INLINE Result DeviceVal::CreateTexture(const TextureD3D11Desc& textureD3D11D
 NRI_INLINE Result DeviceVal::CreateCommandBuffer(const CommandBufferD3D12Desc& commandBufferD3D12Desc, CommandBuffer*& commandBuffer) {
     NRI_RETURN_ON_FAILURE(this, commandBufferD3D12Desc.d3d12CommandList != nullptr, Result::INVALID_ARGUMENT, "'d3d12CommandList' is NULL");
 
+    const QueueType queueType = GetQueueTypeD3D12(commandBufferD3D12Desc.d3d12CommandList->GetType());
+    NRI_RETURN_ON_FAILURE(this, queueType != QueueType::MAX_NUM, Result::INVALID_ARGUMENT, "'d3d12CommandList' has an unsupported command list type");
+
     CommandBuffer* commandBufferImpl = nullptr;
     Result result = m_iWrapperD3D12Impl.CreateCommandBufferD3D12(m_Impl, commandBufferD3D12Desc, commandBufferImpl);
 
     commandBuffer = nullptr;
     if (result == Result::SUCCESS)
-        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, true);
+        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, queueType, true);
 
     return result;
 }

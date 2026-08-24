@@ -2,6 +2,10 @@
 
 #include "SharedVal.h"
 
+#if NRI_ENABLE_D3D12_SUPPORT
+#    include <d3d12.h>
+#endif
+
 #include "AccelerationStructureVal.h"
 #include "BufferVal.h"
 #include "CommandAllocatorVal.h"
