@@ -444,7 +444,7 @@ NRI_INLINE Result CommandBufferVK::End() {
 NRI_INLINE void CommandBufferVK::DecodeVideo(const VideoDecodeDesc& videoDecodeDesc) {
     VideoSessionVK& session = *(VideoSessionVK*)videoDecodeDesc.session;
     VideoSessionParametersVK& parameters = *(VideoSessionParametersVK*)videoDecodeDesc.parameters;
-    if (parameters.m_Session != &session) {
+    if (&parameters.GetSession() != &session) {
         NRI_REPORT_ERROR(&m_Device, "'parameters' must belong to 'session'");
         return;
     }
@@ -487,7 +487,7 @@ NRI_INLINE void CommandBufferVK::DecodeVideo(const VideoDecodeDesc& videoDecodeD
         VideoPictureVK& picture = *(VideoPictureVK*)videoDecodeDesc.references[i].picture;
         referenceSlots[i] = {VK_STRUCTURE_TYPE_VIDEO_REFERENCE_SLOT_INFO_KHR};
         referenceSlots[i].slotIndex = videoDecodeDesc.references[i].slot;
-        referenceSlots[i].pPictureResource = &picture.m_Resource;
+        referenceSlots[i].pPictureResource = &picture.GetResource();
         if (session.GetDesc().codec == VideoCodec::H264) {
             const VideoH264DecodePictureDesc* h264PictureDesc = videoDecodeDesc.h264PictureDesc;
             const VideoH264DecodeReferenceDesc* referenceDesc = h264PictureDesc ? FindVideoH264DecodeReferenceDescVK(h264PictureDesc->references, h264PictureDesc->referenceNum, videoDecodeDesc.references[i].slot) : nullptr;
@@ -728,12 +728,12 @@ NRI_INLINE void CommandBufferVK::DecodeVideo(const VideoDecodeDesc& videoDecodeD
         av1StdPicture.pCDEF = &av1Cdef;
         av1StdPicture.pLoopRestoration = &av1LoopRestoration;
         av1StdPicture.pGlobalMotion = &av1GlobalMotion;
-        av1StdPicture.pFilmGrain = (pictureFlags & VideoAV1PictureBits::APPLY_GRAIN) && desc.filmGrain ? &av1FilmGrain : nullptr;
+        av1StdPicture.pFilmGrain = ((pictureFlags & VideoAV1PictureBits::APPLY_GRAIN) && desc.filmGrain) ? &av1FilmGrain : nullptr;
 
         av1Picture.pStdPictureInfo = &av1StdPicture;
 #if defined(VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_INLINE_SESSION_PARAMETERS_INFO_KHR)
         if (session.UseInlineSessionParameters()) {
-            av1InlineSessionParameters.pStdSequenceHeader = &parameters.m_AV1SequenceHeader;
+            av1InlineSessionParameters.pStdSequenceHeader = &parameters.GetAV1SequenceHeader();
             av1Picture.pNext = &av1InlineSessionParameters;
         }
 #endif
@@ -769,11 +769,11 @@ NRI_INLINE void CommandBufferVK::DecodeVideo(const VideoDecodeDesc& videoDecodeD
         NRI_REPORT_ERROR(&m_Device, "The setup reference slot exceeds the session DPB slot count");
         return;
     }
-    setupReferenceSlot.slotIndex = hasDpbSlots && activatesSetupReferenceSlot ? (int32_t)setupReferenceSlotIndex : -1;
-    setupReferenceSlot.pPictureResource = &setupPicture.m_Resource;
+    setupReferenceSlot.slotIndex = (hasDpbSlots && activatesSetupReferenceSlot) ? (int32_t)setupReferenceSlotIndex : -1;
+    setupReferenceSlot.pPictureResource = &setupPicture.GetResource();
 
     VkVideoBeginCodingInfoKHR beginInfo = {VK_STRUCTURE_TYPE_VIDEO_BEGIN_CODING_INFO_KHR};
-    const VkVideoSessionParametersKHR sessionParameters = session.UseInlineSessionParameters() ? VK_NULL_HANDLE : parameters.m_Handle;
+    const VkVideoSessionParametersKHR sessionParameters = session.UseInlineSessionParameters() ? VK_NULL_HANDLE : parameters.GetHandle();
     beginInfo.videoSession = session.GetHandle();
     beginInfo.videoSessionParameters = sessionParameters;
     beginInfo.referenceSlotCount = videoDecodeDesc.referenceNum;
@@ -789,7 +789,7 @@ NRI_INLINE void CommandBufferVK::DecodeVideo(const VideoDecodeDesc& videoDecodeD
     decodeInfo.srcBuffer = bitstream.GetHandle();
     decodeInfo.srcBufferOffset = videoDecodeDesc.bitstream.offset;
     decodeInfo.srcBufferRange = videoDecodeDesc.bitstream.size;
-    decodeInfo.dstPictureResource = dstPicture.m_Resource;
+    decodeInfo.dstPictureResource = dstPicture.GetResource();
     decodeInfo.pSetupReferenceSlot = hasDpbSlots ? &setupReferenceSlot : nullptr;
     decodeInfo.referenceSlotCount = videoDecodeDesc.referenceNum;
     decodeInfo.pReferenceSlots = referenceSlots;
@@ -811,7 +811,7 @@ NRI_INLINE void CommandBufferVK::DecodeVideo(const VideoDecodeDesc& videoDecodeD
 NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeDesc) {
     VideoSessionVK& session = *(VideoSessionVK*)videoEncodeDesc.session;
     VideoSessionParametersVK& parameters = *(VideoSessionParametersVK*)videoEncodeDesc.parameters;
-    if (parameters.m_Session != &session) {
+    if (&parameters.GetSession() != &session) {
         NRI_REPORT_ERROR(&m_Device, "'parameters' must belong to 'session'");
         return;
     }
@@ -1139,11 +1139,11 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
             av1StdPicture.flags.showable_frame = true;
             if (av1PictureDesc && av1PictureDesc->flags != VideoAV1PictureBits::NONE) {
                 if ((av1PictureDesc->flags & (VideoAV1PictureBits::ALLOW_SCREEN_CONTENT_TOOLS | VideoAV1PictureBits::FORCE_INTEGER_MV))
-                    && parameters.m_AV1SequenceHeader.seq_force_screen_content_tools == 0) {
+                    && parameters.GetAV1SequenceHeader().seq_force_screen_content_tools == 0) {
                     NRI_REPORT_ERROR(&m_Device, "Vulkan AV1 encode session parameters do not allow screen-content tools");
                     return;
                 }
-                if ((av1PictureDesc->flags & VideoAV1PictureBits::FORCE_INTEGER_MV) && parameters.m_AV1SequenceHeader.seq_force_integer_mv == 0) {
+                if ((av1PictureDesc->flags & VideoAV1PictureBits::FORCE_INTEGER_MV) && parameters.GetAV1SequenceHeader().seq_force_integer_mv == 0) {
                     NRI_REPORT_ERROR(&m_Device, "Vulkan AV1 encode session parameters do not allow integer motion vectors");
                     return;
                 }
@@ -1257,7 +1257,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
                     av1TileInfo.pWidthInSbsMinus1 = encodeAv1TileLayout->widthInSuperblocksMinus1;
                     av1TileInfo.pHeightInSbsMinus1 = encodeAv1TileLayout->heightInSuperblocksMinus1;
 
-                    const uint32_t superblockSize = parameters.m_AV1SequenceHeader.flags.use_128x128_superblock ? 128 : 64;
+                    const uint32_t superblockSize = parameters.GetAV1SequenceHeader().flags.use_128x128_superblock ? 128 : 64;
                     for (uint32_t i = 0; i < encodeAv1TileLayout->columnNum; i++) {
                         const uint32_t tileWidth = uint32_t(encodeAv1TileLayout->widthInSuperblocksMinus1[i] + 1) * superblockSize;
                         if (!IsVideoEncodeAV1TileWidthSupportedVK(tileWidth, session.GetAV1MinTileSize(), session.GetAV1MaxTileSize())) {
@@ -1277,7 +1277,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
                 NRI_REPORT_ERROR(&m_Device, "Vulkan AV1 encode does not support the default single-tile size");
                 return;
             }
-            FillVideoEncodeAV1QuantizationVK(av1Quantization, av1PictureDesc, av1PictureDesc && av1PictureDesc->baseQIndex ? av1PictureDesc->baseQIndex : GetVideoEncodeQPByFrameTypeVK(rateControlDesc, pictureDesc.frameType));
+            FillVideoEncodeAV1QuantizationVK(av1Quantization, av1PictureDesc, (av1PictureDesc && av1PictureDesc->baseQIndex) ? av1PictureDesc->baseQIndex : GetVideoEncodeQPByFrameTypeVK(rateControlDesc, pictureDesc.frameType));
             FillVideoEncodeAV1LoopFilterVK(av1LoopFilter, av1PictureDesc);
             FillVideoEncodeAV1LoopRestorationVK(av1LoopRestoration, av1PictureDesc);
             FillVideoEncodeAV1CdefVK(av1Cdef, av1PictureDesc);
@@ -1286,7 +1286,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
             av1StdPicture.pQuantization = &av1Quantization;
             av1StdPicture.pSegmentation = nullptr;
             av1StdPicture.pLoopFilter = &av1LoopFilter;
-            av1StdPicture.pLoopRestoration = av1PictureDesc && av1PictureDesc->loopRestoration ? &av1LoopRestoration : nullptr;
+            av1StdPicture.pLoopRestoration = (av1PictureDesc && av1PictureDesc->loopRestoration) ? &av1LoopRestoration : nullptr;
             av1StdPicture.pCDEF = &av1Cdef;
             av1StdPicture.pGlobalMotion = &av1GlobalMotion;
             av1StdPicture.pExtensionHeader = &av1ExtensionHeader;
@@ -1359,7 +1359,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         VideoPictureVK& picture = *(VideoPictureVK*)videoEncodeDesc.references[i].picture;
         referenceSlots[i] = {VK_STRUCTURE_TYPE_VIDEO_REFERENCE_SLOT_INFO_KHR};
         referenceSlots[i].slotIndex = videoEncodeDesc.references[i].slot;
-        referenceSlots[i].pPictureResource = &picture.m_Resource;
+        referenceSlots[i].pPictureResource = &picture.GetResource();
 
         if (session.GetDesc().codec == VideoCodec::H264) {
             const VideoH264ReferenceDesc* referenceDesc = FindVideoEncodeH264ReferenceDesc(videoEncodeDesc.h264PictureDesc, videoEncodeDesc.references[i].slot);
@@ -1417,7 +1417,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
 
     if (hasSetupReferenceSlot) {
         VideoPictureVK& reconstructedPicture = *(VideoPictureVK*)videoEncodeDesc.reconstructedPicture;
-        setupReferenceSlot.pPictureResource = &reconstructedPicture.m_Resource;
+        setupReferenceSlot.pPictureResource = &reconstructedPicture.GetResource();
     }
 
     VkVideoEncodeInfoKHR encodeInfo = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_INFO_KHR};
@@ -1446,7 +1446,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
     encodeInfo.dstBufferOffset = videoEncodeDesc.dstBitstream.offset;
     encodeInfo.dstBufferRange = videoEncodeDesc.dstBitstream.size;
     encodeInfo.precedingExternallyEncodedBytes = (uint32_t)videoEncodeDesc.bitstreamMetadataSize;
-    encodeInfo.srcPictureResource = srcPicture.m_Resource;
+    encodeInfo.srcPictureResource = srcPicture.GetResource();
     encodeInfo.pSetupReferenceSlot = hasSetupReferenceSlot ? &setupReferenceSlot : nullptr;
     encodeInfo.referenceSlotCount = videoEncodeDesc.referenceNum;
     encodeInfo.pReferenceSlots = videoEncodeDesc.referenceNum ? (VkVideoReferenceSlotInfoKHR*)referenceSlots : nullptr;
@@ -1485,7 +1485,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         qualityLevelInfo.pNext = &rateControlInfo;
         if (session.DoesAV1RequireGopRemainingFrames() && rateControlDesc.mode != VideoEncodeRateControlMode::CQP) {
             av1GopRemainingFrameInfo.useGopRemainingFrames = VK_TRUE;
-            av1GopRemainingFrameInfo.gopRemainingIntra = pictureDesc.frameType == VideoEncodeFrameType::IDR || pictureDesc.frameType == VideoEncodeFrameType::I ? 1 : 0;
+            av1GopRemainingFrameInfo.gopRemainingIntra = (pictureDesc.frameType == VideoEncodeFrameType::IDR || pictureDesc.frameType == VideoEncodeFrameType::I) ? 1 : 0;
             av1GopRemainingFrameInfo.gopRemainingPredictive = av1RateControlInfo.gopFrameCount ? av1RateControlInfo.gopFrameCount - 1 : 0;
             av1GopRemainingFrameInfo.gopRemainingBipredictive = av1RateControlInfo.consecutiveBipredictiveFrameCount;
             av1GopRemainingFrameInfo.pNext = &rateControlInfo;
@@ -1496,7 +1496,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
     VkVideoBeginCodingInfoKHR beginInfo = {VK_STRUCTURE_TYPE_VIDEO_BEGIN_CODING_INFO_KHR};
     beginInfo.pNext = beginPNext;
     beginInfo.videoSession = session.GetHandle();
-    beginInfo.videoSessionParameters = parameters.m_Handle;
+    beginInfo.videoSessionParameters = parameters.GetHandle();
     beginInfo.referenceSlotCount = videoEncodeDesc.referenceNum + (hasSetupReferenceSlot ? 1 : 0);
     beginInfo.pReferenceSlots = referenceSlots;
 
@@ -2498,7 +2498,7 @@ NRI_INLINE void CommandBufferVK::UploadBufferToTexture(Texture& dstTexture, cons
         }
     };
     auto getPlaneDivisor = [](Format format, PlaneBits planes) {
-        return (planes & PlaneBits::PLANE_1) && (format == Format::NV12_UNORM || format == Format::P010_UNORM || format == Format::P016_UNORM) ? 2u : 1u;
+        return ((planes & PlaneBits::PLANE_1) && (format == Format::NV12_UNORM || format == Format::P010_UNORM || format == Format::P016_UNORM)) ? 2u : 1u;
     };
 
     uint32_t planeStride = 0;
@@ -2579,7 +2579,7 @@ NRI_INLINE void CommandBufferVK::ReadbackTextureToBuffer(Buffer& dstBuffer, cons
         }
     };
     auto getPlaneDivisor = [](Format format, PlaneBits planes) {
-        return (planes & PlaneBits::PLANE_1) && (format == Format::NV12_UNORM || format == Format::P010_UNORM || format == Format::P016_UNORM) ? 2u : 1u;
+        return ((planes & PlaneBits::PLANE_1) && (format == Format::NV12_UNORM || format == Format::P010_UNORM || format == Format::P016_UNORM)) ? 2u : 1u;
     };
 
     uint32_t planeStride = 0;
@@ -2732,7 +2732,7 @@ static inline VkAccessFlags2 GetAccessFlags(AccessBits accessBits) {
     if (accessBits & AccessBits::HOST_WRITE)
         flags |= VK_ACCESS_2_HOST_WRITE_BIT;
 
-  if (accessBits & AccessBits::VIDEO_DECODE_READ)
+    if (accessBits & AccessBits::VIDEO_DECODE_READ)
         flags |= VK_ACCESS_2_VIDEO_DECODE_READ_BIT_KHR;
 
     if (accessBits & AccessBits::VIDEO_DECODE_WRITE)

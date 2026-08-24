@@ -80,7 +80,7 @@ Result TextureVK::Create(const TextureVKDesc& textureVKDesc) {
         m_Desc.usage |= TextureUsageBits::VIDEO_ENCODE;
     else if (textureVKDesc.vkImageUsageFlags & VK_IMAGE_USAGE_VIDEO_ENCODE_DPB_BIT_KHR)
         m_Desc.usage |= TextureUsageBits::VIDEO_ENCODE | TextureUsageBits::VIDEO_REFERENCE_ONLY;
-  
+
     m_OwnsNativeObjects = false;
     m_Handle = (VkImage)textureVKDesc.vkImage;
 

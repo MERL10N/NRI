@@ -516,8 +516,10 @@ static void UpdateAdaptersVK(AdapterDesc* adapterDescs, uint32_t& adapterDescNum
                 props.opticalFlow = familyProps.queueFlags & VK_QUEUE_OPTICAL_FLOW_BIT_NV;
 
                 QueueType queueType = TrySelectPreferredQueueType(props, scores);
-                if (queueType != QueueType::MAX_NUM)
+                while (queueType != QueueType::MAX_NUM) {
                     adapterDesc.queueNum[(size_t)queueType] = familyProps.queueCount;
+                    queueType = TrySelectPreferredQueueType(props, scores);
+                }
             }
         }
 

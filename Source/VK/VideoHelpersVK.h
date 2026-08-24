@@ -46,7 +46,7 @@ inline void FillVideoEncodeRateControlVK(const VideoEncodeRateControlDesc& desc,
 
     layer = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_RATE_CONTROL_LAYER_INFO_KHR};
     layer.averageBitrate = desc.targetBitrate;
-    layer.maxBitrate = desc.mode == VideoEncodeRateControlMode::VBR && desc.maxBitrate ? desc.maxBitrate : desc.targetBitrate;
+    layer.maxBitrate = (desc.mode == VideoEncodeRateControlMode::VBR && desc.maxBitrate) ? desc.maxBitrate : desc.targetBitrate;
     layer.frameRateNumerator = desc.frameRateNumerator ? desc.frameRateNumerator : 30;
     layer.frameRateDenominator = desc.frameRateDenominator ? desc.frameRateDenominator : 1;
 
@@ -153,7 +153,7 @@ inline uint8_t GetVideoAV1ReferenceNameIndexVK(VideoAV1ReferenceName name) {
 
 inline uint8_t GetVideoAV1NamedReferenceIndexVK(VideoAV1ReferenceName name) {
     const uint8_t referenceNameIndex = GetVideoAV1ReferenceNameIndexVK(name);
-    return name != VideoAV1ReferenceName::NONE && referenceNameIndex < VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR
+    return (name != VideoAV1ReferenceName::NONE && referenceNameIndex < VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR)
         ? referenceNameIndex
         : VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR;
 }
@@ -255,7 +255,7 @@ inline uint8_t GetVideoAV1SizeBitsMinus1VK(uint32_t value) {
 inline VideoAV1SequenceDesc GetDefaultVideoAV1SequenceDescVK(uint32_t width, uint32_t height, Format format) {
     VideoAV1SequenceDesc desc = {};
     desc.flags = VideoAV1SequenceBits::ENABLE_ORDER_HINT | VideoAV1SequenceBits::COLOR_DESCRIPTION_PRESENT;
-    desc.bitDepth = format == Format::P010_UNORM || format == Format::P016_UNORM ? 10 : 8;
+    desc.bitDepth = (format == Format::P010_UNORM || format == Format::P016_UNORM) ? 10 : 8;
     desc.subsamplingX = 1;
     desc.subsamplingY = 1;
     desc.maxFrameWidthMinus1 = (uint16_t)(width - 1);

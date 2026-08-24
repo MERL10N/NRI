@@ -713,13 +713,15 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
             props.opticalFlow = familyProps.queueFlags & VK_QUEUE_OPTICAL_FLOW_BIT_NV;
 
             QueueType queueType = TrySelectPreferredQueueType(props, scores);
-            if (queueType != QueueType::MAX_NUM) {
+            while (queueType != QueueType::MAX_NUM) {
                 queueFamilyIndices[(size_t)queueType] = i;
 
                 if (queueType == QueueType::VIDEO_DECODE)
                     m_VideoCodecOperations[(size_t)QueueType::VIDEO_DECODE] = videoCodecOperations & VIDEO_DECODE_CODEC_OPERATION_MASK;
                 else if (queueType == QueueType::VIDEO_ENCODE)
                     m_VideoCodecOperations[(size_t)QueueType::VIDEO_ENCODE] = videoCodecOperations & VIDEO_ENCODE_CODEC_OPERATION_MASK;
+
+                queueType = TrySelectPreferredQueueType(props, scores);
             }
         }
     }

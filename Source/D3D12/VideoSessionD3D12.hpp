@@ -1,9 +1,277 @@
 // © 2026 NVIDIA Corporation
 
-Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
-    if (videoSessionDesc.width == 0 || videoSessionDesc.height == 0 || videoSessionDesc.format == Format::UNKNOWN)
-        return Result::INVALID_ARGUMENT;
+static inline bool CanCreateVideoDecodeSessionD3D12(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, const D3D12_VIDEO_DECODE_CONFIGURATION& configuration) {
+    D3D12_VIDEO_DECODER_DESC decoderDesc = {};
+    decoderDesc.Configuration = configuration;
 
+    ComPtr<ID3D12VideoDecoderBest> decoder;
+    HRESULT hr = videoDevice->CreateVideoDecoder(&decoderDesc, __uuidof(ID3D12VideoDecoderBest), (void**)&decoder);
+    if (FAILED(hr))
+        return false;
+
+    D3D12_VIDEO_DECODER_HEAP_DESC heapDesc = {};
+    heapDesc.Configuration = configuration;
+    heapDesc.DecodeWidth = videoSessionDesc.width;
+    heapDesc.DecodeHeight = videoSessionDesc.height;
+    heapDesc.Format = GetDxgiFormat(videoSessionDesc.format).typed;
+    heapDesc.MaxDecodePictureBufferCount = videoSessionDesc.maxReferenceNum + 1;
+
+    ComPtr<ID3D12VideoDecoderHeapBest> heap;
+    hr = videoDevice->CreateVideoDecoderHeap(&heapDesc, __uuidof(ID3D12VideoDecoderHeapBest), (void**)&heap);
+
+    return SUCCEEDED(hr);
+}
+
+static inline Result GetVideoCapabilitiesD3D12(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
+    FillVideoCapabilitiesD3D12(videoCapabilities, videoSessionDesc);
+
+    ComPtr<ID3D12VideoDevice> videoDevice;
+    HRESULT hr = device->QueryInterface(IID_PPV_ARGS(&videoDevice));
+    NRI_RETURN_ON_BAD_HRESULT(&device, hr, "ID3D12Device::QueryInterface(ID3D12VideoDevice)");
+
+    if (videoSessionDesc.type == VideoSessionType::DECODE) {
+        D3D12_VIDEO_DECODE_CONFIGURATION configuration = {};
+        configuration.DecodeProfile = GetVideoDecodeProfileD3D12(videoSessionDesc.codec, videoSessionDesc.format);
+        if (configuration.DecodeProfile == GUID{})
+            return Result::UNSUPPORTED;
+
+        configuration.BitstreamEncryption = D3D12_BITSTREAM_ENCRYPTION_TYPE_NONE;
+        configuration.InterlaceType = D3D12_VIDEO_FRAME_CODED_INTERLACE_TYPE_NONE;
+
+        D3D12_FEATURE_DATA_VIDEO_DECODE_SUPPORT decodeSupport = {};
+        decodeSupport.Configuration = configuration;
+        decodeSupport.Width = videoSessionDesc.width;
+        decodeSupport.Height = videoSessionDesc.height;
+        decodeSupport.DecodeFormat = GetDxgiFormat(videoSessionDesc.format).typed;
+        decodeSupport.FrameRate = {30, 1};
+
+        hr = videoDevice->CheckFeatureSupport(D3D12_FEATURE_VIDEO_DECODE_SUPPORT, &decodeSupport, sizeof(decodeSupport));
+        NRI_RETURN_ON_BAD_HRESULT(&device, hr, "ID3D12VideoDevice::CheckFeatureSupport(D3D12_FEATURE_VIDEO_DECODE_SUPPORT)");
+
+        if ((decodeSupport.SupportFlags & D3D12_VIDEO_DECODE_SUPPORT_FLAG_SUPPORTED) == 0)
+            return Result::UNSUPPORTED;
+
+        if (decodeSupport.ConfigurationFlags & D3D12_VIDEO_DECODE_CONFIGURATION_FLAG_REFERENCE_ONLY_ALLOCATIONS_REQUIRED)
+            return Result::UNSUPPORTED;
+
+        return CanCreateVideoDecodeSessionD3D12(videoDevice.GetInterface(), videoSessionDesc, configuration) ? Result::SUCCESS : Result::UNSUPPORTED;
+    }
+
+#if NRI_ENABLE_AGILITY_SDK_SUPPORT
+    if (videoSessionDesc.type == VideoSessionType::ENCODE)
+        return IsVideoEncodeSessionSupportedD3D12(videoDevice, videoSessionDesc, &videoCapabilities) ? Result::SUCCESS : Result::UNSUPPORTED;
+#endif
+
+    return Result::UNSUPPORTED;
+}
+
+static inline Result GetVideoAV1CapabilitiesD3D12(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
+    videoAV1Capabilities = {};
+    if (videoSessionDesc.codec != VideoCodec::AV1)
+        return Result::UNSUPPORTED;
+
+    ComPtr<ID3D12VideoDevice> videoDevice;
+    HRESULT hr = device->QueryInterface(IID_PPV_ARGS(&videoDevice));
+    NRI_RETURN_ON_BAD_HRESULT(&device, hr, "ID3D12Device::QueryInterface(ID3D12VideoDevice)");
+
+    if (videoSessionDesc.type == VideoSessionType::DECODE) {
+        VideoCapabilities videoCapabilities = {};
+        Result result = GetVideoCapabilitiesD3D12(device, videoSessionDesc, videoCapabilities);
+        if (result == Result::SUCCESS)
+            FillVideoDecodeAV1CapabilitiesD3D12(videoAV1Capabilities);
+
+        return result;
+    }
+
+#if NRI_ENABLE_AGILITY_SDK_SUPPORT
+    if (videoSessionDesc.type == VideoSessionType::ENCODE)
+        return IsVideoEncodeSessionSupportedD3D12(videoDevice, videoSessionDesc, nullptr, &videoAV1Capabilities) ? Result::SUCCESS : Result::UNSUPPORTED;
+#endif
+
+    return Result::UNSUPPORTED;
+}
+
+static inline Result GetVideoEncodeFeedbackD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, VideoEncodeFeedback& feedback) {
+#if NRI_ENABLE_AGILITY_SDK_SUPPORT
+    const void* metadata = resolvedMetadataReadback.Map(resolvedMetadataOffset);
+    if (!metadata)
+        return Result::FAILURE;
+
+    const auto& d3d12Feedback = *(const D3D12_VIDEO_ENCODER_OUTPUT_METADATA*)metadata;
+    const auto* subregions = (const D3D12_VIDEO_ENCODER_FRAME_SUBREGION_METADATA*)((const uint8_t*)metadata + sizeof(D3D12_VIDEO_ENCODER_OUTPUT_METADATA));
+
+    feedback = {};
+    feedback.errorFlags = d3d12Feedback.EncodeErrorFlags;
+    feedback.averageQP = d3d12Feedback.EncodeStats.AverageQP;
+    feedback.intraCodingUnitNum = d3d12Feedback.EncodeStats.IntraCodingUnitsCount;
+    feedback.interCodingUnitNum = d3d12Feedback.EncodeStats.InterCodingUnitsCount;
+    feedback.skipCodingUnitNum = d3d12Feedback.EncodeStats.SkipCodingUnitsCount;
+    feedback.averageMotionEstimationX = d3d12Feedback.EncodeStats.AverageMotionEstimationXDirection;
+    feedback.averageMotionEstimationY = d3d12Feedback.EncodeStats.AverageMotionEstimationYDirection;
+    feedback.encodedBitstreamWrittenBytes = d3d12Feedback.EncodedBitstreamWrittenBytesCount;
+    feedback.writtenSubregionNum = d3d12Feedback.WrittenSubregionsCount;
+    feedback.encodedBitstreamOffset = (subregions && feedback.writtenSubregionNum) ? subregions[0].bStartOffset : 0;
+
+    return Result::SUCCESS;
+#else
+    MaybeUnused(resolvedMetadataReadback, resolvedMetadataOffset, feedback);
+
+    return Result::UNSUPPORTED;
+#endif
+}
+
+static inline Result GetVideoEncodeAV1DecodeInfoD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
+    info = {};
+#if NRI_ENABLE_AGILITY_SDK_SUPPORT
+    if (desc.feedback->errorFlags || !desc.feedback->encodedBitstreamWrittenBytes || !desc.feedback->writtenSubregionNum)
+        return Result::FAILURE;
+    if (desc.encodedPayloadHeader && desc.encodedPayloadHeaderSize)
+        return video_av1::GetVideoEncodeAV1DecodeInfoFromHeader(desc, info);
+
+    const void* metadata = resolvedMetadataReadback.Map(resolvedMetadataOffset);
+    if (!metadata)
+        return Result::FAILURE;
+
+    const auto* bytes = (const uint8_t*)metadata;
+    const auto& output = *(const D3D12_VIDEO_ENCODER_OUTPUT_METADATA*)bytes;
+    const auto& subregion = *(const D3D12_VIDEO_ENCODER_FRAME_SUBREGION_METADATA*)(bytes + sizeof(D3D12_VIDEO_ENCODER_OUTPUT_METADATA));
+    const auto& tilesLayout = *(const VideoEncodeAV1TilesLayoutD3D12*)(bytes + sizeof(D3D12_VIDEO_ENCODER_OUTPUT_METADATA) + sizeof(D3D12_VIDEO_ENCODER_FRAME_SUBREGION_METADATA));
+    const auto& post = *(const VideoEncodeAV1PostEncodeValuesD3D12*)(bytes + sizeof(D3D12_VIDEO_ENCODER_OUTPUT_METADATA) + sizeof(D3D12_VIDEO_ENCODER_FRAME_SUBREGION_METADATA) + sizeof(VideoEncodeAV1TilesLayoutD3D12));
+
+    if (output.EncodeErrorFlags || output.WrittenSubregionsCount != 1 || subregion.bSize <= subregion.bStartOffset)
+        return Result::FAILURE;
+
+    if (tilesLayout.ColCount != 1 || tilesLayout.RowCount != 1)
+        return Result::FAILURE;
+
+    const uint64_t tilePayloadSize = subregion.bSize - subregion.bStartOffset;
+    if (tilePayloadSize > std::numeric_limits<uint32_t>::max())
+        return Result::FAILURE;
+
+    info.sequence = *desc.sequence;
+    info.sequence.flags |= VideoAV1SequenceBits::ENABLE_CDEF | VideoAV1SequenceBits::ENABLE_RESTORATION;
+    const uint32_t width = info.sequence.maxFrameWidthMinus1 + 1;
+    const uint32_t height = info.sequence.maxFrameHeightMinus1 + 1;
+    video_av1::BindPointers(info);
+    video_av1::FillSingleTileLayout(info, width, height);
+    info.tileLayout.contextUpdateTileId = (uint16_t)tilesLayout.ContextUpdateTileId;
+
+    info.bitstreamOffset = subregion.bStartOffset;
+    info.bitstreamSize = tilePayloadSize;
+    info.tiles[0] = {0, (uint32_t)tilePayloadSize, 0, 0, 0xFF};
+
+    info.quantization.deltaQYDc = (int8_t)post.Quantization.YDCDeltaQ;
+    info.quantization.deltaQUDc = (int8_t)post.Quantization.UDCDeltaQ;
+    info.quantization.deltaQUAc = (int8_t)post.Quantization.UACDeltaQ;
+    info.quantization.deltaQVDc = (int8_t)post.Quantization.VDCDeltaQ;
+    info.quantization.deltaQVAc = (int8_t)post.Quantization.VACDeltaQ;
+    info.quantization.usingQmatrix = (uint8_t)post.Quantization.UsingQMatrix;
+    info.quantization.qmY = (uint8_t)post.Quantization.QMY;
+    info.quantization.qmU = (uint8_t)post.Quantization.QMU;
+    info.quantization.qmV = (uint8_t)post.Quantization.QMV;
+
+    info.loopFilter.level[0] = (uint8_t)post.LoopFilter.LoopFilterLevel[0];
+    info.loopFilter.level[1] = (uint8_t)post.LoopFilter.LoopFilterLevel[1];
+    info.loopFilter.level[2] = (uint8_t)post.LoopFilter.LoopFilterLevelU;
+    info.loopFilter.level[3] = (uint8_t)post.LoopFilter.LoopFilterLevelV;
+    info.loopFilter.sharpness = (uint8_t)post.LoopFilter.LoopFilterSharpnessLevel;
+    info.loopFilter.deltaEnabled = (uint8_t)post.LoopFilter.LoopFilterDeltaEnabled;
+    info.loopFilter.deltaUpdate = (uint8_t)post.LoopFilter.UpdateRefDelta;
+    info.loopFilter.updateModeDelta = (uint8_t)post.LoopFilter.UpdateModeDelta;
+    for (uint32_t i = 0; i < 8; i++)
+        info.loopFilter.refDeltas[i] = (int8_t)post.LoopFilter.RefDeltas[i];
+    for (uint32_t i = 0; i < 2; i++)
+        info.loopFilter.modeDeltas[i] = (int8_t)post.LoopFilter.ModeDeltas[i];
+
+    info.picture.frameType = VideoEncodeFrameType::IDR;
+    info.picture.orderHint = 0;
+    info.picture.refreshFrameFlags = 0xFF;
+    info.picture.primaryReferenceName = VideoAV1ReferenceName::NONE;
+    info.picture.currentFrameId = 0;
+    info.picture.flags = VideoAV1PictureBits::ERROR_RESILIENT_MODE | VideoAV1PictureBits::FORCE_INTEGER_MV | VideoAV1PictureBits::SHOW_FRAME;
+
+    if (desc.referenceNum) {
+        std::array<uint8_t, 7> refFrameIndices = {};
+
+        for (uint32_t i = 0; i < refFrameIndices.size(); i++) {
+            if (post.ReferenceIndices[i] > std::numeric_limits<uint8_t>::max())
+                return Result::FAILURE;
+
+            refFrameIndices[i] = (uint8_t)post.ReferenceIndices[i];
+        }
+
+        if (post.PrimaryRefFrame > 7 || !video_av1::BuildInterFrameReferences(desc, refFrameIndices, info))
+            return Result::FAILURE;
+
+        info.picture.frameType = VideoEncodeFrameType::P;
+        info.picture.refreshFrameFlags = 0;
+        info.picture.primaryReferenceName = video_av1::GetReferenceNameFromReferenceIndex((uint32_t)post.PrimaryRefFrame);
+        info.picture.flags = VideoAV1PictureBits::SHOW_FRAME;
+    }
+
+    if (post.QuantizationDelta.DeltaQPresent) {
+        info.picture.flags |= VideoAV1PictureBits::DELTA_Q_PRESENT;
+        info.picture.deltaQRes = (uint8_t)post.QuantizationDelta.DeltaQRes;
+    }
+
+    if (post.LoopFilterDelta.DeltaLFPresent) {
+        info.picture.flags |= VideoAV1PictureBits::DELTA_LF_PRESENT;
+        info.picture.deltaLfRes = (uint8_t)post.LoopFilterDelta.DeltaLFRes;
+    }
+
+    if (post.LoopFilterDelta.DeltaLFMulti)
+        info.picture.flags |= VideoAV1PictureBits::DELTA_LF_MULTI;
+
+    if (post.SegmentationConfig.NumSegments) {
+        info.picture.flags |= VideoAV1PictureBits::SEGMENTATION_ENABLED;
+
+        if (post.SegmentationConfig.UpdateMap)
+            info.picture.flags |= VideoAV1PictureBits::SEGMENTATION_UPDATE_MAP;
+
+        if (post.SegmentationConfig.UpdateData)
+            info.picture.flags |= VideoAV1PictureBits::SEGMENTATION_UPDATE_DATA;
+
+        if (post.SegmentationConfig.TemporalUpdate)
+            info.picture.flags |= VideoAV1PictureBits::SEGMENTATION_TEMPORAL_UPDATE;
+
+        info.picture.segmentation = &info.segmentation;
+
+        for (uint32_t i = 0; i < 8; i++) {
+            info.segmentation.featureEnabled[i] = (uint8_t)post.SegmentationConfig.SegmentsData[i].EnabledFeatures;
+
+            for (uint32_t j = 0; j < 8; j++)
+                info.segmentation.featureData[i][j] = (int16_t)post.SegmentationConfig.SegmentsData[i].FeatureValue[j];
+        }
+    }
+
+    info.picture.renderWidthMinus1 = (uint16_t)(width - 1);
+    info.picture.renderHeightMinus1 = (uint16_t)(height - 1);
+    info.picture.baseQIndex = (uint8_t)post.Quantization.BaseQIndex;
+    info.picture.interpolationFilter = video_av1::INTERPOLATION_FILTER_EIGHTTAP;
+    info.picture.txMode = video_av1::TX_MODE_SELECT;
+    info.picture.cdefDampingMinus3 = (uint8_t)post.CDEF.CdefDampingMinus3;
+    info.picture.cdefBits = (uint8_t)post.CDEF.CdefBits;
+    info.picture.tileNum = 1;
+
+    for (uint32_t i = 0; i < 8; i++) {
+        info.cdef.yPrimaryStrength[i] = (uint8_t)post.CDEF.CdefYPriStrength[i];
+        info.cdef.ySecondaryStrength[i] = (uint8_t)post.CDEF.CdefYSecStrength[i];
+        info.cdef.uvPrimaryStrength[i] = (uint8_t)post.CDEF.CdefUVPriStrength[i];
+        info.cdef.uvSecondaryStrength[i] = (uint8_t)post.CDEF.CdefUVSecStrength[i];
+    }
+
+    video_av1::FillIdentityGlobalMotion(info.globalMotion);
+    video_av1::BindPointers(info);
+
+    return Result::SUCCESS;
+#else
+    MaybeUnused(resolvedMetadataReadback, resolvedMetadataOffset, desc);
+
+    return Result::UNSUPPORTED;
+#endif
+}
+
+Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
     m_BFrameSupported = false;
 
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
@@ -65,7 +333,7 @@ Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
             return Result::UNSUPPORTED;
 
         D3D12_VIDEO_ENCODER_PROFILE_H264 h264Profile = D3D12_VIDEO_ENCODER_PROFILE_H264_HIGH;
-        D3D12_VIDEO_ENCODER_PROFILE_HEVC hevcProfile = videoSessionDesc.format == Format::P010_UNORM || videoSessionDesc.format == Format::P016_UNORM ? D3D12_VIDEO_ENCODER_PROFILE_HEVC_MAIN10 : D3D12_VIDEO_ENCODER_PROFILE_HEVC_MAIN;
+        D3D12_VIDEO_ENCODER_PROFILE_HEVC hevcProfile = (videoSessionDesc.format == Format::P010_UNORM || videoSessionDesc.format == Format::P016_UNORM) ? D3D12_VIDEO_ENCODER_PROFILE_HEVC_MAIN10 : D3D12_VIDEO_ENCODER_PROFILE_HEVC_MAIN;
         D3D12_VIDEO_ENCODER_AV1_PROFILE av1Profile = D3D12_VIDEO_ENCODER_AV1_PROFILE_MAIN;
         D3D12_VIDEO_ENCODER_PROFILE_DESC profile = {};
         if (videoSessionDesc.codec == VideoCodec::H264) {
@@ -189,9 +457,9 @@ Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
             gop.pAV1SequenceStructure = &av1Sequence;
         }
 
-        D3D12_VIDEO_ENCODER_LEVELS_H264 suggestedH264Level = D3D12_VIDEO_ENCODER_LEVELS_H264_41;
-        D3D12_VIDEO_ENCODER_LEVEL_TIER_CONSTRAINTS_HEVC suggestedHevcLevel = {D3D12_VIDEO_ENCODER_LEVELS_HEVC_41, D3D12_VIDEO_ENCODER_TIER_HEVC_MAIN};
-        D3D12_VIDEO_ENCODER_AV1_LEVEL_TIER_CONSTRAINTS suggestedAv1Level = {D3D12_VIDEO_ENCODER_AV1_LEVELS_4_1, D3D12_VIDEO_ENCODER_AV1_TIER_MAIN};
+        D3D12_VIDEO_ENCODER_LEVELS_H264 suggestedH264Level = {};
+        D3D12_VIDEO_ENCODER_LEVEL_TIER_CONSTRAINTS_HEVC suggestedHevcLevel = {};
+        D3D12_VIDEO_ENCODER_AV1_LEVEL_TIER_CONSTRAINTS suggestedAv1Level = {};
         D3D12_VIDEO_ENCODER_LEVEL_SETTING suggestedLevel = {};
         if (videoSessionDesc.codec == VideoCodec::H264) {
             suggestedLevel.DataSize = sizeof(suggestedH264Level);

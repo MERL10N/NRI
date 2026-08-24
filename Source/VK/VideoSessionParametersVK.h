@@ -37,9 +37,21 @@ struct VideoSessionParametersVK final : public DebugNameBase {
         return m_Device;
     }
 
+    inline const VideoSessionVK& GetSession() const {
+        return *m_Session;
+    }
+
+    inline const StdVideoAV1SequenceHeader& GetAV1SequenceHeader() const {
+        return m_AV1SequenceHeader;
+    }
+
+    inline VkVideoSessionParametersKHR GetHandle() const {
+        return m_Handle;
+    }
+
     ~VideoSessionParametersVK();
 
-    //================================================================================================================    //================================================================================================================
+    //================================================================================================================
     // DebugNameBase
     //================================================================================================================
 
@@ -51,9 +63,11 @@ struct VideoSessionParametersVK final : public DebugNameBase {
     // NRI
     //================================================================================================================
 
+    Result Create(const VideoSessionParametersDesc& videoSessionParametersDesc);
+
+private:
     Result CreateNative(VideoSessionVK& session, const void* pNext);
     Result CreateNative(VideoSessionVK& session, const VkVideoSessionParametersCreateInfoKHR* nativeCreateInfo);
-    Result Create(const VideoSessionParametersDesc& videoSessionParametersDesc);
     Result CreateH265(VideoSessionVK& session);
     Result CreateAV1(VideoSessionVK& session);
 

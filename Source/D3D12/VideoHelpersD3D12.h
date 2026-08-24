@@ -35,7 +35,7 @@ inline GUID GetVideoDecodeProfileD3D12(VideoCodec codec, Format format) {
         case VideoCodec::H264:
             return format == Format::NV12_UNORM ? D3D12_VIDEO_DECODE_PROFILE_H264 : GUID{};
         case VideoCodec::H265:
-            return format == Format::P010_UNORM || format == Format::P016_UNORM ? D3D12_VIDEO_DECODE_PROFILE_HEVC_MAIN10 : D3D12_VIDEO_DECODE_PROFILE_HEVC_MAIN;
+            return (format == Format::P010_UNORM || format == Format::P016_UNORM) ? D3D12_VIDEO_DECODE_PROFILE_HEVC_MAIN10 : D3D12_VIDEO_DECODE_PROFILE_HEVC_MAIN;
         case VideoCodec::AV1:
             return D3D12_VIDEO_DECODE_PROFILE_AV1_PROFILE0;
         default:
@@ -69,7 +69,7 @@ inline void FillVideoDecodeAV1CapabilitiesD3D12(VideoAV1Capabilities& videoAV1Ca
 inline VideoAV1SequenceDesc GetDefaultVideoAV1SequenceDescD3D12(uint32_t width, uint32_t height, Format format) {
     VideoAV1SequenceDesc desc = {};
     desc.flags = VideoAV1SequenceBits::ENABLE_ORDER_HINT | VideoAV1SequenceBits::ENABLE_CDEF | VideoAV1SequenceBits::ENABLE_RESTORATION | VideoAV1SequenceBits::COLOR_DESCRIPTION_PRESENT;
-    desc.bitDepth = format == Format::P010_UNORM || format == Format::P016_UNORM ? 10 : 8;
+    desc.bitDepth = (format == Format::P010_UNORM || format == Format::P016_UNORM) ? 10 : 8;
     desc.subsamplingX = 1;
     desc.subsamplingY = 1;
     desc.maxFrameWidthMinus1 = (uint16_t)(width - 1);
@@ -465,9 +465,9 @@ inline bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, c
         gop.pAV1SequenceStructure = &av1Sequence;
     }
 
-    D3D12_VIDEO_ENCODER_LEVELS_H264 suggestedH264Level = D3D12_VIDEO_ENCODER_LEVELS_H264_41;
-    D3D12_VIDEO_ENCODER_LEVEL_TIER_CONSTRAINTS_HEVC suggestedHevcLevel = {D3D12_VIDEO_ENCODER_LEVELS_HEVC_41, D3D12_VIDEO_ENCODER_TIER_HEVC_MAIN};
-    D3D12_VIDEO_ENCODER_AV1_LEVEL_TIER_CONSTRAINTS suggestedAv1Level = {D3D12_VIDEO_ENCODER_AV1_LEVELS_4_1, D3D12_VIDEO_ENCODER_AV1_TIER_MAIN};
+    D3D12_VIDEO_ENCODER_LEVELS_H264 suggestedH264Level = {};
+    D3D12_VIDEO_ENCODER_LEVEL_TIER_CONSTRAINTS_HEVC suggestedHevcLevel = {};
+    D3D12_VIDEO_ENCODER_AV1_LEVEL_TIER_CONSTRAINTS suggestedAv1Level = {};
     D3D12_VIDEO_ENCODER_LEVEL_SETTING suggestedLevel = {};
 
     if (codec == VideoCodec::H264) {

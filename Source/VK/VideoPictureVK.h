@@ -17,9 +17,13 @@ struct VideoPictureVK final : public DebugNameBase {
         return m_Texture == picture.m_Texture && m_Layer == picture.m_Layer;
     }
 
+    inline const VkVideoPictureResourceInfoKHR& GetResource() const {
+        return m_Resource;
+    }
+
     ~VideoPictureVK();
 
-    //================================================================================================================    //================================================================================================================
+    //================================================================================================================
     // DebugNameBase
     //================================================================================================================
 
@@ -33,11 +37,10 @@ struct VideoPictureVK final : public DebugNameBase {
 
     Result Create(const VideoPictureDesc& videoPictureDesc);
 
+private:
     DeviceVK& m_Device;
     VkImageView m_ImageView = VK_NULL_HANDLE;
     VkVideoPictureResourceInfoKHR m_Resource = {};
-
-private:
     TextureVK* m_Texture = nullptr;
     uint32_t m_Layer = 0;
 };

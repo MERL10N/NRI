@@ -924,7 +924,7 @@ NriStruct(VideoInterface) {
         void            (NRI_CALL *ResetVideoSession)               (NriRef(VideoSession) videoSession);
         void            (NRI_CALL *DestroyVideoSessionParameters)   (NriPtr(VideoSessionParameters) videoSessionParameters);
         void            (NRI_CALL *DestroyVideoPicture)             (NriPtr(VideoPicture) videoPicture);
-        
+
         // Returns backend-specific states for explicit caller-recorded decode/encode picture barriers
         Nri(Result)     (NRI_CALL *GetVideoPictureState)            (const NriRef(VideoPicture) videoPicture, Nri(VideoPictureRole) role, NriOut NriRef(VideoPictureState) state);
 

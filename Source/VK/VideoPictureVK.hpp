@@ -7,9 +7,6 @@ VideoPictureVK::~VideoPictureVK() {
 }
 
 NRI_INLINE Result VideoPictureVK::Create(const VideoPictureDesc& videoPictureDesc) {
-    if (!videoPictureDesc.texture)
-        return Result::INVALID_ARGUMENT;
-
     TextureVK& texture = *(TextureVK*)videoPictureDesc.texture;
     const TextureDesc& textureDesc = texture.GetDesc();
     m_Texture = &texture;
@@ -26,30 +23,23 @@ NRI_INLINE Result VideoPictureVK::Create(const VideoPictureDesc& videoPictureDes
     createInfo.subresourceRange.baseArrayLayer = videoPictureDesc.layer;
     createInfo.subresourceRange.layerCount = 1;
 
-    TextureUsageBits requiredTextureUsage = TextureUsageBits::NONE;
     switch (videoPictureDesc.usage) {
         case VideoPictureUsage::DECODE_OUTPUT:
-            requiredTextureUsage = TextureUsageBits::VIDEO_DECODE;
             usageInfo.usage |= VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR | VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
             break;
         case VideoPictureUsage::DECODE_REFERENCE:
-            requiredTextureUsage = TextureUsageBits::VIDEO_DECODE;
             usageInfo.usage |= VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
             break;
         case VideoPictureUsage::ENCODE_INPUT:
-            requiredTextureUsage = TextureUsageBits::VIDEO_ENCODE;
             usageInfo.usage |= VK_IMAGE_USAGE_VIDEO_ENCODE_SRC_BIT_KHR;
             break;
         case VideoPictureUsage::ENCODE_REFERENCE:
-            requiredTextureUsage = TextureUsageBits::VIDEO_ENCODE;
             usageInfo.usage |= VK_IMAGE_USAGE_VIDEO_ENCODE_DPB_BIT_KHR;
             break;
         default:
-            return Result::INVALID_ARGUMENT;
+            NRI_CHECK(false, "Unexpected 'videoPictureDesc.usage'");
+            break;
     }
-
-    if ((textureDesc.usage & requiredTextureUsage) == 0)
-        return Result::INVALID_ARGUMENT;
 
     if (usageInfo.usage)
         createInfo.pNext = &usageInfo;

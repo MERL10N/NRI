@@ -41,14 +41,14 @@ static void* FillVideoProfileCodecInfoVK(const VideoSessionDesc& videoSessionDes
             case VideoCodec::H265: {
                 VkVideoDecodeH265ProfileInfoKHR& info = *(VkVideoDecodeH265ProfileInfoKHR*)storage;
                 info = {VK_STRUCTURE_TYPE_VIDEO_DECODE_H265_PROFILE_INFO_KHR};
-                info.stdProfileIdc = videoSessionDesc.format == Format::P010_UNORM || videoSessionDesc.format == Format::P016_UNORM ? STD_VIDEO_H265_PROFILE_IDC_MAIN_10 : STD_VIDEO_H265_PROFILE_IDC_MAIN;
+                info.stdProfileIdc = (videoSessionDesc.format == Format::P010_UNORM || videoSessionDesc.format == Format::P016_UNORM) ? STD_VIDEO_H265_PROFILE_IDC_MAIN_10 : STD_VIDEO_H265_PROFILE_IDC_MAIN;
                 return &info;
             }
             case VideoCodec::AV1: {
                 VkVideoDecodeAV1ProfileInfoKHR& info = *(VkVideoDecodeAV1ProfileInfoKHR*)storage;
                 info = {VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_PROFILE_INFO_KHR};
                 info.stdProfile = STD_VIDEO_AV1_PROFILE_MAIN;
-                info.filmGrainSupport = VK_TRUE;
+                info.filmGrainSupport = VK_FALSE;
                 return &info;
             }
             default:
@@ -65,7 +65,7 @@ static void* FillVideoProfileCodecInfoVK(const VideoSessionDesc& videoSessionDes
             case VideoCodec::H265: {
                 VkVideoEncodeH265ProfileInfoKHR& info = *(VkVideoEncodeH265ProfileInfoKHR*)storage;
                 info = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_PROFILE_INFO_KHR};
-                info.stdProfileIdc = videoSessionDesc.format == Format::P010_UNORM || videoSessionDesc.format == Format::P016_UNORM ? STD_VIDEO_H265_PROFILE_IDC_MAIN_10 : STD_VIDEO_H265_PROFILE_IDC_MAIN;
+                info.stdProfileIdc = (videoSessionDesc.format == Format::P010_UNORM || videoSessionDesc.format == Format::P016_UNORM) ? STD_VIDEO_H265_PROFILE_IDC_MAIN_10 : STD_VIDEO_H265_PROFILE_IDC_MAIN;
                 return &info;
             }
             case VideoCodec::AV1: {
@@ -126,7 +126,7 @@ static bool FindVideoSessionMemoryTypeVK(const DeviceVK& device, uint32_t memory
 }
 
 static inline VkVideoComponentBitDepthFlagsKHR GetVideoBitDepthVK(Format format) {
-    return format == Format::P010_UNORM || format == Format::P016_UNORM ? VK_VIDEO_COMPONENT_BIT_DEPTH_10_BIT_KHR : VK_VIDEO_COMPONENT_BIT_DEPTH_8_BIT_KHR;
+    return (format == Format::P010_UNORM || format == Format::P016_UNORM) ? VK_VIDEO_COMPONENT_BIT_DEPTH_10_BIT_KHR : VK_VIDEO_COMPONENT_BIT_DEPTH_8_BIT_KHR;
 }
 
 VideoSessionVK::~VideoSessionVK() {
@@ -214,10 +214,6 @@ NRI_INLINE Result VideoSessionVK::GetEncodeFeedback(BufferVK& resolvedMetadataRe
             }
 
             constexpr uint64_t queryResultSize = sizeof(uint32_t) * 3;
-            constexpr uint64_t requiredMetadataSize = sizeof(VideoEncodeFeedback) + queryResultSize;
-            if (resolvedMetadataOffset > resolvedMetadataReadback.GetDesc().size || requiredMetadataSize > resolvedMetadataReadback.GetDesc().size - resolvedMetadataOffset)
-                return Result::INVALID_ARGUMENT;
-
             const uint64_t queryResultOffset = resolvedMetadataOffset + sizeof(VideoEncodeFeedback);
             const void* metadata = resolvedMetadataReadback.Map(queryResultOffset, queryResultSize);
             if (!metadata)
@@ -267,9 +263,6 @@ NRI_INLINE Result VideoSessionVK::GetEncodeAV1DecodeInfo(BufferVK& resolvedMetad
 }
 
 Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
-    if (videoSessionDesc.width == 0 || videoSessionDesc.height == 0 || videoSessionDesc.format == Format::UNKNOWN)
-        return Result::INVALID_ARGUMENT;
-
     VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
     if (!operation) {
         NRI_REPORT_ERROR(&m_Device, "Unsupported Vulkan video codec operation");
@@ -400,7 +393,6 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
         && (encodeH264Capabilities.flags & VK_VIDEO_ENCODE_H264_CAPABILITY_GENERATE_PREFIX_NALU_BIT_KHR) != 0;
 
     VkVideoSessionCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_VIDEO_SESSION_CREATE_INFO_KHR};
-    VkVideoEncodeH264SessionCreateInfoKHR encodeH264SessionCreateInfo = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_SESSION_CREATE_INFO_KHR};
     VkVideoEncodeH265SessionCreateInfoKHR encodeH265SessionCreateInfo = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_SESSION_CREATE_INFO_KHR};
     VkVideoEncodeAV1SessionCreateInfoKHR encodeAV1SessionCreateInfo = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_AV1_SESSION_CREATE_INFO_KHR};
     const uint32_t maxActiveReferencePictures = std::min(videoSessionDesc.maxReferenceNum, capabilities.maxActiveReferencePictures);
@@ -409,9 +401,6 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
     if (videoSessionDesc.type == VideoSessionType::ENCODE) {
         switch (videoSessionDesc.codec) {
             case VideoCodec::H264:
-                encodeH264SessionCreateInfo.useMaxLevelIdc = true;
-                encodeH264SessionCreateInfo.maxLevelIdc = STD_VIDEO_H264_LEVEL_IDC_4_2;
-                createInfo.pNext = &encodeH264SessionCreateInfo;
                 break;
             case VideoCodec::H265:
                 encodeH265SessionCreateInfo.useMaxLevelIdc = true;
@@ -503,9 +492,6 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
 }
 
 static Result NRI_CALL GetVideoCapabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
-    if (videoSessionDesc.width == 0 || videoSessionDesc.height == 0 || videoSessionDesc.format == Format::UNKNOWN)
-        return Result::INVALID_ARGUMENT;
-
     const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
     if (!operation)
         return Result::UNSUPPORTED;
@@ -596,8 +582,6 @@ static Result NRI_CALL GetVideoAV1Capabilities(const Device& device, const Video
     videoAV1Capabilities = {};
     if (videoSessionDesc.codec != VideoCodec::AV1)
         return Result::UNSUPPORTED;
-    if (videoSessionDesc.width == 0 || videoSessionDesc.height == 0 || videoSessionDesc.format == Format::UNKNOWN)
-        return Result::INVALID_ARGUMENT;
 
     VideoCapabilities genericCapabilities = {};
     Result genericResult = GetVideoCapabilities(device, videoSessionDesc, genericCapabilities);

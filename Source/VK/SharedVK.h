@@ -29,12 +29,12 @@ typedef uint16_t MemoryTypeIndex;
 #define PNEXTCHAIN_APPEND_FEATURES(condition, ext, nameLower, nameUpper) \
     VkPhysicalDevice##nameLower##Features##ext nameLower##Features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_##nameUpper##_FEATURES_##ext}; \
     if (IsExtensionSupported(VK_##ext##_##nameUpper##_EXTENSION_NAME, desiredDeviceExts) && (condition)) \
-        PNEXTCHAIN_APPEND_STRUCT(nameLower##Features)
+    PNEXTCHAIN_APPEND_STRUCT(nameLower##Features)
 
 #define PNEXTCHAIN_APPEND_PROPS(condition, ext, nameLower, nameUpper) \
     VkPhysicalDevice##nameLower##Properties##ext nameLower##Props = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_##nameUpper##_PROPERTIES_##ext}; \
     if (IsExtensionSupported(VK_##ext##_##nameUpper##_EXTENSION_NAME, desiredDeviceExts) && (condition)) \
-        PNEXTCHAIN_APPEND_STRUCT(nameLower##Props)
+    PNEXTCHAIN_APPEND_STRUCT(nameLower##Props)
 
 #define APPEND_EXT(condition, ext) \
     if (IsExtensionSupported(ext, supportedExts) && (condition)) \
@@ -142,14 +142,14 @@ struct VideoResourceProfileListVK {
         list.profileCount = 0;
         list.pProfiles = profiles.data();
 
-        const VkVideoComponentBitDepthFlagsKHR bitDepth = format == Format::P010_UNORM || format == Format::P016_UNORM ? VK_VIDEO_COMPONENT_BIT_DEPTH_10_BIT_KHR : VK_VIDEO_COMPONENT_BIT_DEPTH_8_BIT_KHR;
+        const VkVideoComponentBitDepthFlagsKHR bitDepth = (format == Format::P010_UNORM || format == Format::P016_UNORM) ? VK_VIDEO_COMPONENT_BIT_DEPTH_10_BIT_KHR : VK_VIDEO_COMPONENT_BIT_DEPTH_8_BIT_KHR;
 
         if (decode) {
             decodeH264.stdProfileIdc = STD_VIDEO_H264_PROFILE_IDC_HIGH;
             decodeH264.pictureLayout = VK_VIDEO_DECODE_H264_PICTURE_LAYOUT_PROGRESSIVE_KHR;
             decodeH265.stdProfileIdc = bitDepth == VK_VIDEO_COMPONENT_BIT_DEPTH_10_BIT_KHR ? STD_VIDEO_H265_PROFILE_IDC_MAIN_10 : STD_VIDEO_H265_PROFILE_IDC_MAIN;
             decodeAV1.stdProfile = STD_VIDEO_AV1_PROFILE_MAIN;
-            decodeAV1.filmGrainSupport = VK_TRUE;
+            decodeAV1.filmGrainSupport = VK_FALSE;
 
             decodeUsage[0] = {VK_STRUCTURE_TYPE_VIDEO_DECODE_USAGE_INFO_KHR};
             decodeUsage[0].videoUsageHints = VK_VIDEO_DECODE_USAGE_DEFAULT_KHR;

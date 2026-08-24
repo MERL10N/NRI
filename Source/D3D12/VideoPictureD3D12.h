@@ -13,6 +13,14 @@ struct VideoPictureD3D12 final : public DebugNameBase {
         return m_Device;
     }
 
+    inline TextureD3D12& GetTexture() const {
+        return *m_Texture;
+    }
+
+    inline uint32_t GetSubresource() const {
+        return m_Subresource;
+    }
+
     //================================================================================================================
     // DebugNameBase
     //================================================================================================================
@@ -26,6 +34,7 @@ struct VideoPictureD3D12 final : public DebugNameBase {
 
     Result Create(const VideoPictureDesc& videoPictureDesc);
 
+private:
     DeviceD3D12& m_Device;
     TextureD3D12* m_Texture = nullptr;
     uint32_t m_Subresource = 0;
