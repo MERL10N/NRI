@@ -2018,6 +2018,9 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
         commandList->ResourceBarrier(1, &metadataReady); // TODO-VIDEO: support enhanced barriers too
 
         commandList->ResolveEncoderOutputMetadata1(&resolveInput, &resolveOutput);
+
+        std::swap(metadataReady.Transition.StateBefore, metadataReady.Transition.StateAfter);
+        commandList->ResourceBarrier(1, &metadataReady);
     }
 #else
     MaybeUnused(videoEncodeDesc);
