@@ -95,6 +95,24 @@ static inline bool IsVideoPictureDescValid(const VideoPictureDesc& desc, const T
     return (textureDesc.usage & requiredUsage) != 0 && desc.layer < layerNum && (!desc.width || desc.width <= textureDesc.width) && (!desc.height || desc.height <= textureDesc.height);
 }
 
+static inline bool IsVideoPictureRoleCompatible(VideoPictureUsage usage, VideoPictureRole role) {
+    if ((uint8_t)role >= (uint8_t)VideoPictureRole::MAX_NUM)
+        return false;
+
+    static constexpr std::array<VideoPictureUsage, (size_t)VideoPictureRole::MAX_NUM> usages = {
+        VideoPictureUsage::DECODE_OUTPUT,    // DECODE_OUTPUT
+        VideoPictureUsage::DECODE_REFERENCE, // DECODE_REFERENCE
+        VideoPictureUsage::DECODE_REFERENCE, // DECODE_SETUP
+        VideoPictureUsage::DECODE_OUTPUT,    // DECODE_OUTPUT_AND_SETUP
+        VideoPictureUsage::ENCODE_INPUT,     // ENCODE_INPUT
+        VideoPictureUsage::ENCODE_REFERENCE, // ENCODE_REFERENCE
+        VideoPictureUsage::ENCODE_REFERENCE, // ENCODE_RECONSTRUCTED
+    };
+    static_assert(usages.back() != VideoPictureUsage::MAX_NUM, "Some elements are missing in 'usages'");
+
+    return usage == usages[(size_t)role];
+}
+
 static inline bool HasUniqueVideoReferenceSlots(const VideoReference* references, uint32_t referenceNum) {
     for (uint32_t i = 0; i < referenceNum; i++) {
         for (uint32_t j = i + 1; j < referenceNum; j++) {
@@ -1652,18 +1670,11 @@ static void NRI_CALL DestroyVideoPicture(VideoPicture* videoPicture) {
     Destroy(&videoPictureVal);
 }
 
-static Result NRI_CALL GetVideoDecodePictureStates(const VideoPicture& videoPicture, VideoDecodePictureStates& states) {
+static Result NRI_CALL GetVideoPictureState(const VideoPicture& videoPicture, VideoPictureRole role, VideoPictureState& state) {
     const VideoPictureVal& videoPictureVal = (const VideoPictureVal&)videoPicture;
-    NRI_RETURN_ON_FAILURE(&videoPictureVal.GetDevice(), videoPictureVal.GetUsage() == VideoPictureUsage::DECODE_OUTPUT || videoPictureVal.GetUsage() == VideoPictureUsage::DECODE_REFERENCE, Result::INVALID_ARGUMENT, "'videoPicture' does not have decode usage");
+    NRI_RETURN_ON_FAILURE(&videoPictureVal.GetDevice(), IsVideoPictureRoleCompatible(videoPictureVal.GetUsage(), role), Result::INVALID_ARGUMENT, "'role' is incompatible with 'videoPicture' usage");
 
-    return videoPictureVal.GetDevice().GetVideoInterfaceImpl().GetVideoDecodePictureStates(*videoPictureVal.GetImpl(), states);
-}
-
-static Result NRI_CALL GetVideoEncodePictureStates(const VideoPicture& videoPicture, VideoEncodePictureStates& states) {
-    const VideoPictureVal& videoPictureVal = (const VideoPictureVal&)videoPicture;
-    NRI_RETURN_ON_FAILURE(&videoPictureVal.GetDevice(), videoPictureVal.GetUsage() == VideoPictureUsage::ENCODE_INPUT || videoPictureVal.GetUsage() == VideoPictureUsage::ENCODE_REFERENCE, Result::INVALID_ARGUMENT, "'videoPicture' does not have encode usage");
-
-    return videoPictureVal.GetDevice().GetVideoInterfaceImpl().GetVideoEncodePictureStates(*videoPictureVal.GetImpl(), states);
+    return videoPictureVal.GetDevice().GetVideoInterfaceImpl().GetVideoPictureState(*videoPictureVal.GetImpl(), role, state);
 }
 
 static Result NRI_CALL WriteVideoAnnexBParameterSets(VideoAnnexBParameterSetsDesc& annexBParameterSetsDesc) {
@@ -1735,8 +1746,7 @@ Result DeviceVal::FillFunctionTable(VideoInterface& table) const {
     table.DestroyVideoSessionParameters = ::DestroyVideoSessionParameters;
     table.CreateVideoPicture = ::CreateVideoPicture;
     table.DestroyVideoPicture = ::DestroyVideoPicture;
-    table.GetVideoDecodePictureStates = ::GetVideoDecodePictureStates;
-    table.GetVideoEncodePictureStates = ::GetVideoEncodePictureStates;
+    table.GetVideoPictureState = ::GetVideoPictureState;
     table.WriteVideoAnnexBParameterSets = ::WriteVideoAnnexBParameterSets;
     table.WriteVideoAnnexBEndOfStream = ::WriteVideoAnnexBEndOfStream;
     table.WriteVideoAV1ObuHeaders = ::WriteVideoAV1ObuHeaders;

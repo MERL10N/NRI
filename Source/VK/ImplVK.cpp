@@ -1182,23 +1182,28 @@ static void NRI_CALL DestroyVideoPicture(VideoPicture* videoPicture) {
     Destroy((VideoPictureVK*)videoPicture);
 }
 
-static Result NRI_CALL GetVideoDecodePictureStates(const VideoPicture&, VideoDecodePictureStates& states) {
-    states = {};
-    states.decodeWrite = {AccessBits::VIDEO_DECODE_WRITE, Layout::VIDEO_DECODE_DST, StageBits::VIDEO_DECODE};
-    states.decodeDpb = {AccessBits::VIDEO_DECODE_WRITE, Layout::VIDEO_DECODE_DPB, StageBits::VIDEO_DECODE};
-    states.graphicsBefore = {AccessBits::NONE, Layout::VIDEO_DECODE_DST, StageBits::ALL};
-    states.releaseAfterDecode = false;
+static constexpr std::array<AccessLayoutStage, (size_t)VideoPictureRole::MAX_NUM> g_VideoPictureStates = {
+    AccessLayoutStage{AccessBits::VIDEO_DECODE_WRITE, Layout::VIDEO_DECODE_DST, StageBits::VIDEO_DECODE}, // DECODE_OUTPUT
+    AccessLayoutStage{AccessBits::VIDEO_DECODE_READ, Layout::VIDEO_DECODE_DPB, StageBits::VIDEO_DECODE},  // DECODE_REFERENCE
+    AccessLayoutStage{AccessBits::VIDEO_DECODE_WRITE, Layout::VIDEO_DECODE_DPB, StageBits::VIDEO_DECODE}, // DECODE_SETUP
+    AccessLayoutStage{AccessBits::VIDEO_DECODE_WRITE, Layout::VIDEO_DECODE_DPB, StageBits::VIDEO_DECODE}, // DECODE_OUTPUT_AND_SETUP
+    AccessLayoutStage{AccessBits::VIDEO_ENCODE_READ, Layout::VIDEO_ENCODE_SRC, StageBits::VIDEO_ENCODE},  // ENCODE_INPUT
+    AccessLayoutStage{AccessBits::VIDEO_ENCODE_READ, Layout::VIDEO_ENCODE_DPB, StageBits::VIDEO_ENCODE},  // ENCODE_REFERENCE
+    AccessLayoutStage{AccessBits::VIDEO_ENCODE_WRITE, Layout::VIDEO_ENCODE_DPB, StageBits::VIDEO_ENCODE}, // ENCODE_RECONSTRUCTED
+};
+static_assert(g_VideoPictureStates.back().access != AccessBits::NONE, "Some elements are missing in 'g_VideoPictureStates'");
 
-    return Result::SUCCESS;
-}
+static Result NRI_CALL GetVideoPictureState(const VideoPicture&, VideoPictureRole role, VideoPictureState& state) {
+    state = {};
+    state.required = g_VideoPictureStates[(size_t)role];
 
-static Result NRI_CALL GetVideoEncodePictureStates(const VideoPicture&, VideoEncodePictureStates& states) {
-    states = {};
-    states.encodeRead = {AccessBits::VIDEO_ENCODE_READ, Layout::VIDEO_ENCODE_SRC, StageBits::VIDEO_ENCODE};
-    states.encodeWrite = {AccessBits::VIDEO_ENCODE_WRITE, Layout::VIDEO_ENCODE_DPB, StageBits::VIDEO_ENCODE};
-    states.afterEncode = {AccessBits::NONE, Layout::GENERAL, StageBits::NONE};
-    states.graphicsBefore = states.afterEncode;
-    states.releaseAfterEncode = true;
+    if (state.required.stages == StageBits::VIDEO_DECODE)
+        state.consumerQueueBefore = {AccessBits::NONE, state.required.layout, StageBits::ALL};
+    else {
+        state.videoQueueAfter = {AccessBits::NONE, Layout::GENERAL, StageBits::NONE};
+        state.consumerQueueBefore = state.videoQueueAfter;
+        state.transitionOnVideoQueue = true;
+    }
 
     return Result::SUCCESS;
 }
@@ -1248,8 +1253,7 @@ Result DeviceVK::FillFunctionTable(VideoInterface& table) const {
     table.DestroyVideoSessionParameters = ::DestroyVideoSessionParameters;
     table.CreateVideoPicture = ::CreateVideoPicture;
     table.DestroyVideoPicture = ::DestroyVideoPicture;
-    table.GetVideoDecodePictureStates = ::GetVideoDecodePictureStates;
-    table.GetVideoEncodePictureStates = ::GetVideoEncodePictureStates;
+    table.GetVideoPictureState = ::GetVideoPictureState;
     table.WriteVideoAnnexBParameterSets = ::WriteVideoAnnexBParameterSets;
     table.WriteVideoAnnexBEndOfStream = ::WriteVideoAnnexBEndOfStream;
     table.WriteVideoAV1ObuHeaders = ::WriteVideoAV1ObuHeaders;

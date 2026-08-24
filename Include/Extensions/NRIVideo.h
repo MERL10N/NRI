@@ -55,6 +55,16 @@ NriEnum(VideoPictureUsage, uint8_t,
     ENCODE_REFERENCE
 );
 
+NriEnum(VideoPictureRole, uint8_t,
+    DECODE_OUTPUT,             // distinct or output-only destination
+    DECODE_REFERENCE,          // existing DPB picture read by the decode operation
+    DECODE_SETUP,              // distinct reconstructed picture written into the DPB
+    DECODE_OUTPUT_AND_SETUP,   // coincident destination and reconstructed DPB picture
+    ENCODE_INPUT,              // source picture read by the encode operation
+    ENCODE_REFERENCE,          // existing DPB picture read by the encode operation
+    ENCODE_RECONSTRUCTED       // reconstructed picture written into the DPB
+);
+
 NriBits(VideoH264SequenceParameterSetBits, uint16_t,
     NONE                                    = 0,
     CONSTRAINT_SET0                         = NriBit(0),
@@ -325,20 +335,11 @@ NriStruct(VideoPictureDesc) {
     NriOptional Nri(Dim_t) layer;
 };
 
-NriStruct(VideoDecodePictureStates) {
-    Nri(AccessLayoutStage) decodeWrite;     // state required for a distinct or output-only destination picture
-    Nri(AccessLayoutStage) decodeDpb;       // state required for setup/reference pictures and a coincident destination picture
-    Nri(AccessLayoutStage) afterDecode;     // optional state to transition to on the video decode queue after CmdDecodeVideo
-    Nri(AccessLayoutStage) graphicsBefore;  // state to use as "before" when the graphics queue consumes the decoded picture
-    bool releaseAfterDecode;                // if true, caller should record decodeWrite -> afterDecode on the video decode queue
-};
-
-NriStruct(VideoEncodePictureStates) {
-    Nri(AccessLayoutStage) encodeRead;      // state required before CmdEncodeVideo reads the source picture
-    Nri(AccessLayoutStage) encodeWrite;     // state required before CmdEncodeVideo writes the reconstructed picture
-    Nri(AccessLayoutStage) afterEncode;     // optional state to transition to on the video encode queue after CmdEncodeVideo
-    Nri(AccessLayoutStage) graphicsBefore;  // state to use as "before" when the graphics queue consumes the reconstructed picture
-    bool releaseAfterEncode;                // if true, caller should record encodeWrite -> afterEncode on the video encode queue
+NriStruct(VideoPictureState) {
+    Nri(AccessLayoutStage) required;             // state required while the picture participates in CmdDecodeVideo or CmdEncodeVideo
+    Nri(AccessLayoutStage) videoQueueAfter;      // destination state of the optional post-video transition
+    Nri(AccessLayoutStage) consumerQueueBefore;  // source state for the consumer queue transition
+    bool transitionOnVideoQueue;                 // transition "required" -> "videoQueueAfter" before cross-queue consumption
 };
 
 NriStruct(VideoH264SequenceParameterSetDesc) {
@@ -925,8 +926,7 @@ NriStruct(VideoInterface) {
         void            (NRI_CALL *DestroyVideoPicture)             (NriPtr(VideoPicture) videoPicture);
         
         // Returns backend-specific states for explicit caller-recorded decode/encode picture barriers
-        Nri(Result)     (NRI_CALL *GetVideoDecodePictureStates)     (const NriRef(VideoPicture) videoPicture, NriOut NriRef(VideoDecodePictureStates) states);
-        Nri(Result)     (NRI_CALL *GetVideoEncodePictureStates)     (const NriRef(VideoPicture) videoPicture, NriOut NriRef(VideoEncodePictureStates) states);
+        Nri(Result)     (NRI_CALL *GetVideoPictureState)            (const NriRef(VideoPicture) videoPicture, Nri(VideoPictureRole) role, NriOut NriRef(VideoPictureState) state);
 
         // Serializes H.264 SPS/PPS or H.265 VPS/SPS/PPS parameter sets to Annex-B bytes. Pass "dst = nullptr" to query the required byte size in "writtenSize"
         Nri(Result)     (NRI_CALL *WriteVideoAnnexBParameterSets)   (NriRef(VideoAnnexBParameterSetsDesc) annexBParameterSetsDesc);
