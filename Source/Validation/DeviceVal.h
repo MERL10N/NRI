@@ -97,8 +97,8 @@ struct DeviceVal final : public DeviceBase {
         return ((DeviceBase&)m_Impl).GetDesc();
     }
 
-    Result ReportDeviceFaultInfo(DeviceFaultDump& deviceFaultDump) override {
-        return ((DeviceBase&)m_Impl).ReportDeviceFaultInfo(deviceFaultDump);
+    Result ReportDeviceLostInfo(DeviceLostDump& deviceLostDump) override {
+        return ((DeviceBase&)m_Impl).ReportDeviceLostInfo(deviceLostDump);
     }
 
     void Destruct() override;

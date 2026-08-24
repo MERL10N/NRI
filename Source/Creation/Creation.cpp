@@ -1149,6 +1149,6 @@ NRI_API void NRI_CALL nriReportLiveObjects() {
 #endif
 }
 
-NRI_API Result NRI_CALL nriReportDeviceFaultInfo(Device& device, DeviceFaultDump& deviceFaultDump) {
-    return ((DeviceBase&)device).ReportDeviceFaultInfo(deviceFaultDump);
+NRI_API Result NRI_CALL nriReportDeviceLostInfo(Device& device, DeviceLostDump& deviceLostDump) {
+    return ((DeviceBase&)device).ReportDeviceLostInfo(deviceLostDump);
 }

@@ -353,11 +353,11 @@ Result DeviceD3D12::Create(const DeviceCreationDesc& desc, const DeviceCreationD
     else if (m_Desc.adapterDesc.vendor == Vendor::AMD)
         InitializeAmdExt(descD3D12.agsContext, descD3D12.d3d12Device != nullptr);
 
-    if (desc.deviceFaultInfoLevel != DeviceFaultInfoLevel::NONE) {
+    if (desc.deviceLostInfoLevel != DeviceLostInfoLevel::NONE) {
         ComPtr<ID3D12DeviceRemovedExtendedDataSettings> dredSettings;
         HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&dredSettings));
         if (FAILED(hr) || !dredSettings)
-            NRI_REPORT_WARNING(this, "DRED is not supported, device fault diagnostics disabled");
+            NRI_REPORT_WARNING(this, "DRED is not supported, device lost diagnostics disabled");
         else {
             dredSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
             dredSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
@@ -366,11 +366,11 @@ Result DeviceD3D12::Create(const DeviceCreationDesc& desc, const DeviceCreationD
             hr = dredSettings->QueryInterface(IID_PPV_ARGS(&dredSettings1));
             if (SUCCEEDED(hr) && dredSettings1) {
                 D3D12_DRED_ENABLEMENT contextEnablement = D3D12_DRED_ENABLEMENT_SYSTEM_CONTROLLED;
-                if (desc.deviceFaultInfoLevel == DeviceFaultInfoLevel::VERBOSE)
+                if (desc.deviceLostInfoLevel == DeviceLostInfoLevel::VERBOSE)
                     contextEnablement = D3D12_DRED_ENABLEMENT_FORCED_ON;
                 dredSettings1->SetBreadcrumbContextEnablement(contextEnablement);
-            } else if (desc.deviceFaultInfoLevel == DeviceFaultInfoLevel::VERBOSE)
-                NRI_REPORT_WARNING(this, "DRED breadcrumb contexts are not supported, using BASIC device fault diagnostics");
+            } else if (desc.deviceLostInfoLevel == DeviceLostInfoLevel::VERBOSE)
+                NRI_REPORT_WARNING(this, "DRED breadcrumb contexts are not supported, using BASIC device lost diagnostics");
         }
     }
 
@@ -1679,55 +1679,11 @@ void DeviceD3D12::ReportDredAllocationList(const char* listName, const D3D12_DRE
     uint32_t index = 0;
     for (const D3D12_DRED_ALLOCATION_NODE1* node = head; node; node = node->pNext, index++) {
         char allocationName[NRI_MAX_MESSAGE_LENGTH];
-        NRI_REPORT_DEVICE_FAULT_INFO(*this, "[D3D12][DRED] %s[%u]: type=%u name=%s", listName, index, (uint32_t)node->AllocationType, GetDredObjectName(node->ObjectNameA, node->ObjectNameW, allocationName, sizeof(allocationName)));
+        NRI_REPORT_DEVICE_LOST_INFO(this, "[DeviceLost] %s[%u]: type=%u name=%s", listName, index, (uint32_t)node->AllocationType, GetDredObjectName(node->ObjectNameA, node->ObjectNameW, allocationName, sizeof(allocationName)));
     }
 }
 
-void DeviceD3D12::ReportDredBreadcrumbs(const D3D12_AUTO_BREADCRUMB_NODE1* head) const {
-    uint32_t nodeIndex = 0;
-    for (const D3D12_AUTO_BREADCRUMB_NODE1* node = head; node; node = node->pNext, nodeIndex++) {
-        uint32_t completedBreadcrumb = node->pLastBreadcrumbValue ? *node->pLastBreadcrumbValue : 0;
-        char queueName[NRI_MAX_MESSAGE_LENGTH];
-        char commandListName[NRI_MAX_MESSAGE_LENGTH];
-        NRI_REPORT_DEVICE_FAULT_INFO(*this,
-            "[D3D12][DRED] BreadcrumbNode[%u]: queue=%s commandList=%s completed=%u/%u",
-            nodeIndex,
-            GetDredObjectName(node->pCommandQueueDebugNameA, node->pCommandQueueDebugNameW, queueName, sizeof(queueName)),
-            GetDredObjectName(node->pCommandListDebugNameA, node->pCommandListDebugNameW, commandListName, sizeof(commandListName)),
-            completedBreadcrumb,
-            node->BreadcrumbCount);
-
-        if (!node->pCommandHistory || node->BreadcrumbCount == 0)
-            continue;
-
-        uint32_t firstRetainedBreadcrumb = node->BreadcrumbCount > DRED_BREADCRUMB_HISTORY_MAX_NUM ? node->BreadcrumbCount - DRED_BREADCRUMB_HISTORY_MAX_NUM : 0;
-        uint32_t start = completedBreadcrumb > DRED_BREADCRUMB_RADIUS ? completedBreadcrumb - DRED_BREADCRUMB_RADIUS : 0;
-        start = std::max(start, firstRetainedBreadcrumb);
-        uint32_t end = (uint32_t)std::min<uint64_t>(node->BreadcrumbCount, (uint64_t)completedBreadcrumb + DRED_BREADCRUMB_RADIUS + 1);
-        for (uint32_t breadcrumbIndex = start; breadcrumbIndex < end; breadcrumbIndex++)
-            NRI_REPORT_DEVICE_FAULT_INFO(*this,
-                "[D3D12][DRED]   op[%u]%s %s",
-                breadcrumbIndex,
-                (completedBreadcrumb != 0 && breadcrumbIndex == completedBreadcrumb - 1) ? " <- last completed" : "",
-                GetDredBreadcrumbOpName(node->pCommandHistory[breadcrumbIndex % DRED_BREADCRUMB_HISTORY_MAX_NUM]));
-
-        for (uint32_t contextIndex = 0; contextIndex < node->BreadcrumbContextsCount; contextIndex++) {
-            const D3D12_DRED_BREADCRUMB_CONTEXT& context = node->pBreadcrumbContexts[contextIndex];
-            if (context.BreadcrumbIndex >= start && context.BreadcrumbIndex < end) {
-                char contextString[NRI_MAX_MESSAGE_LENGTH];
-                const char* contextName = "<unnamed>";
-                if (context.pContextString) {
-                    ConvertWcharToChar(context.pContextString, contextString, sizeof(contextString));
-                    contextName = contextString;
-                }
-
-                NRI_REPORT_DEVICE_FAULT_INFO(*this, "[D3D12][DRED]   context[%u]: %s", context.BreadcrumbIndex, contextName);
-            }
-        }
-    }
-}
-
-void DeviceD3D12::ReportDeviceRemovedExtendedData(ID3D12Device* nativeDevice) const {
+void DeviceD3D12::ReportDred(ID3D12Device* nativeDevice) const {
     ComPtr<ID3D12DeviceRemovedExtendedData1> dred1;
     if (FAILED(nativeDevice->QueryInterface(IID_PPV_ARGS(&dred1))) || !dred1)
         return;
@@ -1735,17 +1691,58 @@ void DeviceD3D12::ReportDeviceRemovedExtendedData(ID3D12Device* nativeDevice) co
     ComPtr<ID3D12DeviceRemovedExtendedData2> dred2;
     if (SUCCEEDED(nativeDevice->QueryInterface(IID_PPV_ARGS(&dred2))) && dred2) {
         D3D12_DRED_DEVICE_STATE deviceState = dred2->GetDeviceState();
-        NRI_REPORT_DEVICE_FAULT_INFO(*this, "[D3D12][DRED] Device state: %s", GetDredDeviceStateName(deviceState));
+        NRI_REPORT_DEVICE_LOST_INFO(this, "[DeviceLost] Device state: %s", GetDredDeviceStateName(deviceState));
     }
 
     D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT1 breadcrumbs = {};
-    if (SUCCEEDED(dred1->GetAutoBreadcrumbsOutput1(&breadcrumbs)))
-        ReportDredBreadcrumbs(breadcrumbs.pHeadAutoBreadcrumbNode);
+    if (SUCCEEDED(dred1->GetAutoBreadcrumbsOutput1(&breadcrumbs))) {
+        uint32_t nodeIndex = 0;
+        for (const D3D12_AUTO_BREADCRUMB_NODE1* node = breadcrumbs.pHeadAutoBreadcrumbNode; node; node = node->pNext, nodeIndex++) {
+            uint32_t completedBreadcrumb = node->pLastBreadcrumbValue ? *node->pLastBreadcrumbValue : 0;
+            char queueName[NRI_MAX_MESSAGE_LENGTH];
+            char commandListName[NRI_MAX_MESSAGE_LENGTH];
+            NRI_REPORT_DEVICE_LOST_INFO(this,
+                "[DeviceLost] BreadcrumbNode[%u]: queue=%s commandList=%s completed=%u/%u",
+                nodeIndex,
+                GetDredObjectName(node->pCommandQueueDebugNameA, node->pCommandQueueDebugNameW, queueName, sizeof(queueName)),
+                GetDredObjectName(node->pCommandListDebugNameA, node->pCommandListDebugNameW, commandListName, sizeof(commandListName)),
+                completedBreadcrumb,
+                node->BreadcrumbCount);
+
+            if (!node->pCommandHistory || node->BreadcrumbCount == 0)
+                continue;
+
+            uint32_t firstRetainedBreadcrumb = node->BreadcrumbCount > DRED_BREADCRUMB_HISTORY_MAX_NUM ? node->BreadcrumbCount - DRED_BREADCRUMB_HISTORY_MAX_NUM : 0;
+            uint32_t start = completedBreadcrumb > DRED_BREADCRUMB_RADIUS ? completedBreadcrumb - DRED_BREADCRUMB_RADIUS : 0;
+            start = std::max(start, firstRetainedBreadcrumb);
+            uint32_t end = (uint32_t)std::min<uint64_t>(node->BreadcrumbCount, (uint64_t)completedBreadcrumb + DRED_BREADCRUMB_RADIUS + 1);
+            for (uint32_t breadcrumbIndex = start; breadcrumbIndex < end; breadcrumbIndex++)
+                NRI_REPORT_DEVICE_LOST_INFO(this,
+                    "[DeviceLost]   op[%u]%s %s",
+                    breadcrumbIndex,
+                    (completedBreadcrumb != 0 && breadcrumbIndex == completedBreadcrumb - 1) ? " <- last completed" : "",
+                    GetDredBreadcrumbOpName(node->pCommandHistory[breadcrumbIndex % DRED_BREADCRUMB_HISTORY_MAX_NUM]));
+
+            for (uint32_t contextIndex = 0; contextIndex < node->BreadcrumbContextsCount; contextIndex++) {
+                const D3D12_DRED_BREADCRUMB_CONTEXT& context = node->pBreadcrumbContexts[contextIndex];
+                if (context.BreadcrumbIndex >= start && context.BreadcrumbIndex < end) {
+                    char contextString[NRI_MAX_MESSAGE_LENGTH];
+                    const char* contextName = "<unnamed>";
+                    if (context.pContextString) {
+                        ConvertWcharToChar(context.pContextString, contextString, sizeof(contextString));
+                        contextName = contextString;
+                    }
+
+                    NRI_REPORT_DEVICE_LOST_INFO(this, "[DeviceLost]   context[%u]: %s", context.BreadcrumbIndex, contextName);
+                }
+            }
+        }
+    }
 
     if (dred2) {
         D3D12_DRED_PAGE_FAULT_OUTPUT2 pageFault = {};
         if (SUCCEEDED(dred2->GetPageFaultAllocationOutput2(&pageFault))) {
-            NRI_REPORT_DEVICE_FAULT_INFO(*this, "[D3D12][DRED] PageFaultVA=0x%016llX flags=%u", (unsigned long long)pageFault.PageFaultVA, (uint32_t)pageFault.PageFaultFlags);
+            NRI_REPORT_DEVICE_LOST_INFO(this, "[DeviceLost] PageFaultVA=0x%016llX flags=%u", (unsigned long long)pageFault.PageFaultVA, (uint32_t)pageFault.PageFaultFlags);
             ReportDredAllocationList("ExistingAllocation", pageFault.pHeadExistingAllocationNode);
             ReportDredAllocationList("RecentFreedAllocation", pageFault.pHeadRecentFreedAllocationNode);
         }
@@ -1755,20 +1752,20 @@ void DeviceD3D12::ReportDeviceRemovedExtendedData(ID3D12Device* nativeDevice) co
 
     D3D12_DRED_PAGE_FAULT_OUTPUT1 pageFault = {};
     if (SUCCEEDED(dred1->GetPageFaultAllocationOutput1(&pageFault))) {
-        NRI_REPORT_DEVICE_FAULT_INFO(*this, "[D3D12][DRED] PageFaultVA=0x%016llX", (unsigned long long)pageFault.PageFaultVA);
+        NRI_REPORT_DEVICE_LOST_INFO(this, "[DeviceLost] PageFaultVA=0x%016llX", (unsigned long long)pageFault.PageFaultVA);
         ReportDredAllocationList("ExistingAllocation", pageFault.pHeadExistingAllocationNode);
         ReportDredAllocationList("RecentFreedAllocation", pageFault.pHeadRecentFreedAllocationNode);
     }
 }
 
-Result DeviceD3D12::ReportDeviceFaultInfo(DeviceFaultDump& deviceFaultDump) {
-    deviceFaultDump = {};
+Result DeviceD3D12::ReportDeviceLostInfo(DeviceLostDump& deviceLostDump) {
+    deviceLostDump = {};
 
     ID3D12Device* nativeDevice = GetNativeObject();
     HRESULT deviceRemovedReason = nativeDevice->GetDeviceRemovedReason();
     if (deviceRemovedReason != S_OK) {
-        NRI_REPORT_DEVICE_FAULT_INFO(*this, "[D3D12] GetDeviceRemovedReason: 0x%08X, result=%d", (uint32_t)deviceRemovedReason, (int32_t)GetResultFromHRESULT(deviceRemovedReason));
-        ReportDeviceRemovedExtendedData(nativeDevice);
+        NRI_REPORT_DEVICE_LOST_INFO(this, "[DeviceLost] GetDeviceRemovedReason: 0x%08X, result=%d", (uint32_t)deviceRemovedReason, (int32_t)GetResultFromHRESULT(deviceRemovedReason));
+        ReportDred(nativeDevice);
     }
 
     return Result::SUCCESS;
