@@ -160,7 +160,7 @@ uint32_t VideoSessionVK::FindEncodeFeedbackQuery(BufferVK* resolvedMetadata, uin
     return UINT32_MAX;
 }
 
-uint32_t VideoSessionVK::AllocateEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset, uint64_t dstBitstreamOffset) {
+uint32_t VideoSessionVK::AllocateEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset) {
     for (uint32_t i = 0; i < ENCODE_FEEDBACK_QUERY_NUM; i++) {
         EncodeFeedbackPayloadReadback& payloadReadback = m_EncodeFeedbackPayloadReadbacks[i];
         if (payloadReadback.active)
@@ -169,8 +169,6 @@ uint32_t VideoSessionVK::AllocateEncodeFeedbackQuery(BufferVK* resolvedMetadata,
         payloadReadback.active = true;
         payloadReadback.resolvedMetadata = resolvedMetadata;
         payloadReadback.resolvedMetadataOffset = resolvedMetadataOffset;
-        payloadReadback.dstBitstreamOffset = dstBitstreamOffset;
-
         return i;
     }
 
@@ -182,9 +180,9 @@ void VideoSessionVK::Reset() {
     m_EncodeFeedbackPayloadReadbacks = {};
 }
 
-static inline void FillVideoEncodeFeedbackVK(VideoEncodeFeedback& feedback, const uint32_t* queryResult, uint64_t dstBitstreamOffset) {
+static inline void FillVideoEncodeFeedbackVK(VideoEncodeFeedback& feedback, const uint32_t* queryResult) {
     feedback = {};
-    feedback.encodedBitstreamOffset = queryResult[0] >= dstBitstreamOffset ? queryResult[0] - dstBitstreamOffset : queryResult[0];
+    feedback.encodedBitstreamOffset = queryResult[0];
     feedback.encodedBitstreamWrittenBytes = queryResult[1];
     feedback.writtenSubregionNum = 1;
 
@@ -209,7 +207,7 @@ NRI_INLINE Result VideoSessionVK::GetEncodeFeedback(BufferVK& resolvedMetadataRe
             const auto& vk = m_Device.GetDispatchTable();
             VkResult result = vk.GetQueryPoolResults(m_Device, m_EncodeFeedbackQueryPool, i, 1, sizeof(queryResult), queryResult, sizeof(queryResult), VK_QUERY_RESULT_WITH_STATUS_BIT_KHR);
             if (result == VK_SUCCESS) {
-                FillVideoEncodeFeedbackVK(feedback, queryResult, payloadReadback.dstBitstreamOffset);
+                FillVideoEncodeFeedbackVK(feedback, queryResult);
                 ClearEncodeFeedbackQuery(i);
 
                 return Result::SUCCESS;
@@ -233,7 +231,7 @@ NRI_INLINE Result VideoSessionVK::GetEncodeFeedback(BufferVK& resolvedMetadataRe
                 return Result::SUCCESS;
             }
 
-            FillVideoEncodeFeedbackVK(feedback, mappedQueryResult, payloadReadback.dstBitstreamOffset);
+            FillVideoEncodeFeedbackVK(feedback, mappedQueryResult);
             ClearEncodeFeedbackQuery(i);
 
             return Result::SUCCESS;
@@ -245,7 +243,7 @@ NRI_INLINE Result VideoSessionVK::GetEncodeFeedback(BufferVK& resolvedMetadataRe
 
         feedback = {};
         if (result == VK_SUCCESS) {
-            FillVideoEncodeFeedbackVK(feedback, queryResult, payloadReadback.dstBitstreamOffset);
+            FillVideoEncodeFeedbackVK(feedback, queryResult);
             ClearEncodeFeedbackQuery(i);
         } else
             feedback.errorFlags = (uint64_t)result;

@@ -1511,7 +1511,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         }
 
         if (useEncodeFeedback)
-            encodeFeedbackQueryIndex = session.AllocateEncodeFeedbackQuery(resolvedMetadata, videoEncodeDesc.resolvedMetadataOffset, videoEncodeDesc.dstBitstream.offset);
+            encodeFeedbackQueryIndex = session.AllocateEncodeFeedbackQuery(resolvedMetadata, videoEncodeDesc.resolvedMetadataOffset);
 
         if (useEncodeFeedback && encodeFeedbackQueryIndex == UINT32_MAX) {
             NRI_REPORT_ERROR(&m_Device, "Too many unresolved Vulkan video encode feedback queries are outstanding for this video session");

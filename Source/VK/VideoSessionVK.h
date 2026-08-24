@@ -130,7 +130,7 @@ struct VideoSessionVK final : public DebugNameBase {
 
     bool HasPendingEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset) const;
     uint32_t FindEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset) const;
-    uint32_t AllocateEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset, uint64_t dstBitstreamOffset);
+    uint32_t AllocateEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset);
 
     inline void SetEncodeFeedbackQueryResolved(uint32_t queryIndex) {
         m_EncodeFeedbackPayloadReadbacks[queryIndex].resolvedByCommand = true;
@@ -161,7 +161,6 @@ private:
     struct EncodeFeedbackPayloadReadback {
         BufferVK* resolvedMetadata = nullptr;
         uint64_t resolvedMetadataOffset = 0;
-        uint64_t dstBitstreamOffset = 0;
         bool resolvedByCommand = false;
         bool active = false;
     };
