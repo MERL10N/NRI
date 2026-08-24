@@ -5,6 +5,7 @@
 #include <d3d12.h>
 #include <d3d12video.h>
 #include <dxva.h>
+#include <d3d12sdklayers.h>
 #include <pix.h>
 
 // Validate Windows SDK version
@@ -64,6 +65,7 @@ struct QueryPoolD3D12;
 struct QueueD3D12;
 struct SwapChainD3D12;
 struct TextureD3D12;
+struct TransferContextD3D12;
 
 typedef size_t DescriptorHandleCPU;   // D3D12_CPU_DESCRIPTOR_HANDLE
 typedef uint64_t DescriptorHandleGPU; // D3D12_GPU_DESCRIPTOR_HANDLE
@@ -105,6 +107,8 @@ struct DescriptorHandle {
 
 constexpr uint32_t DESCRIPTORS_BATCH_SIZE = 1024;
 constexpr uint32_t ROOT_CONSTANT_UNUSED = uint32_t(-1);
+constexpr uint32_t DRED_BREADCRUMB_HISTORY_MAX_NUM = 64 * 1024;
+constexpr uint32_t DRED_BREADCRUMB_RADIUS = 4;
 
 static_assert(D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES <= (1 << DESCRIPTOR_HANDLE_HEAP_TYPE_BIT_NUM), "Out of bounds");
 static_assert(DESCRIPTORS_BATCH_SIZE <= (1 << DESCRIPTOR_HANDLE_HEAP_OFFSET_BIT_NUM), "Out of bounds");

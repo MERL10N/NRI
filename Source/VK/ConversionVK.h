@@ -427,7 +427,10 @@ constexpr VkPipelineStageFlags2 GetPipelineStageFlags(StageBits stageBits) {
     if (stageBits & StageBits::CLEAR_STORAGE)
         flags |= VK_PIPELINE_STAGE_2_CLEAR_BIT;
 
-    if (stageBits & StageBits::VIDEO_DECODE)
+    if (stageBits & StageBits::HOST)
+        flags |= VK_PIPELINE_STAGE_2_HOST_BIT;
+
+  if (stageBits & StageBits::VIDEO_DECODE)
         flags |= VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR;
 
     if (stageBits & StageBits::VIDEO_ENCODE)

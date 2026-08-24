@@ -104,6 +104,8 @@ struct FramebufferCacheEntry {
 
 struct IsSupported {
     uint32_t deviceAddress                : 1;
+    uint32_t deviceFault                  : 1;
+    uint32_t deviceFaultVendorBinary      : 1;
     uint32_t dynamicRendering             : 1;
     uint32_t copyCommands2                : 1;
     uint32_t swapChainMutableFormat       : 1;
@@ -125,11 +127,20 @@ struct IsSupported {
     uint32_t swapChainMaintenance1        : 1;
     uint32_t fifoLatestReady              : 1;
     uint32_t unifiedImageLayoutsVideo     : 1;
+    uint32_t hostImageCopy                : 1;
     uint32_t videoMaintenance2            : 1;
     uint32_t videoEncodeAV1               : 1;
 };
 
 static_assert(sizeof(IsSupported) == sizeof(uint32_t), "4 bytes expected");
+
+struct HostCopyLayoutVK {
+    TextureDataLayoutDesc dataLayout;
+    uint64_t slicePitch;
+    uint32_t rowSize;
+    uint32_t rowNum;
+    uint32_t depth;
+};
 
 struct DeviceVK final : public DeviceBase {
     inline operator VkDevice() const {
@@ -162,6 +173,10 @@ struct DeviceVK final : public DeviceBase {
 
     inline bool IsHostCoherentMemory(MemoryTypeIndex memoryTypeIndex) const {
         return (m_MemoryProps.memoryTypes[memoryTypeIndex].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+    }
+
+    inline uint64_t GetNonCoherentAtomSize() const {
+        return m_NonCoherentAtomSize;
     }
 
     inline bool IsMemoryZeroInitializationEnabled() const {
@@ -221,6 +236,7 @@ struct DeviceVK final : public DeviceBase {
     }
 
     void Destruct() override;
+    Result ReportDeviceLostInfo(DeviceLostDump& deviceLostDump) override;
     Result FillFunctionTable(CoreInterface& table) const override;
     Result FillFunctionTable(HelperInterface& table) const override;
     Result FillFunctionTable(LowLatencyInterface& table) const override;
@@ -245,6 +261,8 @@ struct DeviceVK final : public DeviceBase {
     Result GetQueue(QueueType queueType, uint32_t queueIndex, Queue*& queue);
     VkVideoCodecOperationFlagsKHR GetVideoCodecOperations(bool decode, bool encode) const;
     Result WaitIdle();
+    Result UploadHostMemoryToTexture(QueueVK& queue, const UploadHostMemoryToTextureDesc* copyDescs, uint32_t copyDescNum);
+    Result ReadbackTextureToHostMemory(QueueVK& queue, const ReadbackTextureToHostMemoryDesc* copyDescs, uint32_t copyDescNum);
     Result BindBufferMemory(const BindBufferMemoryDesc* bindBufferMemoryDescs, uint32_t bindBufferMemoryDescNum);
     Result BindTextureMemory(const BindTextureMemoryDesc* bindTextureMemoryDescs, uint32_t bindTextureMemoryDescNum);
     Result QueryVideoMemoryInfo(MemoryLocation memoryLocation, VideoMemoryInfo& videoMemoryInfo) const;
@@ -253,10 +271,13 @@ struct DeviceVK final : public DeviceBase {
     FormatSupportBits GetFormatSupport(Format format) const;
 
 private:
+    HostCopyLayoutVK GetHostCopyLayout(const TextureVK& texture, const TextureRegionDesc& region, uint64_t& offset) const;
+    Result AcquireTransferContext(QueueVK& queue, TransferContextVK*& context);
+    void ReleaseTransferContext(TransferContextVK& context);
     VkResult CreateVma();
     void FilterInstanceLayers(Vector<const char*>& layers);
     void ProcessInstanceExtensions(Vector<const char*>& desiredInstanceExts);
-    void ProcessDeviceExtensions(Vector<const char*>& desiredDeviceExts, bool disableRayTracing);
+    void ProcessDeviceExtensions(Vector<const char*>& desiredDeviceExts, bool disableRayTracing, DeviceLostInfoLevel deviceLostInfoLevel);
     void ReportMemoryTypes();
     Result CreateInstance(bool enableGraphicsAPIValidation, const Vector<const char*>& desiredInstanceExts);
     Result ResolvePreInstanceDispatchTable();
@@ -276,6 +297,7 @@ private:
     std::array<Vector<QueueVK*>, (size_t)QueueType::MAX_NUM> m_QueueFamilies;
     Vector<RenderPassCacheEntry> m_RenderPasses;
     Vector<FramebufferCacheEntry> m_Framebuffers;
+    Vector<TransferContextVK*> m_TransferContexts;
     DispatchTable m_VK = {};
     VkPhysicalDeviceMemoryProperties m_MemoryProps = {};
     VkAllocationCallbacks m_AllocationCallbacks = {};
@@ -290,10 +312,15 @@ private:
     VmaAllocator_T* m_Vma = nullptr;
     uint32_t m_NumActiveFamilyIndices = 0;
     uint32_t m_MinorVersion = 0;
+    uint64_t m_NonCoherentAtomSize = 1;
+    DeviceLostDump m_DeviceLostDump = {};
     bool m_OwnsNativeObjects = true;
     bool m_IsMemoryZeroInitializationEnabled = false;
+    bool m_IsDeviceLostInfoReported = false;
 
     Lock m_Lock;
+    Lock m_TransferContextLock;
+    Lock m_DeviceLostLock;
 };
 
 } // namespace nri

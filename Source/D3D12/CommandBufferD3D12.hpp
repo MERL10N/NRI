@@ -125,7 +125,10 @@ static inline D3D12_BARRIER_SYNC GetBarrierSyncFlags(StageBits stageBits, Access
     if (stageBits & StageBits::CLEAR_STORAGE)
         flags |= D3D12_BARRIER_SYNC_CLEAR_UNORDERED_ACCESS_VIEW;
 
-    if (stageBits & StageBits::VIDEO_DECODE)
+    if (stageBits & StageBits::HOST)
+        flags |= D3D12_BARRIER_SYNC_ALL;
+
+  if (stageBits & StageBits::VIDEO_DECODE)
         flags |= D3D12_BARRIER_SYNC_VIDEO_DECODE;
 
     if (stageBits & StageBits::VIDEO_ENCODE)
@@ -187,10 +190,10 @@ static inline D3D12_BARRIER_ACCESS GetBarrierAccessFlags(AccessBits accessBits) 
     if (accessBits & (AccessBits::SHADER_RESOURCE_STORAGE | AccessBits::SCRATCH_BUFFER | AccessBits::CLEAR_STORAGE))
         flags |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
 
-    if (accessBits & AccessBits::COPY_SOURCE)
+    if (accessBits & (AccessBits::COPY_SOURCE | AccessBits::HOST_READ))
         flags |= D3D12_BARRIER_ACCESS_COPY_SOURCE;
 
-    if (accessBits & AccessBits::COPY_DESTINATION)
+    if (accessBits & (AccessBits::COPY_DESTINATION | AccessBits::HOST_WRITE))
         flags |= D3D12_BARRIER_ACCESS_COPY_DEST;
 
     if (accessBits & AccessBits::RESOLVE_SOURCE)

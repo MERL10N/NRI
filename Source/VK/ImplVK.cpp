@@ -25,6 +25,7 @@
 #include "VideoPictureVK.h"
 #include "VideoSessionParametersVK.h"
 #include "VideoSessionVK.h"
+#include "TransferContextVK.h"
 
 #include "HelperInterface.h"
 #include "ImguiInterface.h"
@@ -41,6 +42,7 @@ using namespace nri;
 #include "DescriptorPoolVK.hpp"
 #include "DescriptorSetVK.hpp"
 #include "DescriptorVK.hpp"
+#include "TransferContextVK.hpp"
 #include "DeviceVK.hpp"
 #include "FenceVK.hpp"
 #include "MemoryVK.hpp"
@@ -565,6 +567,16 @@ static void NRI_CALL UnmapBuffer(Buffer& buffer) {
     ((BufferVK&)buffer).Unmap();
 }
 
+static Result NRI_CALL UploadHostMemoryToTexture(Queue& queue, const UploadHostMemoryToTextureDesc* copyDescs, uint32_t copyDescNum) {
+    QueueVK& queueVK = (QueueVK&)queue;
+    return queueVK.GetDevice().UploadHostMemoryToTexture(queueVK, copyDescs, copyDescNum);
+}
+
+static Result NRI_CALL ReadbackTextureToHostMemory(Queue& queue, const ReadbackTextureToHostMemoryDesc* copyDescs, uint32_t copyDescNum) {
+    QueueVK& queueVK = (QueueVK&)queue;
+    return queueVK.GetDevice().ReadbackTextureToHostMemory(queueVK, copyDescs, copyDescNum);
+}
+
 static uint64_t NRI_CALL GetBufferDeviceAddress(const Buffer& buffer) {
     return ((BufferVK&)buffer).GetDeviceAddress();
 }
@@ -747,6 +759,8 @@ Result DeviceVK::FillFunctionTable(CoreInterface& table) const {
     table.ResetCommandAllocator = ::ResetCommandAllocator;
     table.MapBuffer = ::MapBuffer;
     table.UnmapBuffer = ::UnmapBuffer;
+    table.UploadHostMemoryToTexture = ::UploadHostMemoryToTexture;
+    table.ReadbackTextureToHostMemory = ::ReadbackTextureToHostMemory;
     table.GetBufferDeviceAddress = ::GetBufferDeviceAddress;
     table.SetDebugName = ::SetDebugName;
     table.GetDeviceNativeObject = ::GetDeviceNativeObject;
@@ -856,12 +870,12 @@ static Result NRI_CALL SetLatencySleepMode(SwapChain& swapChain, const LatencySl
     return ((SwapChainVK&)swapChain).SetLatencySleepMode(latencySleepMode);
 }
 
-static Result NRI_CALL SetLatencyMarker(SwapChain& swapChain, LatencyMarker latencyMarker) {
-    return ((SwapChainVK&)swapChain).SetLatencyMarker(latencyMarker);
+static Result NRI_CALL SetLatencyMarker(SwapChain& swapChain, uint64_t presentId, LatencyMarker latencyMarker) {
+    return ((SwapChainVK&)swapChain).SetLatencyMarker(presentId, latencyMarker);
 }
 
-static Result NRI_CALL LatencySleep(SwapChain& swapChain) {
-    return ((SwapChainVK&)swapChain).LatencySleep();
+static Result NRI_CALL LatencySleep(SwapChain& swapChain, uint64_t presentId) {
+    return ((SwapChainVK&)swapChain).LatencySleep(presentId);
 }
 
 static Result NRI_CALL GetLatencyReport(const SwapChain& swapChain, LatencyReport& latencyReport) {
@@ -1332,12 +1346,12 @@ static Result NRI_CALL AcquireNextTexture(SwapChain& swapChain, Fence& acquireSe
     return ((SwapChainVK&)swapChain).AcquireNextTexture((FenceVK&)acquireSemaphore, textureIndex);
 }
 
-static Result NRI_CALL WaitForPresent(SwapChain& swapChain) {
-    return ((SwapChainVK&)swapChain).WaitForPresent();
+static Result NRI_CALL WaitForPresent(SwapChain& swapChain, uint64_t presentId) {
+    return ((SwapChainVK&)swapChain).WaitForPresent(presentId);
 }
 
-static Result NRI_CALL QueuePresent(SwapChain& swapChain, Fence& releaseSemaphore) {
-    return ((SwapChainVK&)swapChain).Present((FenceVK&)releaseSemaphore);
+static Result NRI_CALL QueuePresent(SwapChain& swapChain, Fence& releaseSemaphore, uint64_t presentId) {
+    return ((SwapChainVK&)swapChain).Present((FenceVK&)releaseSemaphore, presentId);
 }
 
 Result DeviceVK::FillFunctionTable(SwapChainInterface& table) const {

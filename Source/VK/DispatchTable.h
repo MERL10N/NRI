@@ -181,6 +181,9 @@ struct DispatchTable {
                                                           // v1.4 or VK_KHR_maintenance6
     VK_FUNC(CmdBindDescriptorSets2);                      // - | +
     VK_FUNC(CmdPushConstants2);                           // - | +
+                                                          // v1.4 or VK_EXT_host_image_copy
+    VK_FUNC(CopyMemoryToImage);                           // + | +
+    VK_FUNC(CopyImageToMemory);                           // + | +
                                                           // VK_KHR_fragment_shading_rate
     VK_FUNC(CmdSetFragmentShadingRateKHR);                // - | +
                                                           // VK_KHR_swapchain
@@ -210,6 +213,8 @@ struct DispatchTable {
     VK_FUNC(CmdTraceRaysIndirect2KHR);                    // - | +
                                                           // VK_EXT_calibrated_timestamps
     VK_FUNC(GetCalibratedTimestampsEXT);                  // + | +
+                                                          // VK_EXT_device_fault
+    VK_FUNC(GetDeviceFaultInfoEXT);                       // + | +
                                                           // VK_EXT_opacity_micromap
     VK_FUNC(CreateMicromapEXT);                           // + | +
     VK_FUNC(DestroyMicromapEXT);                          // - | +
