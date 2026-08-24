@@ -510,6 +510,17 @@ static uint32_t BuildQueueCreateInfosVK(const QueueFamilyDesc* queueFamilies, ui
     return queueCreateInfoNum;
 }
 
+static inline Lock* FindQueueLockVK(const std::array<Vector<QueueVK*>, (size_t)QueueType::MAX_NUM>& queueFamilies, VkQueue handle) {
+    for (const auto& queueFamily : queueFamilies) {
+        for (QueueVK* queue : queueFamily) {
+            if ((VkQueue)*queue == handle)
+                return &queue->GetLock();
+        }
+    }
+
+    return nullptr;
+}
+
 DeviceVK::DeviceVK(const CallbackInterface& callbacks, const AllocationCallbacks& allocationCallbacks)
     : DeviceBase(callbacks, allocationCallbacks)
     , m_QueueFamilies{
@@ -966,7 +977,8 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
                     m_VK.GetDeviceQueue2(m_Device, &queueInfo, &handle);
 
                     QueueVK* queue;
-                    Result result = CreateImplementation<QueueVK>(queue, queueFamilyVKDesc.queueType, queueFamilyVKDesc.familyIndex, handle);
+                    Lock* sharedLock = FindQueueLockVK(m_QueueFamilies, handle);
+                    Result result = CreateImplementation<QueueVK>(queue, queueFamilyVKDesc.queueType, queueFamilyVKDesc.familyIndex, handle, sharedLock);
                     if (result == Result::SUCCESS)
                         queueFamily.push_back(queue);
                 }
@@ -991,7 +1003,8 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
                     m_VK.GetDeviceQueue2(m_Device, &queueInfo, &handle);
 
                     QueueVK* queue;
-                    Result result = CreateImplementation<QueueVK>(queue, queueFamilyDesc.queueType, queueInfo.queueFamilyIndex, handle);
+                    Lock* sharedLock = FindQueueLockVK(m_QueueFamilies, handle);
+                    Result result = CreateImplementation<QueueVK>(queue, queueFamilyDesc.queueType, queueInfo.queueFamilyIndex, handle, sharedLock);
                     if (result == Result::SUCCESS)
                         queueFamily.push_back(queue);
                 }

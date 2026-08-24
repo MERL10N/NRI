@@ -220,7 +220,7 @@ NriBits(VideoAV1SequenceBits, uint32_t,
     ENABLE_SUPERRES                         = NriBit(13),
     ENABLE_CDEF                             = NriBit(14),
     ENABLE_RESTORATION                      = NriBit(15),
-    FILM_GRAIN_PARAMS_PRESENT               = NriBit(16),
+    FILM_GRAIN_PARAMS_PRESENT               = NriBit(16), // TODO: currently unsupported for decode
     TIMING_INFO_PRESENT                     = NriBit(17),
     INITIAL_DISPLAY_DELAY_PRESENT           = NriBit(18),
     MONO_CHROME                             = NriBit(19),
@@ -261,12 +261,12 @@ NriBits(VideoAV1PictureBits, uint32_t,
     USES_CHROMA_LR                          = NriBit(27),
     SHOW_FRAME                              = NriBit(28),
     SHOWABLE_FRAME                          = NriBit(29),
-    APPLY_GRAIN                             = NriBit(30)
+    APPLY_GRAIN                             = NriBit(30)  // TODO: currently unsupported for decode
 );
 
 NriStruct(VideoSessionDesc) {
     Nri(VideoSessionType) type;
-    Nri(VideoCodec) codec;
+    Nri(VideoCodec) codec; // fixed profiles: H.264 High, H.265 Main/Main10 (by format), AV1 Main; H.264 sessions are progressive-only
     Nri(Format) format;
     uint32_t width;
     uint32_t height;
@@ -286,8 +286,8 @@ NriStruct(VideoCapabilities) {
     uint64_t bitstreamSizeMax;
     uint32_t metadataOffsetAlignment;
     uint32_t resolvedMetadataOffsetAlignment;
-    uint64_t metadataSize;         // minimum backend encode metadata range
-    uint64_t resolvedMetadataSize; // minimum resolved metadata range
+    uint64_t metadataSize;           // minimum backend encode metadata range
+    uint64_t resolvedMetadataSize;   // minimum resolved metadata range
     bool decodeDpbAndOutputCoincide; // decode output and reconstructed/DPB setup may use the same texture subresource
     bool decodeDpbAndOutputDistinct; // decode output and reconstructed/DPB setup may use different texture subresources
 };
@@ -558,7 +558,7 @@ NriStruct(VideoAV1SessionParametersDesc) {
 
 NriStruct(VideoSessionParametersDesc) {
     NriPtr(VideoSession) session;
-    NriOptional const NriPtr(VideoH264SessionParametersDesc) h264Parameters;
+    NriOptional const NriPtr(VideoH264SessionParametersDesc) h264Parameters; // required for H.264 and must contain at least one matching SPS/PPS pair
     NriOptional const NriPtr(VideoH265SessionParametersDesc) h265Parameters;
     NriOptional const NriPtr(VideoAV1SessionParametersDesc) av1Parameters;
 };
@@ -822,7 +822,7 @@ NriStruct(VideoAV1DecodePictureDesc) {
     NriOptional const NriPtr(VideoAV1SegmentationDesc) segmentation;
     NriOptional const NriPtr(VideoAV1LoopRestorationDesc) loopRestoration;
     NriOptional const NriPtr(VideoAV1GlobalMotionDesc) globalMotion;
-    NriOptional const NriPtr(VideoAV1FilmGrainDesc) filmGrain;
+    NriOptional const NriPtr(VideoAV1FilmGrainDesc) filmGrain; // used with "APPLY_GRAIN"; TODO: currently unsupported for decode
     NriOptional const uint8_t* orderHints; // if provided, must include 8 entries
     const NriPtr(VideoAV1DecodeTileDesc) tiles;
     uint32_t tileNum;

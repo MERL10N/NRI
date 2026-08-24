@@ -430,7 +430,7 @@ constexpr VkPipelineStageFlags2 GetPipelineStageFlags(StageBits stageBits) {
     if (stageBits & StageBits::HOST)
         flags |= VK_PIPELINE_STAGE_2_HOST_BIT;
 
-  if (stageBits & StageBits::VIDEO_DECODE)
+    if (stageBits & StageBits::VIDEO_DECODE)
         flags |= VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR;
 
     if (stageBits & StageBits::VIDEO_ENCODE)
@@ -555,6 +555,11 @@ constexpr Result GetResultFromVkResult(VkResult vkResult) {
         case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
         case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
         case VK_ERROR_FORMAT_NOT_SUPPORTED:
+        case VK_ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR:
+        case VK_ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR:
+        case VK_ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR:
+        case VK_ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR:
+        case VK_ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR:
         case VK_ERROR_INCOMPATIBLE_DRIVER:
         case VK_ERROR_FEATURE_NOT_PRESENT:
         case VK_ERROR_EXTENSION_NOT_PRESENT:

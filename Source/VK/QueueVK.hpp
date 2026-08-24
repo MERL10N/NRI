@@ -1,18 +1,23 @@
 // © 2021 NVIDIA Corporation
 
-Result QueueVK::Create(QueueType type, uint32_t familyIndex, VkQueue handle) {
+Result QueueVK::Create(QueueType type, uint32_t familyIndex, VkQueue handle, Lock* sharedLock) {
     m_Type = type;
     m_FamilyIndex = familyIndex;
     m_Handle = handle;
+    m_Lock = sharedLock ? sharedLock : &m_OwnLock;
 
     return Result::SUCCESS;
 }
 
 NRI_INLINE void QueueVK::SetDebugName(const char* name) {
+    ExclusiveScope lock(*m_Lock);
+
     m_Device.SetDebugNameToTrivialObject(VK_OBJECT_TYPE_QUEUE, (uint64_t)m_Handle, name);
 }
 
 NRI_INLINE void QueueVK::BeginAnnotation(const char* name, uint32_t bgra) {
+    ExclusiveScope lock(*m_Lock);
+
     VkDebugUtilsLabelEXT info = {VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
     info.pLabelName = name;
     info.color[0] = ((bgra >> 16) & 0xFF) / 255.0f;
@@ -26,12 +31,16 @@ NRI_INLINE void QueueVK::BeginAnnotation(const char* name, uint32_t bgra) {
 }
 
 NRI_INLINE void QueueVK::EndAnnotation() {
+    ExclusiveScope lock(*m_Lock);
+
     const auto& vk = m_Device.GetDispatchTable();
     if (vk.QueueEndDebugUtilsLabelEXT)
         vk.QueueEndDebugUtilsLabelEXT(m_Handle);
 }
 
 NRI_INLINE void QueueVK::Annotation(const char* name, uint32_t bgra) {
+    ExclusiveScope lock(*m_Lock);
+
     VkDebugUtilsLabelEXT info = {VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
     info.pLabelName = name;
     info.color[0] = ((bgra >> 16) & 0xFF) / 255.0f;
@@ -71,7 +80,7 @@ NRI_INLINE void QueueVK::GetCalibratedTimestamps(uint64_t& timestampGPU, uint64_
 }
 
 NRI_INLINE Result QueueVK::Submit(const QueueSubmitDesc& queueSubmitDesc) {
-    ExclusiveScope lock(m_Lock);
+    ExclusiveScope lock(*m_Lock);
 
     Scratch<VkSemaphoreSubmitInfo> waitSemaphores = NRI_ALLOCATE_SCRATCH(m_Device, VkSemaphoreSubmitInfo, queueSubmitDesc.waitFenceNum);
     for (uint32_t i = 0; i < queueSubmitDesc.waitFenceNum; i++) {
@@ -117,7 +126,7 @@ NRI_INLINE Result QueueVK::Submit(const QueueSubmitDesc& queueSubmitDesc) {
 }
 
 NRI_INLINE Result QueueVK::WaitIdle() {
-    ExclusiveScope lock(m_Lock);
+    ExclusiveScope lock(*m_Lock);
 
     const auto& vk = m_Device.GetDispatchTable();
     VkResult vkResult = vk.QueueWaitIdle(m_Handle);

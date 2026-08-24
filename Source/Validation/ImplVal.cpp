@@ -53,7 +53,17 @@ static inline bool IsVideoPictureCompatibleWithSession(Format pictureFormat, uin
     return pictureWidth == sessionDesc.width && pictureHeight == sessionDesc.height;
 }
 
-static inline bool IsVideoSessionParametersDescValid(VideoCodec codec, const VideoSessionParametersDesc& desc) {
+static inline uint8_t GetVideoSessionBitDepth(Format format) {
+    return format == Format::NV12_UNORM ? 8 : 10;
+}
+
+static inline bool IsVideoSessionParametersDescValid(const VideoSessionDesc& sessionDesc, const VideoSessionParametersDesc& desc) {
+    constexpr uint8_t h264HighProfileIdc = 100;
+    constexpr uint8_t h265MainProfileIdc = 1;
+    constexpr uint8_t h265Main10ProfileIdc = 2;
+    constexpr uint8_t av1MainProfile = 0;
+
+    const VideoCodec codec = sessionDesc.codec;
     const bool hasH264 = desc.h264Parameters != nullptr;
     const bool hasH265 = desc.h265Parameters != nullptr;
     const bool hasAV1 = desc.av1Parameters != nullptr;
@@ -61,13 +71,37 @@ static inline bool IsVideoSessionParametersDescValid(VideoCodec codec, const Vid
     if ((uint32_t)hasH264 + (uint32_t)hasH265 + (uint32_t)hasAV1 > 1 || (hasH264 && codec != VideoCodec::H264) || (hasH265 && codec != VideoCodec::H265) || (hasAV1 && codec != VideoCodec::AV1))
         return false;
 
+    if (codec == VideoCodec::H264 && !hasH264)
+        return false;
+
     if (hasH264) {
         const VideoH264SessionParametersDesc& parameters = *desc.h264Parameters;
 
-        if ((parameters.sequenceParameterSetNum && !parameters.sequenceParameterSets) || (parameters.pictureParameterSetNum && !parameters.pictureParameterSets))
+        if (!parameters.sequenceParameterSetNum || !parameters.sequenceParameterSets || !parameters.pictureParameterSetNum || !parameters.pictureParameterSets)
             return false;
         if ((parameters.maxSequenceParameterSetNum && parameters.maxSequenceParameterSetNum < parameters.sequenceParameterSetNum) || (parameters.maxPictureParameterSetNum && parameters.maxPictureParameterSetNum < parameters.pictureParameterSetNum))
             return false;
+
+        uint32_t sequenceParameterSetMask = 0;
+        for (uint32_t i = 0; i < parameters.sequenceParameterSetNum; i++) {
+            const VideoH264SequenceParameterSetDesc& sequence = parameters.sequenceParameterSets[i];
+            const bool isProgressive = (sequence.flags & VideoH264SequenceParameterSetBits::FRAME_MBS_ONLY) && !(sequence.flags & VideoH264SequenceParameterSetBits::MB_ADAPTIVE_FRAME_FIELD);
+            if (sequence.sequenceParameterSetId >= 32 || (sequenceParameterSetMask & (1u << sequence.sequenceParameterSetId)) != 0 || sequence.profileIdc != h264HighProfileIdc || sequence.chromaFormatIdc != 1 || sequence.bitDepthLumaMinus8 != 0 || sequence.bitDepthChromaMinus8 != 0 || !isProgressive)
+                return false;
+
+            sequenceParameterSetMask |= 1u << sequence.sequenceParameterSetId;
+        }
+
+        std::array<uint64_t, 4> pictureParameterSetMasks = {};
+        for (uint32_t i = 0; i < parameters.pictureParameterSetNum; i++) {
+            const VideoH264PictureParameterSetDesc& picture = parameters.pictureParameterSets[i];
+            const uint64_t pictureParameterSetBit = 1ull << (picture.pictureParameterSetId % 64);
+            uint64_t& pictureParameterSetMask = pictureParameterSetMasks[picture.pictureParameterSetId / 64];
+            if (picture.sequenceParameterSetId >= 32 || (sequenceParameterSetMask & (1u << picture.sequenceParameterSetId)) == 0 || (pictureParameterSetMask & pictureParameterSetBit) != 0)
+                return false;
+
+            pictureParameterSetMask |= pictureParameterSetBit;
+        }
     }
 
     if (hasH265) {
@@ -78,12 +112,27 @@ static inline bool IsVideoSessionParametersDescValid(VideoCodec codec, const Vid
         if ((parameters.maxVideoParameterSetNum && parameters.maxVideoParameterSetNum < parameters.videoParameterSetNum) || (parameters.maxSequenceParameterSetNum && parameters.maxSequenceParameterSetNum < parameters.sequenceParameterSetNum) || (parameters.maxPictureParameterSetNum && parameters.maxPictureParameterSetNum < parameters.pictureParameterSetNum))
             return false;
 
+        const uint8_t bitDepthMinus8 = GetVideoSessionBitDepth(sessionDesc.format) - 8;
+        const uint8_t profileIdc = bitDepthMinus8 ? h265Main10ProfileIdc : h265MainProfileIdc;
+
+        for (uint32_t i = 0; i < parameters.videoParameterSetNum; i++) {
+            if (parameters.videoParameterSets[i].profileTierLevel.generalProfileIdc != profileIdc)
+                return false;
+        }
+
         for (uint32_t i = 0; i < parameters.sequenceParameterSetNum; i++) {
             const VideoH265SequenceParameterSetDesc& sequence = parameters.sequenceParameterSets[i];
 
-            if ((sequence.numShortTermRefPicSets && !sequence.shortTermRefPicSets) || (sequence.numLongTermRefPicsSps && !sequence.longTermRefPicsSps))
+            if ((sequence.numShortTermRefPicSets && !sequence.shortTermRefPicSets) || (sequence.numLongTermRefPicsSps && !sequence.longTermRefPicsSps) || sequence.profileTierLevel.generalProfileIdc != profileIdc || sequence.chromaFormatIdc != 1 || sequence.bitDepthLumaMinus8 != bitDepthMinus8 || sequence.bitDepthChromaMinus8 != bitDepthMinus8)
                 return false;
         }
+    }
+
+    if (hasAV1) {
+        const VideoAV1SequenceDesc& sequence = desc.av1Parameters->sequence;
+        const bool usesUnsupportedFilmGrain = sessionDesc.type == VideoSessionType::DECODE && (sequence.flags & VideoAV1SequenceBits::FILM_GRAIN_PARAMS_PRESENT);
+        if (sequence.seqProfile != av1MainProfile || sequence.bitDepth != GetVideoSessionBitDepth(sessionDesc.format) || sequence.subsamplingX != 1 || sequence.subsamplingY != 1 || usesUnsupportedFilmGrain)
+            return false;
     }
 
     return true;
@@ -94,9 +143,11 @@ static inline bool IsVideoPictureDescValid(const VideoPictureDesc& desc, const T
         return false;
 
     const TextureUsageBits requiredUsage = desc.usage == VideoPictureUsage::DECODE_OUTPUT || desc.usage == VideoPictureUsage::DECODE_REFERENCE ? TextureUsageBits::VIDEO_DECODE : TextureUsageBits::VIDEO_ENCODE;
+    const bool requiresOperationUsage = desc.usage == VideoPictureUsage::DECODE_OUTPUT || desc.usage == VideoPictureUsage::ENCODE_INPUT;
+    const bool isReferenceOnly = (textureDesc.usage & TextureUsageBits::VIDEO_REFERENCE_ONLY) != 0;
     const uint32_t layerNum = textureDesc.layerNum ? textureDesc.layerNum : 1;
 
-    return (textureDesc.usage & requiredUsage) != 0 && desc.layer < layerNum && (!desc.width || desc.width <= textureDesc.width) && (!desc.height || desc.height <= textureDesc.height);
+    return (textureDesc.usage & requiredUsage) != 0 && (!requiresOperationUsage || !isReferenceOnly) && desc.layer < layerNum && (!desc.width || desc.width <= textureDesc.width) && (!desc.height || desc.height <= textureDesc.height);
 }
 
 static inline bool IsVideoPictureRoleCompatible(VideoPictureUsage usage, VideoPictureRole role) {
@@ -1608,8 +1659,7 @@ static Result NRI_CALL CreateVideoSessionParameters(Device& device, const VideoS
     VideoSessionVal& sessionVal = *(VideoSessionVal*)videoSessionParametersDesc.session;
     NRI_RETURN_ON_FAILURE(&deviceVal, &sessionVal.GetDevice() == &deviceVal, Result::INVALID_ARGUMENT, "'session' belongs to another device");
 
-    const VideoCodec codec = sessionVal.GetDesc().codec;
-    NRI_RETURN_ON_FAILURE(&deviceVal, IsVideoSessionParametersDescValid(codec, videoSessionParametersDesc), Result::INVALID_ARGUMENT, "'videoSessionParametersDesc' is invalid for the session codec");
+    NRI_RETURN_ON_FAILURE(&deviceVal, IsVideoSessionParametersDescValid(sessionVal.GetDesc(), videoSessionParametersDesc), Result::INVALID_ARGUMENT, "'videoSessionParametersDesc' is invalid for the fixed session profile, format or picture layout");
 
     VideoSessionParametersDesc descImpl = videoSessionParametersDesc;
     descImpl.session = sessionVal.GetImpl();
@@ -1619,7 +1669,7 @@ static Result NRI_CALL CreateVideoSessionParameters(Device& device, const VideoS
     if (result != Result::SUCCESS)
         return result;
 
-    videoSessionParameters = (VideoSessionParameters*)Allocate<VideoSessionParametersVal>(deviceVal.GetAllocationCallbacks(), deviceVal, impl, sessionVal);
+    videoSessionParameters = (VideoSessionParameters*)Allocate<VideoSessionParametersVal>(deviceVal.GetAllocationCallbacks(), deviceVal, impl, sessionVal, videoSessionParametersDesc);
     if (!videoSessionParameters) {
         deviceVal.GetVideoInterfaceImpl().DestroyVideoSessionParameters(impl);
 

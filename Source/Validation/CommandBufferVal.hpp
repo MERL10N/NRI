@@ -1199,6 +1199,9 @@ static inline bool AreVideoDecodeSliceOffsetsValid(const uint32_t* offsets, uint
 
 static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& videoDecodeDesc) {
     const VideoAV1DecodePictureDesc& desc = *videoDecodeDesc.av1PictureDesc;
+    if (desc.flags & VideoAV1PictureBits::APPLY_GRAIN)
+        return false;
+
     if (desc.tileNum == 0 || desc.tileNum > 64 || !desc.tiles)
         return false;
 
@@ -1309,6 +1312,7 @@ NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecode
     const VideoCapabilities& capabilities = sessionVal.GetCapabilities();
     NRI_RETURN_ON_FAILURE(&m_Device, (bitstreamDesc.usage & BufferUsageBits::VIDEO_DECODE) != 0 && videoDecodeDesc.bitstream.offset < bitstreamDesc.size && videoDecodeDesc.bitstream.size <= bitstreamDesc.size - videoDecodeDesc.bitstream.offset && IsAligned(videoDecodeDesc.bitstream.offset, capabilities.bitstreamOffsetAlignment) && IsAligned(videoDecodeDesc.bitstream.size, capabilities.bitstreamSizeAlignment), ReturnVoid(), "'bitstream' must be an aligned VIDEO_DECODE buffer range");
     NRI_RETURN_ON_FAILURE(&m_Device, &parametersVal.GetSession() == &sessionVal, ReturnVoid(), "'parameters' must belong to 'session'");
+    NRI_RETURN_ON_FAILURE(&m_Device, sessionVal.GetDesc().codec != VideoCodec::H264 || !videoDecodeDesc.h264PictureDesc || parametersVal.IsH264ParameterSetValid(videoDecodeDesc.h264PictureDesc->sequenceParameterSetId, videoDecodeDesc.h264PictureDesc->pictureParameterSetId), ReturnVoid(), "'h264PictureDesc' must select a matching SPS/PPS pair from 'parameters'");
     NRI_RETURN_ON_FAILURE(&m_Device, IsVideoPictureValidForSession(dstPictureVal, VideoPictureUsage::DECODE_OUTPUT, sessionVal.GetDesc()), ReturnVoid(), "'dstPicture' must have DECODE_OUTPUT usage and match the session format, codec and coded extent");
 
     bool isDpbAndOutputDistinct = false;
@@ -1344,6 +1348,12 @@ NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecode
 
     if (videoDecodeDesc.argumentNum != 0 && !videoDecodeDesc.arguments) {
         NRI_REPORT_ERROR(&m_Device, "'arguments' is NULL");
+        return;
+    }
+
+    constexpr VideoH264DecodePictureBits h264FieldPictureBits = VideoH264DecodePictureBits::FIELD_PICTURE | VideoH264DecodePictureBits::BOTTOM_FIELD | VideoH264DecodePictureBits::COMPLEMENTARY_FIELD_PAIR;
+    if (videoDecodeDesc.h264PictureDesc && (videoDecodeDesc.h264PictureDesc->flags & h264FieldPictureBits)) {
+        NRI_REPORT_ERROR(&m_Device, "H.264 field-picture decode is not supported by the fixed progressive session profile");
         return;
     }
 
@@ -1422,6 +1432,9 @@ NRI_INLINE void CommandBufferVal::EncodeVideo(const VideoEncodeDesc& videoEncode
     }
 
     NRI_RETURN_ON_FAILURE(&m_Device, &parametersVal.GetSession() == &sessionVal, ReturnVoid(), "'parameters' must belong to 'session'");
+    const uint8_t h264SequenceParameterSetId = videoEncodeDesc.h264PictureDesc ? videoEncodeDesc.h264PictureDesc->sequenceParameterSetId : 0;
+    const uint8_t h264PictureParameterSetId = videoEncodeDesc.h264PictureDesc ? videoEncodeDesc.h264PictureDesc->pictureParameterSetId : 0;
+    NRI_RETURN_ON_FAILURE(&m_Device, sessionVal.GetDesc().codec != VideoCodec::H264 || parametersVal.IsH264ParameterSetValid(h264SequenceParameterSetId, h264PictureParameterSetId), ReturnVoid(), "'h264PictureDesc' must select a matching SPS/PPS pair from 'parameters'");
     NRI_RETURN_ON_FAILURE(&m_Device, IsVideoPictureValidForSession(srcPictureVal, VideoPictureUsage::ENCODE_INPUT, sessionVal.GetDesc()), ReturnVoid(), "'srcPicture' must have ENCODE_INPUT usage and match the session format, codec and coded extent");
 
     if (videoEncodeDesc.reconstructedPicture) {
