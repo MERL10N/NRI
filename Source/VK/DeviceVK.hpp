@@ -864,6 +864,7 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
     m_IsSupported.hostImageCopy = features14.hostImageCopy;
     m_IsSupported.deviceFault = DeviceFaultFeatures.deviceFault;
     m_IsSupported.deviceFaultVendorBinary = DeviceFaultFeatures.deviceFaultVendorBinary;
+    m_IsSupported.videoMaintenance1 = VideoMaintenance1Features.videoMaintenance1;
     m_IsSupported.videoMaintenance2 = VideoMaintenance2Features.videoMaintenance2;
     m_IsSupported.videoEncodeAV1 = VideoEncodeAV1Features.videoEncodeAV1;
 
@@ -1378,12 +1379,12 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
         m_Desc.features.unifiedTextureLayouts = UnifiedImageLayoutsFeatures.unifiedImageLayouts;
         m_Desc.features.resourceAliasing = true;
 
-        const VkVideoCodecOperationFlagsKHR decodeCodecOperations = GetVideoCodecOperations(true, false);
+        const VkVideoCodecOperationFlagsKHR decodeCodecOperations = m_IsSupported.videoMaintenance1 ? GetVideoCodecOperations(true, false) : 0;
         m_Desc.videoFeatures.decode.H264 = (decodeCodecOperations & VK_VIDEO_CODEC_OPERATION_DECODE_H264_BIT_KHR) != 0;
         m_Desc.videoFeatures.decode.H265 = (decodeCodecOperations & VK_VIDEO_CODEC_OPERATION_DECODE_H265_BIT_KHR) != 0;
         m_Desc.videoFeatures.decode.AV1 = (decodeCodecOperations & VK_VIDEO_CODEC_OPERATION_DECODE_AV1_BIT_KHR) != 0;
 
-        const VkVideoCodecOperationFlagsKHR encodeCodecOperations = GetVideoCodecOperations(false, true);
+        const VkVideoCodecOperationFlagsKHR encodeCodecOperations = m_IsSupported.videoMaintenance1 ? GetVideoCodecOperations(false, true) : 0;
         m_Desc.videoFeatures.encode.H264 = (encodeCodecOperations & VK_VIDEO_CODEC_OPERATION_ENCODE_H264_BIT_KHR) != 0;
         m_Desc.videoFeatures.encode.H265 = (encodeCodecOperations & VK_VIDEO_CODEC_OPERATION_ENCODE_H265_BIT_KHR) != 0;
         m_Desc.videoFeatures.encode.AV1 = (encodeCodecOperations & VK_VIDEO_CODEC_OPERATION_ENCODE_AV1_BIT_KHR) != 0;
@@ -1461,7 +1462,7 @@ void DeviceVK::FillCreateInfo(const BufferDesc& bufferDesc, VkBufferCreateInfo& 
     info.queueFamilyIndexCount = m_NumActiveFamilyIndices;
     info.pQueueFamilyIndices = m_ActiveQueueFamilyIndices.data();
 
-    if (bufferDesc.usage & (BufferUsageBits::VIDEO_DECODE | BufferUsageBits::VIDEO_ENCODE))
+    if (m_IsSupported.videoMaintenance1 && (bufferDesc.usage & (BufferUsageBits::VIDEO_DECODE | BufferUsageBits::VIDEO_ENCODE)))
         info.flags |= VK_BUFFER_CREATE_VIDEO_PROFILE_INDEPENDENT_BIT_KHR;
 }
 

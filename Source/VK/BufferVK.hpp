@@ -14,6 +14,9 @@ BufferVK::~BufferVK() {
 Result BufferVK::Create(const BufferDesc& bufferDesc) {
     m_Desc = bufferDesc;
 
+    if ((bufferDesc.usage & (BufferUsageBits::VIDEO_DECODE | BufferUsageBits::VIDEO_ENCODE)) && !m_Device.m_IsSupported.videoMaintenance1)
+        return Result::UNSUPPORTED;
+
     VkBufferCreateInfo info = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     FillCreateInfo(info);
 

@@ -128,6 +128,7 @@ struct IsSupported {
     uint32_t fifoLatestReady              : 1;
     uint32_t unifiedImageLayoutsVideo     : 1;
     uint32_t hostImageCopy                : 1;
+    uint32_t videoMaintenance1            : 1;
     uint32_t videoMaintenance2            : 1;
     uint32_t videoEncodeAV1               : 1;
 };
