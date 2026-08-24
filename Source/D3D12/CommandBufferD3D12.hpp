@@ -347,7 +347,7 @@ static uint32_t AddResourceBarrier(D3D12_COMMAND_LIST_TYPE commandListType, ID3D
     return 1;
 }
 
-static uint32_t AddVideoBufferResourceBarriers(D3D12_COMMAND_LIST_TYPE commandListType, ID3D12Resource* resource, AccessBits before, AccessBits after, D3D12_RESOURCE_BARRIER* resourceBarriers, uint32_t subresource) {
+static inline uint32_t AddVideoBufferResourceBarriers(D3D12_COMMAND_LIST_TYPE commandListType, ID3D12Resource* resource, AccessBits before, AccessBits after, D3D12_RESOURCE_BARRIER* resourceBarriers, uint32_t subresource) {
     const D3D12_RESOURCE_STATES resourceStateBefore = GetResourceStates(before, commandListType);
     const D3D12_RESOURCE_STATES resourceStateAfter = GetResourceStates(after, commandListType);
 

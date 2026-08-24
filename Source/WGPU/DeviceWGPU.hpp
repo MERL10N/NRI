@@ -40,6 +40,8 @@ DeviceWGPU::DeviceWGPU(const CallbackInterface& callbacks, const AllocationCallb
           Vector<QueueWGPU*>(GetStdAllocator()),
           Vector<QueueWGPU*>(GetStdAllocator()),
           Vector<QueueWGPU*>(GetStdAllocator()),
+          Vector<QueueWGPU*>(GetStdAllocator()),
+          Vector<QueueWGPU*>(GetStdAllocator()),
       }
     , m_HostCopyContexts(GetStdAllocator()) {
     m_Desc.graphicsAPI = GraphicsAPI::WGPU;
