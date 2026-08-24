@@ -323,7 +323,7 @@ protected:
 // Array validation
 #define NRI_VALIDATE_ARRAY(x)                 static_assert((size_t)x[x.size() - 1] != 0, "Some elements are missing in '" NRI_STRINGIFY(x) "'");
 #define NRI_VALIDATE_ARRAY_BY_PTR(x)          static_assert(x[x.size() - 1] != nullptr, "Some elements are missing in '" NRI_STRINGIFY(x) "'");
-#define NRI_VALIDATE_ARRAY_BY_FIELD(x, field) static_assert(x[x.size() - 1].field != 0, "Some elements are missing in '" NRI_STRINGIFY(x) "'");
+#define NRI_VALIDATE_ARRAY_BY_FIELD(x, field) static_assert(x[x.size() - 1].field != decltype(x[x.size() - 1].field){}, "Some elements are missing in '" NRI_STRINGIFY(x) "'");
 
 // D3D
 #define NRI_SET_D3D_DEBUG_OBJECT_NAME(obj, name) \

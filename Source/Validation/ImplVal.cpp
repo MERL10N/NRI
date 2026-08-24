@@ -108,7 +108,7 @@ static inline bool IsVideoPictureRoleCompatible(VideoPictureUsage usage, VideoPi
         VideoPictureUsage::ENCODE_REFERENCE, // ENCODE_REFERENCE
         VideoPictureUsage::ENCODE_REFERENCE, // ENCODE_RECONSTRUCTED
     };
-    static_assert(usages.back() != VideoPictureUsage::MAX_NUM, "Some elements are missing in 'usages'");
+    NRI_VALIDATE_ARRAY(usages);
 
     return usage == usages[(size_t)role];
 }

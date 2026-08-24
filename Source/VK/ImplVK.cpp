@@ -1191,7 +1191,7 @@ static constexpr std::array<AccessLayoutStage, (size_t)VideoPictureRole::MAX_NUM
     AccessLayoutStage{AccessBits::VIDEO_ENCODE_READ, Layout::VIDEO_ENCODE_DPB, StageBits::VIDEO_ENCODE},  // ENCODE_REFERENCE
     AccessLayoutStage{AccessBits::VIDEO_ENCODE_WRITE, Layout::VIDEO_ENCODE_DPB, StageBits::VIDEO_ENCODE}, // ENCODE_RECONSTRUCTED
 };
-static_assert(g_VideoPictureStates.back().access != AccessBits::NONE, "Some elements are missing in 'g_VideoPictureStates'");
+NRI_VALIDATE_ARRAY_BY_FIELD(g_VideoPictureStates, access);
 
 static Result NRI_CALL GetVideoPictureState(const VideoPicture&, VideoPictureRole role, VideoPictureState& state) {
     state = {};
