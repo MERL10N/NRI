@@ -485,14 +485,16 @@ NRI_INLINE void CommandBufferVK::DecodeVideo(const VideoDecodeDesc& videoDecodeD
 
     BufferVK& bitstream = *(BufferVK*)videoDecodeDesc.bitstream.buffer;
 
-    const uint32_t referenceScratchNum = videoDecodeDesc.referenceNum ? videoDecodeDesc.referenceNum : 1;
+    const uint32_t h264ReferenceNum = session.GetDesc().codec == VideoCodec::H264 ? videoDecodeDesc.referenceNum : 0;
+    const uint32_t h265ReferenceNum = session.GetDesc().codec == VideoCodec::H265 ? videoDecodeDesc.referenceNum : 0;
+    const uint32_t av1ReferenceNum = session.GetDesc().codec == VideoCodec::AV1 ? videoDecodeDesc.referenceNum : 0;
     Scratch<VkVideoReferenceSlotInfoKHR> referenceSlots = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoReferenceSlotInfoKHR, videoDecodeDesc.referenceNum + 1);
-    Scratch<StdVideoDecodeH264ReferenceInfo> h264StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoDecodeH264ReferenceInfo, referenceScratchNum);
-    Scratch<VkVideoDecodeH264DpbSlotInfoKHR> h264References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoDecodeH264DpbSlotInfoKHR, referenceScratchNum);
-    Scratch<StdVideoDecodeH265ReferenceInfo> h265StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoDecodeH265ReferenceInfo, referenceScratchNum);
-    Scratch<VkVideoDecodeH265DpbSlotInfoKHR> h265References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoDecodeH265DpbSlotInfoKHR, referenceScratchNum);
-    Scratch<StdVideoDecodeAV1ReferenceInfo> av1StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoDecodeAV1ReferenceInfo, referenceScratchNum);
-    Scratch<VkVideoDecodeAV1DpbSlotInfoKHR> av1References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoDecodeAV1DpbSlotInfoKHR, referenceScratchNum);
+    Scratch<StdVideoDecodeH264ReferenceInfo> h264StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoDecodeH264ReferenceInfo, h264ReferenceNum);
+    Scratch<VkVideoDecodeH264DpbSlotInfoKHR> h264References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoDecodeH264DpbSlotInfoKHR, h264ReferenceNum);
+    Scratch<StdVideoDecodeH265ReferenceInfo> h265StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoDecodeH265ReferenceInfo, h265ReferenceNum);
+    Scratch<VkVideoDecodeH265DpbSlotInfoKHR> h265References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoDecodeH265DpbSlotInfoKHR, h265ReferenceNum);
+    Scratch<StdVideoDecodeAV1ReferenceInfo> av1StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoDecodeAV1ReferenceInfo, av1ReferenceNum);
+    Scratch<VkVideoDecodeAV1DpbSlotInfoKHR> av1References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoDecodeAV1DpbSlotInfoKHR, av1ReferenceNum);
     for (uint32_t i = 0; i < videoDecodeDesc.referenceNum; i++) {
         VideoPictureVK& picture = *(VideoPictureVK*)videoDecodeDesc.references[i].picture;
         referenceSlots[i] = {VK_STRUCTURE_TYPE_VIDEO_REFERENCE_SLOT_INFO_KHR};
@@ -558,14 +560,14 @@ NRI_INLINE void CommandBufferVK::DecodeVideo(const VideoDecodeDesc& videoDecodeD
 #if defined(VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_INLINE_SESSION_PARAMETERS_INFO_KHR)
     VkVideoDecodeAV1InlineSessionParametersInfoKHR av1InlineSessionParameters = {VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_INLINE_SESSION_PARAMETERS_INFO_KHR};
 #endif
-    Scratch<uint32_t> av1TileOffsets = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 1u);
-    Scratch<uint32_t> av1TileSizes = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 1u);
-    Scratch<uint32_t> h264SliceOffsets = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoDecodeDesc.h264PictureDesc ? std::max(videoDecodeDesc.h264PictureDesc->sliceOffsetNum, 1u) : 1u);
-    Scratch<uint32_t> h265SliceSegmentOffsets = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoDecodeDesc.h265PictureDesc ? std::max(videoDecodeDesc.h265PictureDesc->sliceSegmentOffsetNum, 1u) : 1u);
-    Scratch<uint16_t> av1MiColStarts = NRI_ALLOCATE_SCRATCH(m_Device, uint16_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum + 1, 2u) : 2u);
-    Scratch<uint16_t> av1MiRowStarts = NRI_ALLOCATE_SCRATCH(m_Device, uint16_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum + 1, 2u) : 2u);
-    Scratch<uint16_t> av1WidthInSbsMinus1 = NRI_ALLOCATE_SCRATCH(m_Device, uint16_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 1u);
-    Scratch<uint16_t> av1HeightInSbsMinus1 = NRI_ALLOCATE_SCRATCH(m_Device, uint16_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 1u);
+    Scratch<uint32_t> av1TileOffsets = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 0);
+    Scratch<uint32_t> av1TileSizes = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 0);
+    Scratch<uint32_t> h264SliceOffsets = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoDecodeDesc.h264PictureDesc ? std::max(videoDecodeDesc.h264PictureDesc->sliceOffsetNum, 1u) : 0);
+    Scratch<uint32_t> h265SliceSegmentOffsets = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoDecodeDesc.h265PictureDesc ? std::max(videoDecodeDesc.h265PictureDesc->sliceSegmentOffsetNum, 1u) : 0);
+    Scratch<uint16_t> av1MiColStarts = NRI_ALLOCATE_SCRATCH(m_Device, uint16_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum + 1, 2u) : 0);
+    Scratch<uint16_t> av1MiRowStarts = NRI_ALLOCATE_SCRATCH(m_Device, uint16_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum + 1, 2u) : 0);
+    Scratch<uint16_t> av1WidthInSbsMinus1 = NRI_ALLOCATE_SCRATCH(m_Device, uint16_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 0);
+    Scratch<uint16_t> av1HeightInSbsMinus1 = NRI_ALLOCATE_SCRATCH(m_Device, uint16_t, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 0);
     void* codecPictureInfo = nullptr;
     const void* setupReferenceInfo = nullptr;
     bool activatesSetupReferenceSlot = false;
@@ -908,15 +910,15 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
             for (uint8_t& entry : h265ReferenceLists.list_entry_l1)
                 entry = STD_VIDEO_H265_NO_REFERENCE_PICTURE;
             if (videoEncodeDesc.referenceNum) {
-                VideoEncodeHEVCReferenceListsVK hevcLists = {};
-                if (!BuildVideoEncodeHEVCReferenceLists(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, pictureDesc.frameType,
-                        pictureDesc.pictureOrderCount, hevcLists)) {
+                VideoEncodeH265ReferenceListsVK h265Lists = {};
+                if (!BuildVideoEncodeH265ReferenceLists(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, pictureDesc.frameType,
+                        pictureDesc.pictureOrderCount, h265Lists)) {
                     NRI_CHECK(false, "Failed to build Vulkan H.265 reference lists from validated descriptors");
                     return;
                 }
 
-                const uint32_t list0ReferenceNum = hevcLists.list0Num;
-                const uint32_t list1ReferenceNum = hevcLists.list1Num;
+                const uint32_t list0ReferenceNum = h265Lists.list0Num;
+                const uint32_t list1ReferenceNum = h265Lists.list1Num;
                 if (pictureDesc.frameType == VideoFrameType::B) {
                     if (list0ReferenceNum > session.GetH265MaxBPictureL0ReferenceCount()) {
                         NRI_REPORT_ERROR(&m_Device, "H.265 B-frame List0 reference count exceeds Vulkan device limit");
@@ -930,35 +932,35 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
                 h265ReferenceLists.num_ref_idx_l0_active_minus1 = (uint8_t)(list0ReferenceNum - 1);
                 h265ReferenceLists.num_ref_idx_l1_active_minus1 = list1ReferenceNum ? (uint8_t)(list1ReferenceNum - 1) : 0;
                 for (uint32_t i = 0; i < list0ReferenceNum; i++) {
-                    const uint32_t referenceIndex = hevcLists.list0[i];
+                    const uint32_t referenceIndex = h265Lists.list0[i];
                     h265ReferenceLists.RefPicList0[i] = (uint8_t)videoEncodeDesc.references[referenceIndex].slot;
-                    h265ReferenceLists.list_entry_l0[i] = (uint8_t)GetVideoEncodeHEVCList0Entry(hevcLists, referenceIndex);
+                    h265ReferenceLists.list_entry_l0[i] = (uint8_t)GetVideoEncodeH265List0Entry(h265Lists, referenceIndex);
                     h265ReferenceLists.flags.ref_pic_list_modification_flag_l0 |= h265ReferenceLists.list_entry_l0[i] != i;
                 }
                 for (uint32_t i = 0; i < list1ReferenceNum; i++) {
-                    const uint32_t referenceIndex = hevcLists.list1[i];
+                    const uint32_t referenceIndex = h265Lists.list1[i];
                     h265ReferenceLists.RefPicList1[i] = (uint8_t)videoEncodeDesc.references[referenceIndex].slot;
-                    h265ReferenceLists.list_entry_l1[i] = (uint8_t)GetVideoEncodeHEVCList1Entry(hevcLists, referenceIndex);
+                    h265ReferenceLists.list_entry_l1[i] = (uint8_t)GetVideoEncodeH265List1Entry(h265Lists, referenceIndex);
                     h265ReferenceLists.flags.ref_pic_list_modification_flag_l1 |= h265ReferenceLists.list_entry_l1[i] != i;
                 }
                 h265StdPicture.pRefLists = &h265ReferenceLists;
-                h265ShortTermRefPicSet.num_negative_pics = (uint8_t)hevcLists.negativeNum;
-                h265ShortTermRefPicSet.used_by_curr_pic_s0_flag = (uint16_t)((1u << hevcLists.negativeNum) - 1u);
-                for (uint32_t i = 0; i < hevcLists.negativeNum; i++) {
-                    const uint32_t referenceIndex = hevcLists.negative[i];
+                h265ShortTermRefPicSet.num_negative_pics = (uint8_t)h265Lists.negativeNum;
+                h265ShortTermRefPicSet.used_by_curr_pic_s0_flag = (uint16_t)((1u << h265Lists.negativeNum) - 1u);
+                for (uint32_t i = 0; i < h265Lists.negativeNum; i++) {
+                    const uint32_t referenceIndex = h265Lists.negative[i];
                     const VideoH265ReferenceDesc* referenceDesc = video::h265::GetReferenceDesc(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, referenceIndex);
                     const int32_t referencePoc = referenceDesc->pictureOrderCount;
-                    const int32_t previousPoc = i ? video::h265::GetReferenceDesc(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, hevcLists.negative[i - 1])->pictureOrderCount : pictureDesc.pictureOrderCount;
+                    const int32_t previousPoc = i ? video::h265::GetReferenceDesc(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, h265Lists.negative[i - 1])->pictureOrderCount : pictureDesc.pictureOrderCount;
                     const int32_t deltaPoc = std::max(1, previousPoc - referencePoc);
                     h265ShortTermRefPicSet.delta_poc_s0_minus1[i] = (uint16_t)(deltaPoc - 1);
                 }
-                h265ShortTermRefPicSet.num_positive_pics = (uint8_t)hevcLists.positiveNum;
-                h265ShortTermRefPicSet.used_by_curr_pic_s1_flag = (uint16_t)((1u << hevcLists.positiveNum) - 1u);
-                for (uint32_t i = 0; i < hevcLists.positiveNum; i++) {
-                    const uint32_t referenceIndex = hevcLists.positive[i];
+                h265ShortTermRefPicSet.num_positive_pics = (uint8_t)h265Lists.positiveNum;
+                h265ShortTermRefPicSet.used_by_curr_pic_s1_flag = (uint16_t)((1u << h265Lists.positiveNum) - 1u);
+                for (uint32_t i = 0; i < h265Lists.positiveNum; i++) {
+                    const uint32_t referenceIndex = h265Lists.positive[i];
                     const VideoH265ReferenceDesc* referenceDesc = video::h265::GetReferenceDesc(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, referenceIndex);
                     const int32_t referencePoc = referenceDesc->pictureOrderCount;
-                    const int32_t previousPoc = i ? video::h265::GetReferenceDesc(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, hevcLists.positive[i - 1])->pictureOrderCount : pictureDesc.pictureOrderCount;
+                    const int32_t previousPoc = i ? video::h265::GetReferenceDesc(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, h265Lists.positive[i - 1])->pictureOrderCount : pictureDesc.pictureOrderCount;
                     const int32_t deltaPoc = std::max(1, referencePoc - previousPoc);
                     h265ShortTermRefPicSet.delta_poc_s1_minus1[i] = (uint16_t)(deltaPoc - 1);
                 }
@@ -1197,13 +1199,15 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
     }
 
     Scratch<VkVideoReferenceSlotInfoKHR> referenceSlots = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoReferenceSlotInfoKHR, videoEncodeDesc.referenceNum + 1);
-    const uint32_t referenceScratchNum = videoEncodeDesc.referenceNum ? videoEncodeDesc.referenceNum : 1;
-    Scratch<StdVideoEncodeH264ReferenceInfo> h264StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoEncodeH264ReferenceInfo, referenceScratchNum);
-    Scratch<VkVideoEncodeH264DpbSlotInfoKHR> h264References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoEncodeH264DpbSlotInfoKHR, referenceScratchNum);
-    Scratch<StdVideoEncodeH265ReferenceInfo> h265StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoEncodeH265ReferenceInfo, referenceScratchNum);
-    Scratch<VkVideoEncodeH265DpbSlotInfoKHR> h265References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoEncodeH265DpbSlotInfoKHR, referenceScratchNum);
-    Scratch<StdVideoEncodeAV1ReferenceInfo> av1StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoEncodeAV1ReferenceInfo, referenceScratchNum);
-    Scratch<VkVideoEncodeAV1DpbSlotInfoKHR> av1References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoEncodeAV1DpbSlotInfoKHR, referenceScratchNum);
+    const uint32_t h264ReferenceNum = session.GetDesc().codec == VideoCodec::H264 ? videoEncodeDesc.referenceNum : 0;
+    const uint32_t h265ReferenceNum = session.GetDesc().codec == VideoCodec::H265 ? videoEncodeDesc.referenceNum : 0;
+    const uint32_t av1ReferenceNum = session.GetDesc().codec == VideoCodec::AV1 ? videoEncodeDesc.referenceNum : 0;
+    Scratch<StdVideoEncodeH264ReferenceInfo> h264StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoEncodeH264ReferenceInfo, h264ReferenceNum);
+    Scratch<VkVideoEncodeH264DpbSlotInfoKHR> h264References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoEncodeH264DpbSlotInfoKHR, h264ReferenceNum);
+    Scratch<StdVideoEncodeH265ReferenceInfo> h265StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoEncodeH265ReferenceInfo, h265ReferenceNum);
+    Scratch<VkVideoEncodeH265DpbSlotInfoKHR> h265References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoEncodeH265DpbSlotInfoKHR, h265ReferenceNum);
+    Scratch<StdVideoEncodeAV1ReferenceInfo> av1StdReferences = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoEncodeAV1ReferenceInfo, av1ReferenceNum);
+    Scratch<VkVideoEncodeAV1DpbSlotInfoKHR> av1References = NRI_ALLOCATE_SCRATCH(m_Device, VkVideoEncodeAV1DpbSlotInfoKHR, av1ReferenceNum);
     for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
         VideoPictureVK& picture = *(VideoPictureVK*)videoEncodeDesc.references[i].picture;
         referenceSlots[i] = {VK_STRUCTURE_TYPE_VIDEO_REFERENCE_SLOT_INFO_KHR};

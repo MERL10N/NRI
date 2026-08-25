@@ -452,14 +452,14 @@ static inline StdVideoAV1FrameType GetVideoAV1FrameType(VideoFrameType frameType
 
 static_assert(video::h265::MAX_REFERENCE_NUM == STD_VIDEO_H265_MAX_NUM_LIST_REF);
 
-struct VideoEncodeHEVCReferenceListsVK : video::h265::EncodeReferenceLists {
+struct VideoEncodeH265ReferenceListsVK : video::h265::EncodeReferenceLists {
     std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF> negative = {};
     std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF> positive = {};
     uint32_t negativeNum = 0;
     uint32_t positiveNum = 0;
 };
 
-static inline uint32_t FindVideoEncodeHEVCRpsIndex(const std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF>& references, uint32_t referenceNum, uint32_t referenceIndex) {
+static inline uint32_t FindVideoEncodeH265RpsIndex(const std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF>& references, uint32_t referenceNum, uint32_t referenceIndex) {
     for (uint32_t i = 0; i < referenceNum; i++) {
         if (references[i] == referenceIndex)
             return i;
@@ -468,23 +468,23 @@ static inline uint32_t FindVideoEncodeHEVCRpsIndex(const std::array<uint32_t, ST
     return STD_VIDEO_H265_MAX_NUM_LIST_REF;
 }
 
-static inline uint32_t GetVideoEncodeHEVCList0Entry(const VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex) {
-    const uint32_t negativeIndex = FindVideoEncodeHEVCRpsIndex(lists.negative, lists.negativeNum, referenceIndex);
+static inline uint32_t GetVideoEncodeH265List0Entry(const VideoEncodeH265ReferenceListsVK& lists, uint32_t referenceIndex) {
+    const uint32_t negativeIndex = FindVideoEncodeH265RpsIndex(lists.negative, lists.negativeNum, referenceIndex);
     if (negativeIndex != STD_VIDEO_H265_MAX_NUM_LIST_REF)
         return negativeIndex;
 
-    return lists.negativeNum + FindVideoEncodeHEVCRpsIndex(lists.positive, lists.positiveNum, referenceIndex);
+    return lists.negativeNum + FindVideoEncodeH265RpsIndex(lists.positive, lists.positiveNum, referenceIndex);
 }
 
-static inline uint32_t GetVideoEncodeHEVCList1Entry(const VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex) {
-    const uint32_t positiveIndex = FindVideoEncodeHEVCRpsIndex(lists.positive, lists.positiveNum, referenceIndex);
+static inline uint32_t GetVideoEncodeH265List1Entry(const VideoEncodeH265ReferenceListsVK& lists, uint32_t referenceIndex) {
+    const uint32_t positiveIndex = FindVideoEncodeH265RpsIndex(lists.positive, lists.positiveNum, referenceIndex);
     if (positiveIndex != STD_VIDEO_H265_MAX_NUM_LIST_REF)
         return positiveIndex;
 
-    return lists.positiveNum + FindVideoEncodeHEVCRpsIndex(lists.negative, lists.negativeNum, referenceIndex);
+    return lists.positiveNum + FindVideoEncodeH265RpsIndex(lists.negative, lists.negativeNum, referenceIndex);
 }
 
-static inline void AppendVideoEncodeHEVCRpsReference(VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex, bool negative) {
+static inline void AppendVideoEncodeH265RpsReference(VideoEncodeH265ReferenceListsVK& lists, uint32_t referenceIndex, bool negative) {
     std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF>& rps = negative ? lists.negative : lists.positive;
     uint32_t& rpsNum = negative ? lists.negativeNum : lists.positiveNum;
 
@@ -533,15 +533,15 @@ static inline void FillVideoAV1DefaultTileInfo(StdVideoAV1TileInfo& info, uint16
     info.pHeightInSbsMinus1 = heightInSbsMinus1;
 }
 
-static inline bool BuildVideoEncodeHEVCReferenceLists(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs, uint32_t referenceNum,
-    VideoFrameType frameType, int32_t currentPictureOrderCount, VideoEncodeHEVCReferenceListsVK& lists) {
+static inline bool BuildVideoEncodeH265ReferenceLists(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs, uint32_t referenceNum,
+    VideoFrameType frameType, int32_t currentPictureOrderCount, VideoEncodeH265ReferenceListsVK& lists) {
     lists = {};
     if (!video::h265::BuildEncodeReferenceLists(references, referenceDescs, referenceNum, frameType, currentPictureOrderCount, false, lists))
         return false;
 
     for (uint32_t i = 0; i < referenceNum; i++) {
         const VideoH265ReferenceDesc* referenceDesc = video::h265::GetReferenceDesc(references, referenceDescs, referenceNum, i);
-        AppendVideoEncodeHEVCRpsReference(lists, i, referenceDesc->pictureOrderCount < currentPictureOrderCount);
+        AppendVideoEncodeH265RpsReference(lists, i, referenceDesc->pictureOrderCount < currentPictureOrderCount);
     }
 
     auto getPictureOrderCount = [&](uint32_t referenceIndex) {

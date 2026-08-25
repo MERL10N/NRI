@@ -2187,15 +2187,10 @@ static inline Result WriteObuHeaders(const VideoAV1SequenceDesc& desc, bitstream
 
 } // namespace av1
 
-static inline Result WriteAnnexBParameterSets(VideoAnnexBParameterSetsDesc& desc) {
+template <typename T, typename F>
+static inline Result WriteSizedPayload(T& desc, const F& writePayload) {
     bitstream::ByteWriter byteCounter = {};
-    Result result = Result::UNSUPPORTED;
-
-    if (desc.codec == VideoCodec::H264)
-        result = h264::WriteAnnexBParameterSets(desc, byteCounter);
-    else if (desc.codec == VideoCodec::H265)
-        result = h265::WriteAnnexBParameterSets(desc, byteCounter);
-
+    Result result = writePayload(byteCounter);
     if (result != Result::SUCCESS)
         return result;
 
@@ -2207,67 +2202,39 @@ static inline Result WriteAnnexBParameterSets(VideoAnnexBParameterSetsDesc& desc
         return Result::INVALID_ARGUMENT;
 
     bitstream::ByteWriter byteWriter = {desc.dst, desc.dstSize};
-    if (desc.codec == VideoCodec::H264)
-        result = h264::WriteAnnexBParameterSets(desc, byteWriter);
-    else
-        result = h265::WriteAnnexBParameterSets(desc, byteWriter);
-
+    result = writePayload(byteWriter);
     if (result != Result::SUCCESS)
         return result;
 
     return byteWriter.Finish(desc.writtenSize);
+}
+
+static inline Result WriteAnnexBParameterSets(VideoAnnexBParameterSetsDesc& desc) {
+    return WriteSizedPayload(desc, [&](bitstream::ByteWriter& bytes) {
+        if (desc.codec == VideoCodec::H264)
+            return h264::WriteAnnexBParameterSets(desc, bytes);
+        if (desc.codec == VideoCodec::H265)
+            return h265::WriteAnnexBParameterSets(desc, bytes);
+
+        return Result::UNSUPPORTED;
+    });
 }
 
 static inline Result WriteAV1ObuHeaders(VideoAV1ObuHeadersDesc& desc) {
-    bitstream::ByteWriter byteCounter = {};
-    Result result = av1::WriteObuHeaders(desc.sequence, byteCounter);
-    if (result != Result::SUCCESS)
-        return result;
-
-    desc.writtenSize = byteCounter.writtenSize;
-    if (!desc.dst)
-        return Result::SUCCESS;
-
-    if (desc.dstSize < byteCounter.writtenSize)
-        return Result::INVALID_ARGUMENT;
-
-    bitstream::ByteWriter byteWriter = {desc.dst, desc.dstSize};
-    result = av1::WriteObuHeaders(desc.sequence, byteWriter);
-    if (result != Result::SUCCESS)
-        return result;
-
-    return byteWriter.Finish(desc.writtenSize);
+    return WriteSizedPayload(desc, [&](bitstream::ByteWriter& bytes) {
+        return av1::WriteObuHeaders(desc.sequence, bytes);
+    });
 }
 
 static inline Result WriteAnnexBEndOfStream(VideoAnnexBEndOfStreamDesc& desc) {
-    bitstream::ByteWriter byteCounter = {};
-    Result result = Result::UNSUPPORTED;
+    return WriteSizedPayload(desc, [&](bitstream::ByteWriter& bytes) {
+        if (desc.codec == VideoCodec::H264)
+            return h264::WriteAnnexBEndOfStream(bytes);
+        if (desc.codec == VideoCodec::H265)
+            return h265::WriteAnnexBEndOfStream(bytes);
 
-    if (desc.codec == VideoCodec::H264)
-        result = h264::WriteAnnexBEndOfStream(byteCounter);
-    else if (desc.codec == VideoCodec::H265)
-        result = h265::WriteAnnexBEndOfStream(byteCounter);
-
-    if (result != Result::SUCCESS)
-        return result;
-
-    desc.writtenSize = byteCounter.writtenSize;
-    if (!desc.dst)
-        return Result::SUCCESS;
-
-    if (desc.dstSize < byteCounter.writtenSize)
-        return Result::INVALID_ARGUMENT;
-
-    bitstream::ByteWriter byteWriter = {desc.dst, desc.dstSize};
-    if (desc.codec == VideoCodec::H264)
-        result = h264::WriteAnnexBEndOfStream(byteWriter);
-    else
-        result = h265::WriteAnnexBEndOfStream(byteWriter);
-
-    if (result != Result::SUCCESS)
-        return result;
-
-    return byteWriter.Finish(desc.writtenSize);
+        return Result::UNSUPPORTED;
+    });
 }
 
 } // namespace video

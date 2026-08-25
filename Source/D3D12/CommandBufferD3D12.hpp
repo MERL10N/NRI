@@ -889,12 +889,12 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
     D3D12_VIDEO_DECODE_INPUT_STREAM_ARGUMENTS input = {};
     DXVA_PicParams_H264 h264PictureParameters = {};
     DXVA_Qmatrix_H264 h264InverseQuantizationMatrix = {};
-    Scratch<DXVA_Slice_H264_Short> h264Slices = NRI_ALLOCATE_SCRATCH(m_Device, DXVA_Slice_H264_Short, videoDecodeDesc.h264PictureDesc ? std::max(videoDecodeDesc.h264PictureDesc->sliceOffsetNum, 1u) : 1u);
+    Scratch<DXVA_Slice_H264_Short> h264Slices = NRI_ALLOCATE_SCRATCH(m_Device, DXVA_Slice_H264_Short, videoDecodeDesc.h264PictureDesc ? std::max(videoDecodeDesc.h264PictureDesc->sliceOffsetNum, 1u) : 0);
     DXVA_PicParams_HEVC h265PictureParameters = {};
     DXVA_Qmatrix_HEVC h265InverseQuantizationMatrix = {};
-    Scratch<DXVA_Slice_HEVC_Short> h265Slices = NRI_ALLOCATE_SCRATCH(m_Device, DXVA_Slice_HEVC_Short, videoDecodeDesc.h265PictureDesc ? std::max(videoDecodeDesc.h265PictureDesc->sliceSegmentOffsetNum, 1u) : 1u);
+    Scratch<DXVA_Slice_HEVC_Short> h265Slices = NRI_ALLOCATE_SCRATCH(m_Device, DXVA_Slice_HEVC_Short, videoDecodeDesc.h265PictureDesc ? std::max(videoDecodeDesc.h265PictureDesc->sliceSegmentOffsetNum, 1u) : 0);
     DXVA_PicParams_AV1 av1PictureParameters = {};
-    Scratch<DXVA_Tile_AV1> av1Tiles = NRI_ALLOCATE_SCRATCH(m_Device, DXVA_Tile_AV1, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 1u);
+    Scratch<DXVA_Tile_AV1> av1Tiles = NRI_ALLOCATE_SCRATCH(m_Device, DXVA_Tile_AV1, videoDecodeDesc.av1PictureDesc ? std::max(videoDecodeDesc.av1PictureDesc->tileNum, 1u) : 0);
     if (videoDecodeDesc.h264PictureDesc) {
         const VideoH264SessionParametersDesc* h264Parameters = parameters->GetH264Parameters();
         NRI_CHECK(h264Parameters, "Validated neutral H.264 decode requires session parameters");
@@ -1161,9 +1161,6 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
 
     VideoPictureD3D12& dstPicture = *(VideoPictureD3D12*)videoDecodeDesc.dstPicture;
     VideoPictureD3D12& setupPicture = videoDecodeDesc.setupPicture ? *(VideoPictureD3D12*)videoDecodeDesc.setupPicture : dstPicture;
-    const bool h264NeutralDecode = videoDecodeDesc.h264PictureDesc != nullptr;
-    const bool h265NeutralDecode = videoDecodeDesc.h265PictureDesc != nullptr;
-    const bool av1NeutralDecode = videoDecodeDesc.av1PictureDesc != nullptr;
     const uint32_t setupSlot = video::GetDecodeSetupSlot(videoDecodeDesc);
 
     uint32_t referenceSlotCount = 0;
@@ -1172,12 +1169,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
     if (!isReferenceSlotCountValid)
         return;
 
-    if (h264NeutralDecode)
-        referenceSlotCount = std::max(referenceSlotCount, setupSlot + 1);
-    if (h265NeutralDecode)
-        referenceSlotCount = std::max(referenceSlotCount, videoDecodeDesc.dstSlot + 1);
-    if (av1NeutralDecode)
-        referenceSlotCount = std::max(referenceSlotCount, videoDecodeDesc.dstSlot + 1);
+    referenceSlotCount = std::max(referenceSlotCount, setupSlot + 1);
 
     Scratch<ID3D12Resource*> referenceResources = NRI_ALLOCATE_SCRATCH(m_Device, ID3D12Resource*, referenceSlotCount);
     Scratch<uint32_t> referenceSubresources = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, referenceSlotCount);
@@ -1192,18 +1184,8 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
         referenceResources[slot] = (ID3D12Resource*)reference.GetTexture();
         referenceSubresources[slot] = reference.GetSubresource();
     }
-    if (h264NeutralDecode) {
-        referenceResources[setupSlot] = (ID3D12Resource*)setupPicture.GetTexture();
-        referenceSubresources[setupSlot] = setupPicture.GetSubresource();
-    }
-    if (h265NeutralDecode) {
-        referenceResources[videoDecodeDesc.dstSlot] = (ID3D12Resource*)setupPicture.GetTexture();
-        referenceSubresources[videoDecodeDesc.dstSlot] = setupPicture.GetSubresource();
-    }
-    if (av1NeutralDecode) {
-        referenceResources[videoDecodeDesc.dstSlot] = (ID3D12Resource*)setupPicture.GetTexture();
-        referenceSubresources[videoDecodeDesc.dstSlot] = setupPicture.GetSubresource();
-    }
+    referenceResources[setupSlot] = (ID3D12Resource*)setupPicture.GetTexture();
+    referenceSubresources[setupSlot] = setupPicture.GetSubresource();
 
     input.ReferenceFrames.NumTexture2Ds = referenceSlotCount;
     input.ReferenceFrames.ppTexture2Ds = referenceSlotCount ? (ID3D12Resource**)referenceResources : nullptr;
@@ -1229,9 +1211,10 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
 
     Scratch<ID3D12Resource*> referenceResources = NRI_ALLOCATE_SCRATCH(m_Device, ID3D12Resource*, videoEncodeDesc.referenceNum);
     Scratch<uint32_t> referenceSubresources = NRI_ALLOCATE_SCRATCH(m_Device, uint32_t, videoEncodeDesc.referenceNum);
-    Scratch<UINT> h264List0References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, videoEncodeDesc.referenceNum);
-    Scratch<UINT> h264List1References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, videoEncodeDesc.referenceNum);
-    Scratch<D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_H264> h264ReferenceDescriptors = NRI_ALLOCATE_SCRATCH(m_Device, D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_H264, videoEncodeDesc.referenceNum);
+    const uint32_t h264ReferenceNum = sessionDesc.codec == VideoCodec::H264 ? videoEncodeDesc.referenceNum : 0;
+    Scratch<UINT> h264List0References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, h264ReferenceNum);
+    Scratch<UINT> h264List1References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, h264ReferenceNum);
+    Scratch<D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_H264> h264ReferenceDescriptors = NRI_ALLOCATE_SCRATCH(m_Device, D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_H264, h264ReferenceNum);
     uint32_t h264List0ReferenceNum = 0;
     uint32_t h264List1ReferenceNum = 0;
     for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
@@ -1386,9 +1369,10 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
             return;
     }
 
-    Scratch<UINT> hevcList0References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, videoEncodeDesc.referenceNum ? videoEncodeDesc.referenceNum : 1);
-    Scratch<UINT> hevcList1References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, videoEncodeDesc.referenceNum ? videoEncodeDesc.referenceNum : 1);
-    Scratch<D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_HEVC> hevcReferenceDescriptors = NRI_ALLOCATE_SCRATCH(m_Device, D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_HEVC, videoEncodeDesc.referenceNum ? videoEncodeDesc.referenceNum : 1);
+    const uint32_t h265ReferenceNum = sessionDesc.codec == VideoCodec::H265 ? videoEncodeDesc.referenceNum : 0;
+    Scratch<UINT> hevcList0References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, h265ReferenceNum);
+    Scratch<UINT> hevcList1References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, h265ReferenceNum);
+    Scratch<D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_HEVC> hevcReferenceDescriptors = NRI_ALLOCATE_SCRATCH(m_Device, D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_HEVC, h265ReferenceNum);
     if (sessionDesc.codec == VideoCodec::H265) {
         video::h265::EncodeReferenceLists hevcReferenceLists = {};
         if (!video::h265::BuildEncodeReferenceLists(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, pictureDesc.frameType,
