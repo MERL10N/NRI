@@ -394,7 +394,7 @@ set(SHARED_SOURCE
     "Source/Shared/StreamerInterface.hpp"
     "Source/Shared/UpscalerInterface.h"
     "Source/Shared/UpscalerInterface.hpp"
-    "Source/Shared/VideoShared.h"
+    "Source/Shared/SharedVideo.h"
 )
 
 add_library(NRI_Shared STATIC)

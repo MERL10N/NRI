@@ -8,6 +8,7 @@
 #include <numeric>   // lcm
 
 #include <array>
+#include <limits>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -42,7 +43,7 @@ typedef uint32_t DXGI_FORMAT;
 #include "Extensions/NRIWrapperVK.h"
 
 #include "Lock.h"
-#include "VideoShared.h"
+#include "SharedVideo.h"
 
 // NRI default settings (if not provided in "NRIConfig.h")
 #ifdef NRI_USER_CONFIG

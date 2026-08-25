@@ -2,9 +2,6 @@
 
 #pragma once
 
-#include <array>
-#include <limits>
-
 namespace nri {
 
 namespace video {
