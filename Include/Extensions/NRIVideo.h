@@ -65,6 +65,12 @@ NriEnum(VideoPictureRole, uint8_t,
     ENCODE_RECONSTRUCTED       // reconstructed picture written into the DPB
 );
 
+NriBits(VideoDecodeBitstreamSourceBits, uint8_t,
+    NONE                                    = 0,
+    BUFFER                                  = NriBit(0),
+    HOST                                    = NriBit(1)
+);
+
 NriBits(VideoH264SequenceParameterSetBits, uint16_t,
     NONE                                    = 0,
     CONSTRAINT_SET0                         = NriBit(0),
@@ -286,10 +292,20 @@ NriStruct(VideoCapabilities) {
     uint64_t bitstreamSizeMax;
     uint32_t metadataOffsetAlignment;
     uint32_t resolvedMetadataOffsetAlignment;
-    uint64_t metadataSize;           // minimum backend encode metadata range
-    uint64_t resolvedMetadataSize;   // minimum resolved metadata range
-    bool decodeDpbAndOutputCoincide; // decode output and reconstructed/DPB setup may use the same texture subresource
-    bool decodeDpbAndOutputDistinct; // decode output and reconstructed/DPB setup may use different texture subresources
+    uint32_t encodeFeedbackMaxPendingNum;        // maximum per-session feedback ranges not yet consumed by "GetVideoEncodeFeedback"; reset by "ResetVideoSession"
+    uint64_t metadataSize;                       // minimum backend encode metadata range
+    uint64_t resolvedMetadataSize;               // minimum resolved metadata range
+    Nri(VideoDecodeBitstreamSourceBits) decodeBitstreamSourceMask;
+    Nri(AccessStage) resolvedMetadataState;      // required state while the resolved metadata is written
+    Nri(QueueType) resolvedMetadataQueueType;    // queue used by the operation that writes resolved metadata
+    uint32_t dpbTextureArrayMinLayerNum;         // minimum layer count when "dpbTextureArrayRequired" is true
+    bool decodeDpbAndOutputCoincide;             // decode output and reconstructed/DPB setup may use the same texture subresource
+    bool decodeDpbAndOutputDistinct;             // decode output and reconstructed/DPB setup may use different texture subresources
+    bool dpbTextureArrayRequired;                // all decode or encode DPB pictures must use layers of one texture
+    bool decodeNativeArgumentsSupported;
+    bool encodeBitstreamRangeSizeSupported;      // if false, encode output ranges must extend to the end of the buffer
+    bool encodeFeedbackSupported;
+    bool encodeFeedbackResolveRequired;          // if true, call "CmdResolveVideoEncodeFeedback" after the encode
 };
 
 NriStruct(VideoAV1Capabilities) {
@@ -323,8 +339,15 @@ NriStruct(VideoReference) {
 
 NriStruct(VideoBitstreamRange) {
     NriPtr(Buffer) buffer;
-    uint64_t offset;                        // decode slice/tile offsets are relative to this offset
-    uint64_t size;                          // decode bitstream byte range; H.264/H.265 neutral decode expects Annex-B byte stream data
+    uint64_t offset;               // decode slice/tile offsets are relative to this offset
+    uint64_t size;                 // decode bitstream byte range; H.264/H.265 neutral decode expects Annex-B byte stream data
+};
+
+NriStruct(VideoDecodeBitstreamRange) {
+    NriOptional NriPtr(Buffer) buffer;
+    NriOptional const void* data;  // host range starts at this address; "offset" applies only to "buffer"
+    uint64_t offset;
+    uint64_t size;                 // H.264/H.265 neutral decode expects Annex-B byte stream data
 };
 
 NriStruct(VideoPictureDesc) {
@@ -378,8 +401,8 @@ NriStruct(VideoH264SessionParametersDesc) {
     uint32_t sequenceParameterSetNum;
     const NriPtr(VideoH264PictureParameterSetDesc) pictureParameterSets;
     uint32_t pictureParameterSetNum;
-    NriOptional uint32_t maxSequenceParameterSetNum;    // defaults to "sequenceParameterSetNum"
-    NriOptional uint32_t maxPictureParameterSetNum;     // defaults to "pictureParameterSetNum"
+    NriOptional uint32_t maxSequenceParameterSetNum; // defaults to "sequenceParameterSetNum"
+    NriOptional uint32_t maxPictureParameterSetNum;  // defaults to "pictureParameterSetNum"
 };
 
 NriStruct(VideoH265ProfileTierLevelDesc) {
@@ -496,9 +519,9 @@ NriStruct(VideoH265SessionParametersDesc) {
     uint32_t sequenceParameterSetNum;
     const NriPtr(VideoH265PictureParameterSetDesc) pictureParameterSets;
     uint32_t pictureParameterSetNum;
-    NriOptional uint32_t maxVideoParameterSetNum;       // defaults to "videoParameterSetNum"
-    NriOptional uint32_t maxSequenceParameterSetNum;    // defaults to "sequenceParameterSetNum"
-    NriOptional uint32_t maxPictureParameterSetNum;     // defaults to "pictureParameterSetNum"
+    NriOptional uint32_t maxVideoParameterSetNum;    // defaults to "videoParameterSetNum"
+    NriOptional uint32_t maxSequenceParameterSetNum; // defaults to "sequenceParameterSetNum"
+    NriOptional uint32_t maxPictureParameterSetNum;  // defaults to "pictureParameterSetNum"
 };
 
 NriStruct(VideoAnnexBParameterSetsDesc) {
@@ -558,8 +581,8 @@ NriStruct(VideoAV1SessionParametersDesc) {
 
 NriStruct(VideoSessionParametersDesc) {
     NriPtr(VideoSession) session;
-    NriOptional const NriPtr(VideoH264SessionParametersDesc) h264Parameters; // required for H.264 and must contain at least one matching SPS/PPS pair
-    NriOptional const NriPtr(VideoH265SessionParametersDesc) h265Parameters;
+    NriOptional const NriPtr(VideoH264SessionParametersDesc) h264Parameters; // required for H.264 except decode using native arguments on a supporting backend
+    NriOptional const NriPtr(VideoH265SessionParametersDesc) h265Parameters; // required for neutral H.265 decode; optional for native decode arguments and encode
     NriOptional const NriPtr(VideoAV1SessionParametersDesc) av1Parameters;
 };
 
@@ -597,7 +620,7 @@ NriStruct(VideoH264DecodePictureDesc) {
     uint16_t idrPictureId;
     int32_t topFieldOrderCount;
     int32_t bottomFieldOrderCount;
-    const uint32_t* sliceOffsets; // offsets to 4-byte Annex-B start codes, relative to "VideoDecodeDesc::bitstream.offset"
+    const uint32_t* sliceOffsets; // offsets to 4-byte Annex-B start codes, relative to the selected bitstream range start
     uint32_t sliceOffsetNum;
     bool hasReferenceSlot; // if false, VideoDecodeDesc::dstSlot is used
     uint32_t referenceSlot;
@@ -622,7 +645,7 @@ NriStruct(VideoH265DecodePictureDesc) {
     int32_t pictureOrderCount;
     uint8_t numDeltaPocsOfRefRpsIdx;
     uint16_t numBitsForShortTermRefPicSetInSlice;
-    const uint32_t* sliceSegmentOffsets; // offsets to 4-byte Annex-B start codes, relative to "VideoDecodeDesc::bitstream.offset"
+    const uint32_t* sliceSegmentOffsets; // offsets to 4-byte Annex-B start codes, relative to the selected bitstream range start
     uint32_t sliceSegmentOffsetNum;
     NriOptional const NriPtr(VideoH265ReferenceDesc) references;
     NriOptional uint32_t referenceNum;
@@ -833,13 +856,13 @@ NriStruct(VideoAV1DecodePictureDesc) {
 NriStruct(VideoDecodeDesc) {
     NriPtr(VideoSession) session;
     NriPtr(VideoSessionParameters) parameters;
-    Nri(VideoBitstreamRange) bitstream;
+    Nri(VideoDecodeBitstreamRange) bitstream; // provide at least one source supported by "VideoCapabilities::decodeBitstreamSourceMask"
     NriPtr(VideoPicture) dstPicture;
     NriOptional NriPtr(VideoPicture) setupPicture; // reconstructed/DPB setup picture; required for distinct mode, may alias "dstPicture" in coincide mode
     NriOptional const NriPtr(VideoReference) references;
     NriOptional uint32_t referenceNum;
     uint32_t dstSlot;
-    NriOptional const NriPtr(VideoDecodeArgument) arguments; // native D3D12 frame arguments; if omitted, the neutral codec picture description is used
+    NriOptional const NriPtr(VideoDecodeArgument) arguments; // native DXVA frame arguments; if omitted, the neutral codec picture description is used
     NriOptional uint32_t argumentNum;
     NriOptional const NriPtr(VideoH264DecodePictureDesc) h264PictureDesc; // neutral H.264 picture description; required if "argumentNum" is 0
     NriOptional const NriPtr(VideoH265DecodePictureDesc) h265PictureDesc; // neutral H.265 picture description; required if "argumentNum" is 0
@@ -900,7 +923,7 @@ NriStruct(VideoEncodeDesc) {
     NriOptional NriPtr(VideoPicture) reconstructedPicture;
     NriOptional NriPtr(Buffer) metadata; // backend encode metadata; required if "VideoCapabilities::metadataSize" is non-zero
     uint64_t metadataOffset;
-    NriOptional NriPtr(Buffer) resolvedMetadata; // if provided, contains "VideoEncodeFeedback" after execution.
+    NriOptional NriPtr(Buffer) resolvedMetadata; // backend metadata consumed by "GetVideoEncodeFeedback" after the required resolve operation; a pending range must not be reused
     uint64_t resolvedMetadataOffset;
     NriOptional const NriPtr(VideoReference) references;
     NriOptional uint32_t referenceNum;
@@ -910,7 +933,7 @@ NriStruct(VideoEncodeDesc) {
     NriOptional const NriPtr(VideoH265ReferenceDesc) h265ReferenceDescs;
 };
 
-// "ResetVideoSession" discards session state reserved while recording commands. Reset affected command buffers first.
+// "ResetVideoSession" discards session state reserved while recording commands. Reset affected command buffers first
 // Threadsafe: no
 NriStruct(VideoInterface) {
     // Session
@@ -941,12 +964,11 @@ NriStruct(VideoInterface) {
     // Command buffer
     // {
         // Video decode/encode command buffers must be created from "QueueType::VIDEO_DECODE" or "QueueType::VIDEO_ENCODE" queues.
-        // VK: video session initialization is implicit on first recorded use, so commands for the same session must be recorded in submit order.
+        // VK: video session initialization is implicit on first recorded use, so commands for the same session must be recorded in submit order
         void            (NRI_CALL *CmdDecodeVideo)                  (NriRef(CommandBuffer) commandBuffer, const NriRef(VideoDecodeDesc) videoDecodeDesc);
         void            (NRI_CALL *CmdEncodeVideo)                  (NriRef(CommandBuffer) commandBuffer, const NriRef(VideoEncodeDesc) videoEncodeDesc);
 
-        // VK: resolves feedback for the encode that used the same "resolvedMetadata" buffer and offset.
-        // D3D12: resolves feedback during "CmdEncodeVideo".
+        // Required only if "VideoCapabilities::encodeFeedbackResolveRequired" is true. Uses the advertised queue and buffer state
         void            (NRI_CALL *CmdResolveVideoEncodeFeedback)   (NriRef(CommandBuffer) commandBuffer, NriRef(VideoSession) videoSession, NriRef(Buffer) resolvedMetadata, uint64_t resolvedMetadataOffset);
         Nri(Result)     (NRI_CALL *GetVideoEncodeFeedback)          (NriRef(VideoSession) videoSession, NriRef(Buffer) resolvedMetadataReadback, uint64_t resolvedMetadataOffset, NriOut NriRef(VideoEncodeFeedback) feedback);
         Nri(Result)     (NRI_CALL *GetVideoAV1EncodeDecodeInfo)     (NriRef(VideoSession) videoSession, NriRef(Buffer) resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const NriRef(VideoAV1EncodeDecodeInfoDesc) desc, NriOut NriRef(VideoAV1EncodeDecodeInfo) info);

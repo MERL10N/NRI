@@ -57,7 +57,7 @@ static inline uint8_t GetVideoSessionBitDepth(Format format) {
     return format == Format::NV12_UNORM ? 8 : 10;
 }
 
-static inline bool IsVideoSessionParametersDescValid(const VideoSessionDesc& sessionDesc, const VideoSessionParametersDesc& desc) {
+static inline bool IsVideoSessionParametersDescValid(const VideoSessionDesc& sessionDesc, const VideoCapabilities& capabilities, const VideoSessionParametersDesc& desc) {
     constexpr uint8_t h264HighProfileIdc = 100;
     constexpr uint8_t h265MainProfileIdc = 1;
     constexpr uint8_t h265Main10ProfileIdc = 2;
@@ -71,7 +71,8 @@ static inline bool IsVideoSessionParametersDescValid(const VideoSessionDesc& ses
     if ((uint32_t)hasH264 + (uint32_t)hasH265 + (uint32_t)hasAV1 > 1 || (hasH264 && codec != VideoCodec::H264) || (hasH265 && codec != VideoCodec::H265) || (hasAV1 && codec != VideoCodec::AV1))
         return false;
 
-    if (codec == VideoCodec::H264 && !hasH264)
+    const bool canOmitH264Parameters = sessionDesc.type == VideoSessionType::DECODE && capabilities.decodeNativeArgumentsSupported;
+    if (codec == VideoCodec::H264 && !hasH264 && !canOmitH264Parameters)
         return false;
 
     if (hasH264) {
@@ -115,16 +116,36 @@ static inline bool IsVideoSessionParametersDescValid(const VideoSessionDesc& ses
         const uint8_t bitDepthMinus8 = GetVideoSessionBitDepth(sessionDesc.format) - 8;
         const uint8_t profileIdc = bitDepthMinus8 ? h265Main10ProfileIdc : h265MainProfileIdc;
 
+        uint16_t videoParameterSetMask = 0;
         for (uint32_t i = 0; i < parameters.videoParameterSetNum; i++) {
-            if (parameters.videoParameterSets[i].profileTierLevel.generalProfileIdc != profileIdc)
+            const VideoH265VideoParameterSetDesc& video = parameters.videoParameterSets[i];
+            if (video.videoParameterSetId >= 16 || (videoParameterSetMask & (1u << video.videoParameterSetId)) != 0 || video.profileTierLevel.generalProfileIdc != profileIdc)
                 return false;
+
+            videoParameterSetMask |= 1u << video.videoParameterSetId;
         }
 
+        std::array<uint8_t, 16> sequenceParameterSetToVpsPlusOne = {};
         for (uint32_t i = 0; i < parameters.sequenceParameterSetNum; i++) {
             const VideoH265SequenceParameterSetDesc& sequence = parameters.sequenceParameterSets[i];
 
-            if ((sequence.numShortTermRefPicSets && !sequence.shortTermRefPicSets) || (sequence.numLongTermRefPicsSps && !sequence.longTermRefPicsSps) || sequence.profileTierLevel.generalProfileIdc != profileIdc || sequence.chromaFormatIdc != 1 || sequence.bitDepthLumaMinus8 != bitDepthMinus8 || sequence.bitDepthChromaMinus8 != bitDepthMinus8)
+            if (sequence.videoParameterSetId >= 16 || sequence.sequenceParameterSetId >= 16 || !(videoParameterSetMask & (1u << sequence.videoParameterSetId)) || sequenceParameterSetToVpsPlusOne[sequence.sequenceParameterSetId] || (sequence.numShortTermRefPicSets && !sequence.shortTermRefPicSets) || (sequence.numLongTermRefPicsSps && !sequence.longTermRefPicsSps) || sequence.profileTierLevel.generalProfileIdc != profileIdc || sequence.chromaFormatIdc != 1 || sequence.bitDepthLumaMinus8 != bitDepthMinus8 || sequence.bitDepthChromaMinus8 != bitDepthMinus8)
                 return false;
+
+            sequenceParameterSetToVpsPlusOne[sequence.sequenceParameterSetId] = sequence.videoParameterSetId + 1;
+        }
+
+        uint64_t pictureParameterSetMask = 0;
+        for (uint32_t i = 0; i < parameters.pictureParameterSetNum; i++) {
+            const VideoH265PictureParameterSetDesc& picture = parameters.pictureParameterSets[i];
+            if (picture.pictureParameterSetId >= 64 || picture.sequenceParameterSetId >= 16 || picture.videoParameterSetId >= 16 || sequenceParameterSetToVpsPlusOne[picture.sequenceParameterSetId] != picture.videoParameterSetId + 1)
+                return false;
+
+            const uint64_t pictureParameterSetBit = 1ull << picture.pictureParameterSetId;
+            if (pictureParameterSetMask & pictureParameterSetBit)
+                return false;
+
+            pictureParameterSetMask |= pictureParameterSetBit;
         }
     }
 
@@ -1659,7 +1680,7 @@ static Result NRI_CALL CreateVideoSessionParameters(Device& device, const VideoS
     VideoSessionVal& sessionVal = *(VideoSessionVal*)videoSessionParametersDesc.session;
     NRI_RETURN_ON_FAILURE(&deviceVal, &sessionVal.GetDevice() == &deviceVal, Result::INVALID_ARGUMENT, "'session' belongs to another device");
 
-    NRI_RETURN_ON_FAILURE(&deviceVal, IsVideoSessionParametersDescValid(sessionVal.GetDesc(), videoSessionParametersDesc), Result::INVALID_ARGUMENT, "'videoSessionParametersDesc' is invalid for the fixed session profile, format or picture layout");
+    NRI_RETURN_ON_FAILURE(&deviceVal, IsVideoSessionParametersDescValid(sessionVal.GetDesc(), sessionVal.GetCapabilities(), videoSessionParametersDesc), Result::INVALID_ARGUMENT, "'videoSessionParametersDesc' is invalid for the fixed session profile, format or picture layout");
 
     VideoSessionParametersDesc descImpl = videoSessionParametersDesc;
     descImpl.session = sessionVal.GetImpl();
@@ -1770,7 +1791,7 @@ static void NRI_CALL CmdResolveVideoEncodeFeedback(CommandBuffer& commandBuffer,
 static Result NRI_CALL GetVideoEncodeFeedback(VideoSession& videoSession, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, VideoEncodeFeedback& feedback) {
     VideoSessionVal& videoSessionVal = (VideoSessionVal&)videoSession;
     BufferVal& resolvedMetadataReadbackVal = (BufferVal&)resolvedMetadataReadback;
-    NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), videoSessionVal.GetDesc().type == VideoSessionType::ENCODE && &videoSessionVal.GetDevice() == &resolvedMetadataReadbackVal.GetDevice() && videoSessionVal.IsResolvedMetadataRangeValid(resolvedMetadataReadbackVal, resolvedMetadataOffset), Result::INVALID_ARGUMENT, "'resolvedMetadataReadback' must be a valid range from the encode session device");
+    NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), videoSessionVal.GetDesc().type == VideoSessionType::ENCODE && videoSessionVal.GetCapabilities().encodeFeedbackSupported && &videoSessionVal.GetDevice() == &resolvedMetadataReadbackVal.GetDevice() && videoSessionVal.IsResolvedMetadataRangeValid(resolvedMetadataReadbackVal, resolvedMetadataOffset), Result::INVALID_ARGUMENT, "encode feedback must be supported and 'resolvedMetadataReadback' must be a valid range from the encode session device");
 
     return videoSessionVal.GetDevice().GetVideoInterfaceImpl().GetVideoEncodeFeedback(*videoSessionVal.GetImpl(), *resolvedMetadataReadbackVal.GetImpl(), resolvedMetadataOffset, feedback);
 }
@@ -1782,7 +1803,7 @@ static Result NRI_CALL GetVideoAV1EncodeDecodeInfo(VideoSession& videoSession, B
     NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), desc.feedback && desc.sequence, Result::INVALID_ARGUMENT, "'feedback' and 'sequence' must be valid");
     NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), (desc.references == nullptr) == (desc.referenceNum == 0) && desc.referenceNum <= 8, Result::INVALID_ARGUMENT, "'references' and 'referenceNum' are inconsistent");
     NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), !desc.references || HasValidVideoAV1ReferenceKeys(desc.references, desc.referenceNum), Result::INVALID_ARGUMENT, "'references' contain inconsistent AV1 identities");
-    NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), videoSessionVal.GetDesc().type == VideoSessionType::ENCODE && videoSessionVal.GetDesc().codec == VideoCodec::AV1 && &videoSessionVal.GetDevice() == &resolvedMetadataReadbackVal.GetDevice() && videoSessionVal.IsResolvedMetadataRangeValid(resolvedMetadataReadbackVal, resolvedMetadataOffset), Result::INVALID_ARGUMENT, "'resolvedMetadataReadback' must be a valid range from the AV1 encode session device");
+    NRI_RETURN_ON_FAILURE(&videoSessionVal.GetDevice(), videoSessionVal.GetDesc().type == VideoSessionType::ENCODE && videoSessionVal.GetDesc().codec == VideoCodec::AV1 && videoSessionVal.GetCapabilities().encodeFeedbackSupported && &videoSessionVal.GetDevice() == &resolvedMetadataReadbackVal.GetDevice() && videoSessionVal.IsResolvedMetadataRangeValid(resolvedMetadataReadbackVal, resolvedMetadataOffset), Result::INVALID_ARGUMENT, "encode feedback must be supported and 'resolvedMetadataReadback' must be a valid range from the AV1 encode session device");
 
     return videoSessionVal.GetDevice().GetVideoInterfaceImpl().GetVideoAV1EncodeDecodeInfo(*videoSessionVal.GetImpl(), *resolvedMetadataReadbackVal.GetImpl(), resolvedMetadataOffset, desc, info);
 }

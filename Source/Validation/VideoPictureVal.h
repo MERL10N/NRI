@@ -11,6 +11,8 @@ struct VideoPictureVal final : public ObjectVal {
     VideoPictureUsage GetUsage() const;
     bool IsCompatibleWith(const VideoSessionDesc& sessionDesc) const;
     bool IsSameSubresource(const VideoPictureVal& videoPicture) const;
+    bool IsSameTexture(const VideoPictureVal& videoPicture) const;
+    uint32_t GetTextureLayerNum() const;
 
 private:
     const TextureVal* m_Texture = nullptr;
@@ -18,6 +20,7 @@ private:
     uint32_t m_Width = 0;
     uint32_t m_Height = 0;
     uint32_t m_Layer = 0;
+    uint32_t m_TextureLayerNum = 0;
     VideoCodec m_Codec = VideoCodec::NONE;
     VideoPictureUsage m_Usage = VideoPictureUsage::MAX_NUM;
 };

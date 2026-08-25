@@ -154,23 +154,6 @@ inline bool ReadObuHeader(const uint8_t* data, size_t size, size_t& cursor, ObuS
     return true;
 }
 
-inline bool FindFrameObu(const uint8_t* data, size_t size, ObuSpan& frame) {
-    size_t cursor = 0;
-    while (cursor < size) {
-        ObuSpan span = {};
-        if (!ReadObuHeader(data, size, cursor, span))
-            return false;
-        if (span.type == ObuType::Frame) {
-            frame = span;
-            return true;
-        }
-        if (span.type != ObuType::TemporalDelimiter && span.type != ObuType::SequenceHeader && span.type != ObuType::Padding)
-            return false;
-    }
-
-    return false;
-}
-
 inline bool FindFramePayload(const uint8_t* data, size_t size, FramePayloadSpan& frame) {
     size_t cursor = 0;
     ObuSpan frameHeader = {};

@@ -51,7 +51,7 @@ Result BufferD3D12::Allocate(MemoryLocation memoryLocation, float priority, bool
         D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
         if (memoryLocation == MemoryLocation::HOST_UPLOAD || memoryLocation == MemoryLocation::DEVICE_UPLOAD)
             initialState |= D3D12_RESOURCE_STATE_GENERIC_READ;
-        else if (memoryLocation == MemoryLocation::HOST_READBACK && !(m_Desc.usage & BufferUsageBits::VIDEO_ENCODE))
+        else if (memoryLocation == MemoryLocation::HOST_READBACK)
             initialState |= D3D12_RESOURCE_STATE_COPY_DEST;
 
         if (m_Desc.usage & BufferUsageBits::ACCELERATION_STRUCTURE_STORAGE)
@@ -114,7 +114,7 @@ Result BufferD3D12::BindMemory(const MemoryD3D12& memory, uint64_t offset) {
 
         if (isUpload)
             initialState |= D3D12_RESOURCE_STATE_GENERIC_READ;
-        else if (isReadback && !(m_Desc.usage & BufferUsageBits::VIDEO_ENCODE))
+        else if (isReadback)
             initialState |= D3D12_RESOURCE_STATE_COPY_DEST;
 
         if (m_Desc.usage & BufferUsageBits::ACCELERATION_STRUCTURE_STORAGE)

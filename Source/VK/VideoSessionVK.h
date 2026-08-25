@@ -36,14 +36,6 @@ struct VideoSessionVK final : public DebugNameBase {
         return m_RateControlModes;
     }
 
-    inline bool SupportsDecodeDpbAndOutputCoincide() const {
-        return (m_DecodeCapabilityFlags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_COINCIDE_BIT_KHR) != 0;
-    }
-
-    inline bool SupportsDecodeDpbAndOutputDistinct() const {
-        return (m_DecodeCapabilityFlags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_DISTINCT_BIT_KHR) != 0;
-    }
-
     inline VkVideoEncodeAV1CapabilityFlagsKHR GetAV1CapabilityFlags() const {
         return m_AV1CapabilityFlags;
     }
@@ -128,7 +120,6 @@ struct VideoSessionVK final : public DebugNameBase {
         return m_EncodeFeedbackQueryPool;
     }
 
-    bool HasPendingEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset) const;
     uint32_t FindEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset) const;
     uint32_t AllocateEncodeFeedbackQuery(BufferVK* resolvedMetadata, uint64_t resolvedMetadataOffset);
 
@@ -156,8 +147,6 @@ struct VideoSessionVK final : public DebugNameBase {
     Result GetEncodeAV1DecodeInfo(BufferVK& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info);
 
 private:
-    static constexpr uint32_t ENCODE_FEEDBACK_QUERY_NUM = 64;
-
     struct EncodeFeedbackPayloadReadback {
         BufferVK* resolvedMetadata = nullptr;
         uint64_t resolvedMetadataOffset = 0;
@@ -172,14 +161,12 @@ private:
     DeviceVK& m_Device;
     VkVideoSessionKHR m_Handle = VK_NULL_HANDLE;
     VkQueryPool m_EncodeFeedbackQueryPool = VK_NULL_HANDLE;
-    std::array<EncodeFeedbackPayloadReadback, ENCODE_FEEDBACK_QUERY_NUM> m_EncodeFeedbackPayloadReadbacks = {};
+    std::array<EncodeFeedbackPayloadReadback, VIDEO_ENCODE_FEEDBACK_QUERY_NUM> m_EncodeFeedbackPayloadReadbacks = {};
     Vector<VkDeviceMemory> m_Memory;
     VideoSessionDesc m_Desc = {};
-    VkExtent2D m_PictureAccessGranularity = {};
     uint32_t m_BitstreamOffsetAlignment = 1;
     uint32_t m_BitstreamSizeAlignment = 1;
     uint32_t m_RateControlModes = 0;
-    VkVideoDecodeCapabilityFlagsKHR m_DecodeCapabilityFlags = 0;
     VkVideoEncodeAV1CapabilityFlagsKHR m_AV1CapabilityFlags = 0;
     uint32_t m_AV1MaxSingleReferenceCount = 0;
     uint32_t m_AV1SingleReferenceNameMask = 0;
@@ -192,11 +179,9 @@ private:
     VkExtent2D m_AV1MaxTileSize = {};
     uint32_t m_AV1MinQIndex = 0;
     uint32_t m_AV1MaxQIndex = 255;
-    VkVideoEncodeAV1StdFlagsKHR m_AV1StdSyntaxFlags = 0;
     bool m_AV1RequiresGopRemainingFrames = false;
     bool m_ResetRecorded = false;
     bool m_UseInlineSessionParameters = false;
-    bool m_CanGenerateH264PrefixNalu = false;
     uint32_t m_H264MaxBPictureL0ReferenceCount = 0;
     uint32_t m_H264MaxL1ReferenceCount = 0;
     uint32_t m_H265MaxBPictureL0ReferenceCount = 0;

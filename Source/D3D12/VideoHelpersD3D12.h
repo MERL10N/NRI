@@ -6,29 +6,10 @@ namespace nri {
 
 constexpr uint32_t VIDEO_DECODE_MAX_PIC_ENTRY_SLOT = 127;
 constexpr uint32_t VIDEO_HEVC_MAX_REFERENCE_NUM = 15;
-constexpr uint32_t VIDEO_ENCODE_RATE_CONTROL_CQP = 1u << (uint32_t)VideoEncodeRateControlMode::CQP;
-constexpr uint32_t VIDEO_ENCODE_RATE_CONTROL_CBR = 1u << (uint32_t)VideoEncodeRateControlMode::CBR;
-constexpr uint32_t VIDEO_ENCODE_RATE_CONTROL_VBR = 1u << (uint32_t)VideoEncodeRateControlMode::VBR;
 constexpr uint32_t VIDEO_D3D12_ENCODE_SUPPORT_PROBE_SIZE = 512;
 constexpr uint32_t VIDEO_AV1_LEVEL_4_1 = 41;
 constexpr uint32_t VIDEO_D3D12_ENCODE_AV1_MIN_Q_INDEX = 1;
 constexpr uint32_t VIDEO_D3D12_ENCODE_AV1_MAX_Q_INDEX = 255;
-
-inline uint32_t GetVideoEncodeRateControlModeMask(VideoEncodeRateControlMode mode) {
-    return 1u << (uint32_t)mode;
-}
-
-inline const VideoH265ReferenceDesc* FindVideoH265ReferenceDescD3D12(const VideoH265ReferenceDesc* references, uint32_t referenceNum, uint32_t slot) {
-    if (!references)
-        return nullptr;
-
-    for (uint32_t i = 0; i < referenceNum; i++) {
-        if (references[i].slot == slot)
-            return &references[i];
-    }
-
-    return nullptr;
-}
 
 inline GUID GetVideoDecodeProfileD3D12(VideoCodec codec, Format format) {
     switch (codec) {
@@ -54,11 +35,14 @@ inline void FillVideoCapabilitiesD3D12(VideoCapabilities& videoCapabilities, con
     videoCapabilities.maxReferenceNum = videoSessionDesc.maxReferenceNum;
     videoCapabilities.bitstreamOffsetAlignment = 1;
     videoCapabilities.bitstreamSizeAlignment = 1;
-    videoCapabilities.bitstreamSizeMax = uint64_t(-1);
+    videoCapabilities.bitstreamSizeMax = videoSessionDesc.type == VideoSessionType::DECODE ? UINT32_MAX : uint64_t(-1);
     videoCapabilities.metadataOffsetAlignment = 1;
     videoCapabilities.resolvedMetadataOffsetAlignment = 1;
+    videoCapabilities.decodeBitstreamSourceMask = videoSessionDesc.type == VideoSessionType::DECODE ? VideoDecodeBitstreamSourceBits::BUFFER : VideoDecodeBitstreamSourceBits::NONE;
     videoCapabilities.decodeDpbAndOutputCoincide = videoSessionDesc.type == VideoSessionType::DECODE;
     videoCapabilities.decodeDpbAndOutputDistinct = false;
+    videoCapabilities.decodeNativeArgumentsSupported = videoSessionDesc.type == VideoSessionType::DECODE;
+    videoCapabilities.encodeBitstreamRangeSizeSupported = false;
 }
 
 inline void FillVideoDecodeAV1CapabilitiesD3D12(VideoAV1Capabilities& videoAV1Capabilities) {
@@ -176,7 +160,7 @@ inline bool BuildVideoEncodeHEVCReferenceListsD3D12(const VideoReference* refere
     }
 
     for (uint32_t i = 0; i < referenceNum; i++) {
-        const VideoH265ReferenceDesc* referenceDesc = FindVideoH265ReferenceDescD3D12(referenceDescs, referenceNum, references[i].slot);
+        const VideoH265ReferenceDesc* referenceDesc = FindVideoReferenceDesc(referenceDescs, referenceNum, references[i].slot);
         if (!referenceDesc) {
             lists.failingReference = i;
             lists.missingDescriptor = true;
@@ -321,8 +305,12 @@ inline bool FillVideoEncodeResourceCapabilitiesD3D12(ID3D12VideoDevice* videoDev
     videoCapabilities.bitstreamSizeAlignment = requirements.CompressedBitstreamBufferAccessAlignment;
     videoCapabilities.metadataOffsetAlignment = requirements.EncoderMetadataBufferAccessAlignment;
     videoCapabilities.resolvedMetadataOffsetAlignment = requirements.EncoderMetadataBufferAccessAlignment;
+    videoCapabilities.encodeFeedbackMaxPendingNum = UINT32_MAX;
     videoCapabilities.metadataSize = requirements.MaxEncoderOutputMetadataBufferSize;
     videoCapabilities.resolvedMetadataSize = sizeof(D3D12_VIDEO_ENCODER_OUTPUT_METADATA) + sizeof(D3D12_VIDEO_ENCODER_FRAME_SUBREGION_METADATA);
+    videoCapabilities.resolvedMetadataState = {AccessBits::VIDEO_ENCODE_WRITE, StageBits::VIDEO_ENCODE};
+    videoCapabilities.resolvedMetadataQueueType = QueueType::VIDEO_ENCODE;
+    videoCapabilities.encodeFeedbackSupported = true;
 
     if (videoSessionDesc.codec == VideoCodec::AV1)
         videoCapabilities.resolvedMetadataSize += sizeof(VideoEncodeAV1TilesLayoutD3D12) + sizeof(VideoEncodeAV1PostEncodeValuesD3D12);

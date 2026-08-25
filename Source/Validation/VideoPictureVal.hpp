@@ -7,6 +7,7 @@ NRI_INLINE VideoPictureVal::VideoPictureVal(DeviceVal& device, VideoPicture* imp
     , m_Width(desc.width ? desc.width : textureDesc.width)
     , m_Height(desc.height ? desc.height : textureDesc.height)
     , m_Layer(desc.layer)
+    , m_TextureLayerNum(textureDesc.layerNum ? textureDesc.layerNum : 1)
     , m_Codec(textureDesc.videoCodec)
     , m_Usage(desc.usage) {
 }
@@ -25,4 +26,12 @@ NRI_INLINE bool VideoPictureVal::IsCompatibleWith(const VideoSessionDesc& sessio
 
 NRI_INLINE bool VideoPictureVal::IsSameSubresource(const VideoPictureVal& videoPicture) const {
     return m_Texture == videoPicture.m_Texture && m_Layer == videoPicture.m_Layer;
+}
+
+NRI_INLINE bool VideoPictureVal::IsSameTexture(const VideoPictureVal& videoPicture) const {
+    return m_Texture == videoPicture.m_Texture;
+}
+
+NRI_INLINE uint32_t VideoPictureVal::GetTextureLayerNum() const {
+    return m_TextureLayerNum;
 }
