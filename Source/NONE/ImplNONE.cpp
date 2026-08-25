@@ -5,7 +5,7 @@
 using namespace nri;
 
 template <typename T>
-constexpr T* DummyObject() {
+static constexpr T* DummyObject() {
     return (T*)(size_t)(1);
 }
 

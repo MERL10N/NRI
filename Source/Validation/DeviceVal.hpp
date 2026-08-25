@@ -26,6 +26,25 @@ static inline bool IsRayTracingShaderStageValid(StageBits shaderStages, StageBit
     return n == 1;
 }
 
+#if NRI_ENABLE_D3D12_SUPPORT
+static inline QueueType GetQueueTypeD3D12(D3D12_COMMAND_LIST_TYPE commandListType) {
+    switch (commandListType) {
+        case D3D12_COMMAND_LIST_TYPE_DIRECT:
+            return QueueType::GRAPHICS;
+        case D3D12_COMMAND_LIST_TYPE_COMPUTE:
+            return QueueType::COMPUTE;
+        case D3D12_COMMAND_LIST_TYPE_COPY:
+            return QueueType::COPY;
+        case D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE:
+            return QueueType::VIDEO_DECODE;
+        case D3D12_COMMAND_LIST_TYPE_VIDEO_ENCODE:
+            return QueueType::VIDEO_ENCODE;
+        default:
+            return QueueType::MAX_NUM;
+    }
+}
+#endif
+
 static inline bool IsShaderStageSupported(const DeviceDesc& deviceDesc, StageBits shaderStages) {
     if ((shaderStages & StageBits::TESSELLATION_SHADERS) != 0 && !deviceDesc.features.tessellationShader)
         return false;
@@ -56,7 +75,7 @@ static inline Dim_t GetMaxMipNum(uint16_t w, uint16_t h, uint16_t d) {
     return mipNum;
 }
 
-static inline bool IsViewTypeSupported(const TextureDesc& textureDesc, TextureView textureView) {
+static bool IsViewTypeSupported(const TextureDesc& textureDesc, TextureView textureView) {
     if (textureDesc.type == TextureType::TEXTURE_1D) {
         switch (textureView) {
             case TextureView::TEXTURE:
@@ -137,6 +156,7 @@ bool DeviceVal::Create() {
     m_IsExtSupported.lowLatency = deviceBaseImpl.FillFunctionTable(m_iLowLatencyImpl) == Result::SUCCESS;
     m_IsExtSupported.meshShader = deviceBaseImpl.FillFunctionTable(m_iMeshShaderImpl) == Result::SUCCESS;
     m_IsExtSupported.rayTracing = deviceBaseImpl.FillFunctionTable(m_iRayTracingImpl) == Result::SUCCESS;
+    m_IsExtSupported.video = deviceBaseImpl.FillFunctionTable(m_iVideoImpl) == Result::SUCCESS;
     m_IsExtSupported.swapChain = deviceBaseImpl.FillFunctionTable(m_iSwapChainImpl) == Result::SUCCESS;
     m_IsExtSupported.wrapperD3D11 = deviceBaseImpl.FillFunctionTable(m_iWrapperD3D11Impl) == Result::SUCCESS;
     m_IsExtSupported.wrapperD3D12 = deviceBaseImpl.FillFunctionTable(m_iWrapperD3D12Impl) == Result::SUCCESS;
@@ -195,7 +215,7 @@ NRI_INLINE Result DeviceVal::GetQueue(QueueType queueType, uint32_t queueIndex, 
     if (result == Result::SUCCESS) {
         const uint32_t index = (uint32_t)queueType;
         if (!m_Queues[index])
-            m_Queues[index] = Allocate<QueueVal>(GetAllocationCallbacks(), *this, queueImpl);
+            m_Queues[index] = Allocate<QueueVal>(GetAllocationCallbacks(), *this, queueImpl, queueType);
 
         queue = (Queue*)m_Queues[index];
     }
@@ -208,14 +228,14 @@ NRI_INLINE Result DeviceVal::WaitIdle() {
 }
 
 NRI_INLINE Result DeviceVal::CreateCommandAllocator(const Queue& queue, CommandAllocator*& commandAllocator) {
-    auto queueImpl = NRI_GET_IMPL(Queue, &queue);
+    const QueueVal& queueVal = (const QueueVal&)queue;
 
     CommandAllocator* commandAllocatorImpl = nullptr;
-    Result result = m_iCoreImpl.CreateCommandAllocator(*queueImpl, commandAllocatorImpl);
+    Result result = m_iCoreImpl.CreateCommandAllocator(*queueVal.GetImpl(), commandAllocatorImpl);
 
     commandAllocator = nullptr;
     if (result == Result::SUCCESS)
-        commandAllocator = (CommandAllocator*)Allocate<CommandAllocatorVal>(GetAllocationCallbacks(), *this, commandAllocatorImpl);
+        commandAllocator = (CommandAllocator*)Allocate<CommandAllocatorVal>(GetAllocationCallbacks(), *this, commandAllocatorImpl, queueVal.GetType());
 
     return result;
 }
@@ -251,6 +271,9 @@ NRI_INLINE Result DeviceVal::CreateTexture(const TextureDesc& textureDesc, Textu
     NRI_RETURN_ON_FAILURE(this, textureDesc.format > Format::UNKNOWN && textureDesc.format < Format::MAX_NUM, Result::INVALID_ARGUMENT, "'format' is invalid");
     NRI_RETURN_ON_FAILURE(this, textureDesc.sharingMode < SharingMode::MAX_NUM, Result::INVALID_ARGUMENT, "'sharingMode' is invalid");
     NRI_RETURN_ON_FAILURE(this, textureDesc.width != 0, Result::INVALID_ARGUMENT, "'width' is 0");
+    NRI_RETURN_ON_FAILURE(this, textureDesc.videoCodec < VideoCodec::MAX_NUM, Result::INVALID_ARGUMENT, "'videoCodec' is invalid");
+    NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & (TextureUsageBits::VIDEO_DECODE | TextureUsageBits::VIDEO_ENCODE)) || textureDesc.videoCodec != VideoCodec::NONE, Result::INVALID_ARGUMENT,
+        "'videoCodec' must not be 'NONE' for video textures");
     NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & TextureUsageBits::HOST_TRANSFER) || (GetFormatSupport(textureDesc.format) & FormatSupportBits::HOST_COPY), Result::UNSUPPORTED,
         "'format' does not support 'FormatSupportBits::HOST_COPY'");
     NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & TextureUsageBits::HOST_TRANSFER) || textureDesc.sampleNum == 1, Result::INVALID_ARGUMENT,
@@ -739,6 +762,9 @@ NRI_INLINE Result DeviceVal::CreateCommittedTexture(MemoryLocation memoryLocatio
     NRI_RETURN_ON_FAILURE(this, textureDesc.format > Format::UNKNOWN && textureDesc.format < Format::MAX_NUM, Result::INVALID_ARGUMENT, "'format' is invalid");
     NRI_RETURN_ON_FAILURE(this, textureDesc.sharingMode < SharingMode::MAX_NUM, Result::INVALID_ARGUMENT, "'sharingMode' is invalid");
     NRI_RETURN_ON_FAILURE(this, textureDesc.width != 0, Result::INVALID_ARGUMENT, "'width' is 0");
+    NRI_RETURN_ON_FAILURE(this, textureDesc.videoCodec < VideoCodec::MAX_NUM, Result::INVALID_ARGUMENT, "'videoCodec' is invalid");
+    NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & (TextureUsageBits::VIDEO_DECODE | TextureUsageBits::VIDEO_ENCODE)) || textureDesc.videoCodec != VideoCodec::NONE, Result::INVALID_ARGUMENT,
+        "'videoCodec' must not be 'NONE' for video textures");
     NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & TextureUsageBits::HOST_TRANSFER) || (GetFormatSupport(textureDesc.format) & FormatSupportBits::HOST_COPY), Result::UNSUPPORTED,
         "'format' does not support 'FormatSupportBits::HOST_COPY'");
     NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & TextureUsageBits::HOST_TRANSFER) || textureDesc.sampleNum == 1, Result::INVALID_ARGUMENT,
@@ -874,6 +900,9 @@ NRI_INLINE Result DeviceVal::CreatePlacedTexture(Memory* memory, uint64_t offset
     NRI_RETURN_ON_FAILURE(this, textureDesc.format > Format::UNKNOWN && textureDesc.format < Format::MAX_NUM, Result::INVALID_ARGUMENT, "'format' is invalid");
     NRI_RETURN_ON_FAILURE(this, textureDesc.sharingMode < SharingMode::MAX_NUM, Result::INVALID_ARGUMENT, "'sharingMode' is invalid");
     NRI_RETURN_ON_FAILURE(this, textureDesc.width != 0, Result::INVALID_ARGUMENT, "'width' is 0");
+    NRI_RETURN_ON_FAILURE(this, textureDesc.videoCodec < VideoCodec::MAX_NUM, Result::INVALID_ARGUMENT, "'videoCodec' is invalid");
+    NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & (TextureUsageBits::VIDEO_DECODE | TextureUsageBits::VIDEO_ENCODE)) || textureDesc.videoCodec != VideoCodec::NONE, Result::INVALID_ARGUMENT,
+        "'videoCodec' must not be 'NONE' for video textures");
     NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & TextureUsageBits::HOST_TRANSFER) || (GetFormatSupport(textureDesc.format) & FormatSupportBits::HOST_COPY), Result::UNSUPPORTED,
         "'format' does not support 'FormatSupportBits::HOST_COPY'");
     NRI_RETURN_ON_FAILURE(this, !(textureDesc.usage & TextureUsageBits::HOST_TRANSFER) || textureDesc.sampleNum == 1, Result::INVALID_ARGUMENT,
@@ -1190,7 +1219,7 @@ NRI_INLINE Result DeviceVal::CreateCommandAllocator(const CommandAllocatorVKDesc
 
     commandAllocator = nullptr;
     if (result == Result::SUCCESS)
-        commandAllocator = (CommandAllocator*)Allocate<CommandAllocatorVal>(GetAllocationCallbacks(), *this, commandAllocatorImpl);
+        commandAllocator = (CommandAllocator*)Allocate<CommandAllocatorVal>(GetAllocationCallbacks(), *this, commandAllocatorImpl, commandAllocatorVKDesc.queueType);
 
     return result;
 }
@@ -1204,7 +1233,7 @@ NRI_INLINE Result DeviceVal::CreateCommandBuffer(const CommandBufferVKDesc& comm
 
     commandBuffer = nullptr;
     if (result == Result::SUCCESS)
-        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, true);
+        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, commandBufferVKDesc.queueType, true);
 
     return result;
 }
@@ -1334,7 +1363,7 @@ NRI_INLINE Result DeviceVal::CreateCommandBuffer(const CommandBufferD3D11Desc& c
 
     commandBuffer = nullptr;
     if (result == Result::SUCCESS)
-        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, true);
+        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, QueueType::GRAPHICS, true);
 
     return result;
 }
@@ -1372,12 +1401,15 @@ NRI_INLINE Result DeviceVal::CreateTexture(const TextureD3D11Desc& textureD3D11D
 NRI_INLINE Result DeviceVal::CreateCommandBuffer(const CommandBufferD3D12Desc& commandBufferD3D12Desc, CommandBuffer*& commandBuffer) {
     NRI_RETURN_ON_FAILURE(this, commandBufferD3D12Desc.d3d12CommandList != nullptr, Result::INVALID_ARGUMENT, "'d3d12CommandList' is NULL");
 
+    const QueueType queueType = GetQueueTypeD3D12(commandBufferD3D12Desc.d3d12CommandList->GetType());
+    NRI_RETURN_ON_FAILURE(this, queueType != QueueType::MAX_NUM, Result::INVALID_ARGUMENT, "'d3d12CommandList' has an unsupported command list type");
+
     CommandBuffer* commandBufferImpl = nullptr;
     Result result = m_iWrapperD3D12Impl.CreateCommandBufferD3D12(m_Impl, commandBufferD3D12Desc, commandBufferImpl);
 
     commandBuffer = nullptr;
     if (result == Result::SUCCESS)
-        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, true);
+        commandBuffer = (CommandBuffer*)Allocate<CommandBufferVal>(GetAllocationCallbacks(), *this, commandBufferImpl, queueType, true);
 
     return result;
 }

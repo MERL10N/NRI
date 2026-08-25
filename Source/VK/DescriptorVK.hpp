@@ -37,6 +37,10 @@ static inline VkImageViewType GetImageViewType(TextureType textureType, TextureV
         return VK_IMAGE_VIEW_TYPE_3D;
 }
 
+static inline VkComponentSwizzle GetComponentSwizzle(ComponentSwizzle componentSwizzle) {
+    return (VkComponentSwizzle)componentSwizzle;
+}
+
 DescriptorVK::~DescriptorVK() {
     const auto& vk = m_Device.GetDispatchTable();
 
@@ -65,10 +69,6 @@ DescriptorVK::~DescriptorVK() {
     }
 }
 
-static inline VkComponentSwizzle GetComponentSwizzle(ComponentSwizzle componentSwizzle) {
-    return (VkComponentSwizzle)componentSwizzle;
-}
-
 Result DescriptorVK::Create(const TextureViewDesc& textureViewDesc) {
     const TextureVK& textureVK = *(TextureVK*)textureViewDesc.texture;
     const TextureDesc& textureDesc = textureVK.GetDesc();
@@ -91,8 +91,8 @@ Result DescriptorVK::Create(const TextureViewDesc& textureViewDesc) {
 
     // For attachments all format-enabled aspects are needed to support mixed R/RW layouts.
     // For shader resources a specific set of planes is needed (like depth-only or stencil-only views)
-    bool isAspectSensitiveAttachment = textureViewDesc.type == TextureView::DEPTH_STENCIL_ATTACHMENT || textureViewDesc.type == TextureView::SUBPASS_INPUT;
-    VkImageAspectFlags aspectMask = GetImageAspectFlags(isAspectSensitiveAttachment ? PlaneBits::ALL : textureViewDesc.planes, textureViewDesc.format);
+    const bool isAspectSensitiveAttachment = textureViewDesc.type == TextureView::DEPTH_STENCIL_ATTACHMENT || textureViewDesc.type == TextureView::SUBPASS_INPUT;
+    const VkImageAspectFlags aspectMask = GetImageAspectFlags(isAspectSensitiveAttachment ? PlaneBits::ALL : textureViewDesc.planes, textureViewDesc.format);
 
     VkImageSubresourceRange subresourceRange = {
         aspectMask,
