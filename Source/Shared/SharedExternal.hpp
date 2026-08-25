@@ -117,50 +117,12 @@ constexpr std::array<DxgiFormat, (size_t)Format::MAX_NUM> g_dxgiFormats = {{
 }};
 NRI_VALIDATE_ARRAY_BY_FIELD(g_dxgiFormats, typeless);
 
-const DxgiFormat& nri::GetDxgiFormat(Format format) {
-    return g_dxgiFormats[(size_t)format];
-}
+// Compute the overlay area of two rectangles, A and B:
+//  (ax1, ay1) = left-top coordinates of A; (ax2, ay2) = right-bottom coordinates of A
+//  (bx1, by1) = left-top coordinates of B; (bx2, by2) = right-bottom coordinates of B
 
-Result nri::GetResultFromHRESULT(long result) {
-    if (SUCCEEDED(result))
-        return Result::SUCCESS;
-
-    switch (result) {
-        case E_INVALIDARG:
-        case E_POINTER:
-        case E_HANDLE:
-            return Result::INVALID_ARGUMENT;
-
-        case DXGI_ERROR_UNSUPPORTED:
-            return Result::UNSUPPORTED;
-
-        case DXGI_ERROR_DEVICE_REMOVED:
-        case DXGI_ERROR_DEVICE_RESET:
-        case DXGI_ERROR_DRIVER_INTERNAL_ERROR:
-        case DXGI_ERROR_DEVICE_HUNG:
-            return Result::DEVICE_LOST;
-
-        case E_NOINTERFACE:
-        case D3D12_ERROR_INVALID_REDIST:
-        case DXGI_ERROR_SDK_COMPONENT_MISSING:
-            return Result::INVALID_SDK;
-
-        case E_OUTOFMEMORY:
-        case DXGI_ERROR_REMOTE_OUTOFMEMORY:
-        case DXGI_ERROR_HW_PROTECTION_OUTOFMEMORY:
-            return Result::OUT_OF_MEMORY;
-
-        case D3D12_ERROR_DRIVER_VERSION_MISMATCH:
-        case D3D12_ERROR_ADAPTER_NOT_FOUND:
-            return Result::OUT_OF_DATE;
-
-        default:
-            return Result::FAILURE;
-    }
-}
-
-uint32_t nri::NRIFormatToDXGIFormat(Format format) {
-    return g_dxgiFormats[(size_t)format].typed;
+static inline int32_t ComputeIntersectionArea(int32_t ax1, int32_t ay1, int32_t ax2, int32_t ay2, int32_t bx1, int32_t by1, int32_t bx2, int32_t by2) {
+    return std::max(0, std::min(ax2, bx2) - std::max(ax1, bx1)) * std::max(0, std::min(ay2, by2) - std::max(ay1, by1));
 }
 
 // Returns true if this is an integrated display panel e.g. the screen attached to tablets or laptops
@@ -288,12 +250,50 @@ static float GetSdrLuminance(void* hMonitor) {
     return nits;
 }
 
-// Compute the overlay area of two rectangles, A and B:
-//  (ax1, ay1) = left-top coordinates of A; (ax2, ay2) = right-bottom coordinates of A
-//  (bx1, by1) = left-top coordinates of B; (bx2, by2) = right-bottom coordinates of B
+const DxgiFormat& nri::GetDxgiFormat(Format format) {
+    return g_dxgiFormats[(size_t)format];
+}
 
-static inline int32_t ComputeIntersectionArea(int32_t ax1, int32_t ay1, int32_t ax2, int32_t ay2, int32_t bx1, int32_t by1, int32_t bx2, int32_t by2) {
-    return std::max(0, std::min(ax2, bx2) - std::max(ax1, bx1)) * std::max(0, std::min(ay2, by2) - std::max(ay1, by1));
+Result nri::GetResultFromHRESULT(long result) {
+    if (SUCCEEDED(result))
+        return Result::SUCCESS;
+
+    switch (result) {
+        case E_INVALIDARG:
+        case E_POINTER:
+        case E_HANDLE:
+            return Result::INVALID_ARGUMENT;
+
+        case DXGI_ERROR_UNSUPPORTED:
+            return Result::UNSUPPORTED;
+
+        case DXGI_ERROR_DEVICE_REMOVED:
+        case DXGI_ERROR_DEVICE_RESET:
+        case DXGI_ERROR_DRIVER_INTERNAL_ERROR:
+        case DXGI_ERROR_DEVICE_HUNG:
+            return Result::DEVICE_LOST;
+
+        case E_NOINTERFACE:
+        case D3D12_ERROR_INVALID_REDIST:
+        case DXGI_ERROR_SDK_COMPONENT_MISSING:
+            return Result::INVALID_SDK;
+
+        case E_OUTOFMEMORY:
+        case DXGI_ERROR_REMOTE_OUTOFMEMORY:
+        case DXGI_ERROR_HW_PROTECTION_OUTOFMEMORY:
+            return Result::OUT_OF_MEMORY;
+
+        case D3D12_ERROR_DRIVER_VERSION_MISMATCH:
+        case D3D12_ERROR_ADAPTER_NOT_FOUND:
+            return Result::OUT_OF_DATE;
+
+        default:
+            return Result::FAILURE;
+    }
+}
+
+uint32_t nri::NRIFormatToDXGIFormat(Format format) {
+    return g_dxgiFormats[(size_t)format].typed;
 }
 
 Result DisplayDescHelper::GetDisplayDesc(void* hwnd, DisplayDesc& displayDesc) {

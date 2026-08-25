@@ -37,6 +37,10 @@ static inline VkImageViewType GetImageViewType(TextureType textureType, TextureV
         return VK_IMAGE_VIEW_TYPE_3D;
 }
 
+static inline VkComponentSwizzle GetComponentSwizzle(ComponentSwizzle componentSwizzle) {
+    return (VkComponentSwizzle)componentSwizzle;
+}
+
 DescriptorVK::~DescriptorVK() {
     const auto& vk = m_Device.GetDispatchTable();
 
@@ -63,10 +67,6 @@ DescriptorVK::~DescriptorVK() {
             }
             break;
     }
-}
-
-static inline VkComponentSwizzle GetComponentSwizzle(ComponentSwizzle componentSwizzle) {
-    return (VkComponentSwizzle)componentSwizzle;
 }
 
 Result DescriptorVK::Create(const TextureViewDesc& textureViewDesc) {

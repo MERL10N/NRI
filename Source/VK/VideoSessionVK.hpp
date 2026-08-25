@@ -184,6 +184,181 @@ static inline Result IsVideoFormatSupportedVK(DeviceVK& device, const VideoSessi
     return Result::SUCCESS;
 }
 
+static inline void FillVideoEncodeFeedbackVK(VideoEncodeFeedback& feedback, const uint64_t* queryResult) {
+    feedback = {};
+    feedback.encodedBitstreamOffset = queryResult[0];
+    feedback.encodedBitstreamWrittenBytes = queryResult[1];
+    feedback.writtenSubregionNum = 1;
+
+    const int64_t status = (int64_t)queryResult[2];
+    if (status < 0)
+        feedback.errorFlags = (uint64_t)status;
+    else if (status != VK_QUERY_RESULT_STATUS_COMPLETE_KHR)
+        feedback.errorFlags = (uint64_t)status;
+}
+
+static inline Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
+    const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
+    if (!operation || !IsVideoCodecOperationSupportedVK(deviceVK, videoSessionDesc, operation))
+        return Result::UNSUPPORTED;
+
+    alignas(8) char codecProfileStorage[64] = {};
+    VkVideoProfileInfoKHR profile = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_INFO_KHR};
+    void* codecProfileInfo = FillVideoProfileCodecInfoVK(videoSessionDesc, codecProfileStorage);
+    VkVideoDecodeUsageInfoKHR decodeUsage = {VK_STRUCTURE_TYPE_VIDEO_DECODE_USAGE_INFO_KHR};
+    VkVideoEncodeUsageInfoKHR encodeUsage = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_USAGE_INFO_KHR};
+    if (videoSessionDesc.type == VideoSessionType::DECODE) {
+        decodeUsage.videoUsageHints = VK_VIDEO_DECODE_USAGE_DEFAULT_KHR;
+        decodeUsage.pNext = codecProfileInfo;
+        profile.pNext = &decodeUsage;
+    } else {
+        encodeUsage.videoUsageHints = VK_VIDEO_ENCODE_USAGE_DEFAULT_KHR;
+        SetVideoProfileCodecInfoNextVK(videoSessionDesc, codecProfileInfo, &encodeUsage);
+        profile.pNext = codecProfileInfo;
+    }
+    profile.videoCodecOperation = operation;
+    profile.chromaSubsampling = VK_VIDEO_CHROMA_SUBSAMPLING_420_BIT_KHR;
+    profile.lumaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
+    profile.chromaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
+    if (!codecProfileInfo)
+        return Result::UNSUPPORTED;
+
+    VkVideoCapabilitiesKHR capabilities = {VK_STRUCTURE_TYPE_VIDEO_CAPABILITIES_KHR};
+    VkVideoDecodeCapabilitiesKHR decodeCapabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_CAPABILITIES_KHR};
+    VkVideoDecodeH264CapabilitiesKHR decodeH264Capabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_H264_CAPABILITIES_KHR};
+    VkVideoDecodeH265CapabilitiesKHR decodeH265Capabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_H265_CAPABILITIES_KHR};
+    VkVideoDecodeAV1CapabilitiesKHR decodeAV1Capabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_CAPABILITIES_KHR};
+    VkVideoEncodeCapabilitiesKHR encodeCapabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_CAPABILITIES_KHR};
+    VkVideoEncodeH264CapabilitiesKHR encodeH264Capabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_CAPABILITIES_KHR};
+    VkVideoEncodeH265CapabilitiesKHR encodeH265Capabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_CAPABILITIES_KHR};
+    VkVideoEncodeAV1CapabilitiesKHR encodeAV1Capabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_AV1_CAPABILITIES_KHR};
+    if (videoSessionDesc.type == VideoSessionType::DECODE) {
+        capabilities.pNext = &decodeCapabilities;
+        switch (videoSessionDesc.codec) {
+            case VideoCodec::H264:
+                decodeCapabilities.pNext = &decodeH264Capabilities;
+                break;
+            case VideoCodec::H265:
+                decodeCapabilities.pNext = &decodeH265Capabilities;
+                break;
+            case VideoCodec::AV1:
+                decodeCapabilities.pNext = &decodeAV1Capabilities;
+                break;
+            default:
+                break;
+        }
+    } else {
+        capabilities.pNext = &encodeCapabilities;
+        switch (videoSessionDesc.codec) {
+            case VideoCodec::H264:
+                encodeCapabilities.pNext = &encodeH264Capabilities;
+                break;
+            case VideoCodec::H265:
+                encodeCapabilities.pNext = &encodeH265Capabilities;
+                break;
+            case VideoCodec::AV1:
+                encodeCapabilities.pNext = &encodeAV1Capabilities;
+                break;
+            default:
+                break;
+        }
+    }
+
+    const auto& vk = deviceVK.GetDispatchTable();
+
+    VkResult vkResult = vk.GetPhysicalDeviceVideoCapabilitiesKHR(deviceVK, &profile, &capabilities);
+    NRI_RETURN_ON_BAD_VKRESULT(&deviceVK, vkResult, "vkGetPhysicalDeviceVideoCapabilitiesKHR");
+
+    bool isVideoFormatSupported = false;
+    Result result = IsVideoFormatSupportedVK(deviceVK, videoSessionDesc, profile, isVideoFormatSupported);
+    if (result != Result::SUCCESS)
+        return result;
+    if (!isVideoFormatSupported)
+        return Result::UNSUPPORTED;
+
+    FillVideoCapabilitiesVK(videoCapabilities, videoSessionDesc, capabilities);
+    if (videoSessionDesc.type == VideoSessionType::DECODE) {
+        videoCapabilities.decodeDpbAndOutputCoincide = (decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_COINCIDE_BIT_KHR) != 0;
+        videoCapabilities.decodeDpbAndOutputDistinct = (decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_DISTINCT_BIT_KHR) != 0;
+    } else if ((encodeCapabilities.supportedEncodeFeedbackFlags & VIDEO_ENCODE_REQUIRED_FEEDBACK_FLAGS) == VIDEO_ENCODE_REQUIRED_FEEDBACK_FLAGS) {
+        videoCapabilities.resolvedMetadataOffsetAlignment = 8;
+        videoCapabilities.resolvedMetadataSize = sizeof(VideoEncodeFeedback) + sizeof(uint64_t) * 3 + sizeof(uint32_t);
+        videoCapabilities.resolvedMetadataState = {AccessBits::COPY_DESTINATION, StageBits::COPY};
+        videoCapabilities.resolvedMetadataQueueType = QueueType::GRAPHICS;
+        videoCapabilities.encodeFeedbackMaxPendingNum = VIDEO_ENCODE_FEEDBACK_QUERY_NUM;
+        videoCapabilities.encodeFeedbackSupported = true;
+        videoCapabilities.encodeFeedbackResolveRequired = true;
+    }
+
+    const bool isExtentSupported = videoSessionDesc.width >= videoCapabilities.widthMin
+        && videoSessionDesc.height >= videoCapabilities.heightMin
+        && videoSessionDesc.width <= videoCapabilities.widthMax
+        && videoSessionDesc.height <= videoCapabilities.heightMax;
+
+    return isExtentSupported ? Result::SUCCESS : Result::UNSUPPORTED;
+}
+
+static inline Result GetVideoAV1CapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
+    videoAV1Capabilities = {};
+    if (videoSessionDesc.codec != VideoCodec::AV1)
+        return Result::UNSUPPORTED;
+
+    VideoCapabilities genericCapabilities = {};
+    Result genericResult = GetVideoCapabilitiesVK(deviceVK, videoSessionDesc, genericCapabilities);
+    if (genericResult != Result::SUCCESS)
+        return genericResult;
+
+    const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
+    if (!operation)
+        return Result::UNSUPPORTED;
+
+    alignas(8) char codecProfileStorage[64] = {};
+    VkVideoProfileInfoKHR profile = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_INFO_KHR};
+    void* codecProfileInfo = FillVideoProfileCodecInfoVK(videoSessionDesc, codecProfileStorage);
+    VkVideoDecodeUsageInfoKHR decodeUsage = {VK_STRUCTURE_TYPE_VIDEO_DECODE_USAGE_INFO_KHR};
+    VkVideoEncodeUsageInfoKHR encodeUsage = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_USAGE_INFO_KHR};
+    if (videoSessionDesc.type == VideoSessionType::DECODE) {
+        decodeUsage.videoUsageHints = VK_VIDEO_DECODE_USAGE_DEFAULT_KHR;
+        decodeUsage.pNext = codecProfileInfo;
+        profile.pNext = &decodeUsage;
+    } else {
+        encodeUsage.videoUsageHints = VK_VIDEO_ENCODE_USAGE_DEFAULT_KHR;
+        SetVideoProfileCodecInfoNextVK(videoSessionDesc, codecProfileInfo, &encodeUsage);
+        profile.pNext = codecProfileInfo;
+    }
+    profile.videoCodecOperation = operation;
+    profile.chromaSubsampling = VK_VIDEO_CHROMA_SUBSAMPLING_420_BIT_KHR;
+    profile.lumaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
+    profile.chromaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
+    if (!codecProfileInfo)
+        return Result::UNSUPPORTED;
+
+    VkVideoCapabilitiesKHR capabilities = {VK_STRUCTURE_TYPE_VIDEO_CAPABILITIES_KHR};
+    VkVideoDecodeCapabilitiesKHR decodeCapabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_CAPABILITIES_KHR};
+    VkVideoDecodeAV1CapabilitiesKHR decodeAV1Capabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_CAPABILITIES_KHR};
+    VkVideoEncodeCapabilitiesKHR encodeCapabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_CAPABILITIES_KHR};
+    VkVideoEncodeAV1CapabilitiesKHR encodeAV1Capabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_AV1_CAPABILITIES_KHR};
+    if (videoSessionDesc.type == VideoSessionType::DECODE) {
+        capabilities.pNext = &decodeCapabilities;
+        decodeCapabilities.pNext = &decodeAV1Capabilities;
+    } else {
+        capabilities.pNext = &encodeCapabilities;
+        encodeCapabilities.pNext = &encodeAV1Capabilities;
+    }
+
+    const auto& vk = deviceVK.GetDispatchTable();
+    VkResult vkResult = vk.GetPhysicalDeviceVideoCapabilitiesKHR(deviceVK, &profile, &capabilities);
+    if (vkResult != VK_SUCCESS)
+        return Result::UNSUPPORTED;
+
+    if (videoSessionDesc.type == VideoSessionType::DECODE)
+        FillVideoDecodeAV1CapabilitiesVK(videoAV1Capabilities, decodeAV1Capabilities);
+    else
+        FillVideoEncodeAV1CapabilitiesVK(videoAV1Capabilities, encodeAV1Capabilities);
+
+    return Result::SUCCESS;
+}
+
 VideoSessionVK::~VideoSessionVK() {
     const auto& vk = m_Device.GetDispatchTable();
     if (m_EncodeFeedbackQueryPool)
@@ -224,19 +399,6 @@ uint32_t VideoSessionVK::AllocateEncodeFeedbackQuery(BufferVK* resolvedMetadata,
 void VideoSessionVK::Reset() {
     m_ResetRecorded = false;
     m_EncodeFeedbackPayloadReadbacks = {};
-}
-
-static inline void FillVideoEncodeFeedbackVK(VideoEncodeFeedback& feedback, const uint64_t* queryResult) {
-    feedback = {};
-    feedback.encodedBitstreamOffset = queryResult[0];
-    feedback.encodedBitstreamWrittenBytes = queryResult[1];
-    feedback.writtenSubregionNum = 1;
-
-    const int64_t status = (int64_t)queryResult[2];
-    if (status < 0)
-        feedback.errorFlags = (uint64_t)status;
-    else if (status != VK_QUERY_RESULT_STATUS_COMPLETE_KHR)
-        feedback.errorFlags = (uint64_t)status;
 }
 
 NRI_INLINE Result VideoSessionVK::GetEncodeFeedback(BufferVK& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, VideoEncodeFeedback& feedback) {
@@ -472,167 +634,5 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
 
     m_Desc = videoSessionDesc;
     m_Desc.maxReferenceNum = maxDpbSlots ? maxDpbSlots - 1 : 0;
-    return Result::SUCCESS;
-}
-
-static inline Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
-    const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
-    if (!operation || !IsVideoCodecOperationSupportedVK(deviceVK, videoSessionDesc, operation))
-        return Result::UNSUPPORTED;
-
-    alignas(8) char codecProfileStorage[64] = {};
-    VkVideoProfileInfoKHR profile = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_INFO_KHR};
-    void* codecProfileInfo = FillVideoProfileCodecInfoVK(videoSessionDesc, codecProfileStorage);
-    VkVideoDecodeUsageInfoKHR decodeUsage = {VK_STRUCTURE_TYPE_VIDEO_DECODE_USAGE_INFO_KHR};
-    VkVideoEncodeUsageInfoKHR encodeUsage = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_USAGE_INFO_KHR};
-    if (videoSessionDesc.type == VideoSessionType::DECODE) {
-        decodeUsage.videoUsageHints = VK_VIDEO_DECODE_USAGE_DEFAULT_KHR;
-        decodeUsage.pNext = codecProfileInfo;
-        profile.pNext = &decodeUsage;
-    } else {
-        encodeUsage.videoUsageHints = VK_VIDEO_ENCODE_USAGE_DEFAULT_KHR;
-        SetVideoProfileCodecInfoNextVK(videoSessionDesc, codecProfileInfo, &encodeUsage);
-        profile.pNext = codecProfileInfo;
-    }
-    profile.videoCodecOperation = operation;
-    profile.chromaSubsampling = VK_VIDEO_CHROMA_SUBSAMPLING_420_BIT_KHR;
-    profile.lumaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
-    profile.chromaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
-    if (!codecProfileInfo)
-        return Result::UNSUPPORTED;
-
-    VkVideoCapabilitiesKHR capabilities = {VK_STRUCTURE_TYPE_VIDEO_CAPABILITIES_KHR};
-    VkVideoDecodeCapabilitiesKHR decodeCapabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_CAPABILITIES_KHR};
-    VkVideoDecodeH264CapabilitiesKHR decodeH264Capabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_H264_CAPABILITIES_KHR};
-    VkVideoDecodeH265CapabilitiesKHR decodeH265Capabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_H265_CAPABILITIES_KHR};
-    VkVideoDecodeAV1CapabilitiesKHR decodeAV1Capabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_CAPABILITIES_KHR};
-    VkVideoEncodeCapabilitiesKHR encodeCapabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_CAPABILITIES_KHR};
-    VkVideoEncodeH264CapabilitiesKHR encodeH264Capabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_H264_CAPABILITIES_KHR};
-    VkVideoEncodeH265CapabilitiesKHR encodeH265Capabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_H265_CAPABILITIES_KHR};
-    VkVideoEncodeAV1CapabilitiesKHR encodeAV1Capabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_AV1_CAPABILITIES_KHR};
-    if (videoSessionDesc.type == VideoSessionType::DECODE) {
-        capabilities.pNext = &decodeCapabilities;
-        switch (videoSessionDesc.codec) {
-            case VideoCodec::H264:
-                decodeCapabilities.pNext = &decodeH264Capabilities;
-                break;
-            case VideoCodec::H265:
-                decodeCapabilities.pNext = &decodeH265Capabilities;
-                break;
-            case VideoCodec::AV1:
-                decodeCapabilities.pNext = &decodeAV1Capabilities;
-                break;
-            default:
-                break;
-        }
-    } else {
-        capabilities.pNext = &encodeCapabilities;
-        switch (videoSessionDesc.codec) {
-            case VideoCodec::H264:
-                encodeCapabilities.pNext = &encodeH264Capabilities;
-                break;
-            case VideoCodec::H265:
-                encodeCapabilities.pNext = &encodeH265Capabilities;
-                break;
-            case VideoCodec::AV1:
-                encodeCapabilities.pNext = &encodeAV1Capabilities;
-                break;
-            default:
-                break;
-        }
-    }
-
-    const auto& vk = deviceVK.GetDispatchTable();
-
-    VkResult vkResult = vk.GetPhysicalDeviceVideoCapabilitiesKHR(deviceVK, &profile, &capabilities);
-    NRI_RETURN_ON_BAD_VKRESULT(&deviceVK, vkResult, "vkGetPhysicalDeviceVideoCapabilitiesKHR");
-
-    bool isVideoFormatSupported = false;
-    Result result = IsVideoFormatSupportedVK(deviceVK, videoSessionDesc, profile, isVideoFormatSupported);
-    if (result != Result::SUCCESS)
-        return result;
-    if (!isVideoFormatSupported)
-        return Result::UNSUPPORTED;
-
-    FillVideoCapabilitiesVK(videoCapabilities, videoSessionDesc, capabilities);
-    if (videoSessionDesc.type == VideoSessionType::DECODE) {
-        videoCapabilities.decodeDpbAndOutputCoincide = (decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_COINCIDE_BIT_KHR) != 0;
-        videoCapabilities.decodeDpbAndOutputDistinct = (decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_DISTINCT_BIT_KHR) != 0;
-    } else if ((encodeCapabilities.supportedEncodeFeedbackFlags & VIDEO_ENCODE_REQUIRED_FEEDBACK_FLAGS) == VIDEO_ENCODE_REQUIRED_FEEDBACK_FLAGS) {
-        videoCapabilities.resolvedMetadataOffsetAlignment = 8;
-        videoCapabilities.resolvedMetadataSize = sizeof(VideoEncodeFeedback) + sizeof(uint64_t) * 3 + sizeof(uint32_t);
-        videoCapabilities.resolvedMetadataState = {AccessBits::COPY_DESTINATION, StageBits::COPY};
-        videoCapabilities.resolvedMetadataQueueType = QueueType::GRAPHICS;
-        videoCapabilities.encodeFeedbackMaxPendingNum = VIDEO_ENCODE_FEEDBACK_QUERY_NUM;
-        videoCapabilities.encodeFeedbackSupported = true;
-        videoCapabilities.encodeFeedbackResolveRequired = true;
-    }
-
-    const bool isExtentSupported = videoSessionDesc.width >= videoCapabilities.widthMin
-        && videoSessionDesc.height >= videoCapabilities.heightMin
-        && videoSessionDesc.width <= videoCapabilities.widthMax
-        && videoSessionDesc.height <= videoCapabilities.heightMax;
-
-    return isExtentSupported ? Result::SUCCESS : Result::UNSUPPORTED;
-}
-
-static inline Result GetVideoAV1CapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
-    videoAV1Capabilities = {};
-    if (videoSessionDesc.codec != VideoCodec::AV1)
-        return Result::UNSUPPORTED;
-
-    VideoCapabilities genericCapabilities = {};
-    Result genericResult = GetVideoCapabilitiesVK(deviceVK, videoSessionDesc, genericCapabilities);
-    if (genericResult != Result::SUCCESS)
-        return genericResult;
-
-    const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
-    if (!operation)
-        return Result::UNSUPPORTED;
-
-    alignas(8) char codecProfileStorage[64] = {};
-    VkVideoProfileInfoKHR profile = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_INFO_KHR};
-    void* codecProfileInfo = FillVideoProfileCodecInfoVK(videoSessionDesc, codecProfileStorage);
-    VkVideoDecodeUsageInfoKHR decodeUsage = {VK_STRUCTURE_TYPE_VIDEO_DECODE_USAGE_INFO_KHR};
-    VkVideoEncodeUsageInfoKHR encodeUsage = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_USAGE_INFO_KHR};
-    if (videoSessionDesc.type == VideoSessionType::DECODE) {
-        decodeUsage.videoUsageHints = VK_VIDEO_DECODE_USAGE_DEFAULT_KHR;
-        decodeUsage.pNext = codecProfileInfo;
-        profile.pNext = &decodeUsage;
-    } else {
-        encodeUsage.videoUsageHints = VK_VIDEO_ENCODE_USAGE_DEFAULT_KHR;
-        SetVideoProfileCodecInfoNextVK(videoSessionDesc, codecProfileInfo, &encodeUsage);
-        profile.pNext = codecProfileInfo;
-    }
-    profile.videoCodecOperation = operation;
-    profile.chromaSubsampling = VK_VIDEO_CHROMA_SUBSAMPLING_420_BIT_KHR;
-    profile.lumaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
-    profile.chromaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
-    if (!codecProfileInfo)
-        return Result::UNSUPPORTED;
-
-    VkVideoCapabilitiesKHR capabilities = {VK_STRUCTURE_TYPE_VIDEO_CAPABILITIES_KHR};
-    VkVideoDecodeCapabilitiesKHR decodeCapabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_CAPABILITIES_KHR};
-    VkVideoDecodeAV1CapabilitiesKHR decodeAV1Capabilities = {VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_CAPABILITIES_KHR};
-    VkVideoEncodeCapabilitiesKHR encodeCapabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_CAPABILITIES_KHR};
-    VkVideoEncodeAV1CapabilitiesKHR encodeAV1Capabilities = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_AV1_CAPABILITIES_KHR};
-    if (videoSessionDesc.type == VideoSessionType::DECODE) {
-        capabilities.pNext = &decodeCapabilities;
-        decodeCapabilities.pNext = &decodeAV1Capabilities;
-    } else {
-        capabilities.pNext = &encodeCapabilities;
-        encodeCapabilities.pNext = &encodeAV1Capabilities;
-    }
-
-    const auto& vk = deviceVK.GetDispatchTable();
-    VkResult vkResult = vk.GetPhysicalDeviceVideoCapabilitiesKHR(deviceVK, &profile, &capabilities);
-    if (vkResult != VK_SUCCESS)
-        return Result::UNSUPPORTED;
-
-    if (videoSessionDesc.type == VideoSessionType::DECODE)
-        FillVideoDecodeAV1CapabilitiesVK(videoAV1Capabilities, decodeAV1Capabilities);
-    else
-        FillVideoEncodeAV1CapabilitiesVK(videoAV1Capabilities, encodeAV1Capabilities);
-
     return Result::SUCCESS;
 }

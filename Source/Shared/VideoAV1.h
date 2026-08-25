@@ -103,7 +103,7 @@ struct BitReader {
     }
 };
 
-inline bool ReadLeb128(const uint8_t* data, size_t size, size_t& cursor, size_t& value) {
+static inline bool ReadLeb128(const uint8_t* data, size_t size, size_t& cursor, size_t& value) {
     value = 0;
     for (uint32_t i = 0; i < 8; i++) {
         if (cursor >= size)
@@ -118,7 +118,7 @@ inline bool ReadLeb128(const uint8_t* data, size_t size, size_t& cursor, size_t&
     return false;
 }
 
-inline bool ReadObuHeader(const uint8_t* data, size_t size, size_t& cursor, ObuSpan& span) {
+static inline bool ReadObuHeader(const uint8_t* data, size_t size, size_t& cursor, ObuSpan& span) {
     if (!data || cursor >= size)
         return false;
 
@@ -154,7 +154,7 @@ inline bool ReadObuHeader(const uint8_t* data, size_t size, size_t& cursor, ObuS
     return true;
 }
 
-inline bool FindFramePayload(const uint8_t* data, size_t size, FramePayloadSpan& frame) {
+static inline bool FindFramePayload(const uint8_t* data, size_t size, FramePayloadSpan& frame) {
     size_t cursor = 0;
     ObuSpan frameHeader = {};
     bool hasFrameHeader = false;
@@ -194,7 +194,7 @@ inline bool FindFramePayload(const uint8_t* data, size_t size, FramePayloadSpan&
     return false;
 }
 
-inline bool PeekGeneratedFrameType(const uint8_t* payload, size_t availablePayloadSize, uint32_t& frameType, uint8_t& showFrame) {
+static inline bool PeekGeneratedFrameType(const uint8_t* payload, size_t availablePayloadSize, uint32_t& frameType, uint8_t& showFrame) {
     BitReader reader{payload, availablePayloadSize, 0};
     uint8_t showExistingFrame = 0;
     if (!reader.ReadFlag(showExistingFrame) || showExistingFrame || !reader.ReadBits(2, frameType) || !reader.ReadFlag(showFrame))
@@ -203,13 +203,13 @@ inline bool PeekGeneratedFrameType(const uint8_t* payload, size_t availablePaylo
     return true;
 }
 
-inline uint32_t TileLog2(uint32_t blockSize, uint32_t target);
-inline bool ReadDeltaQ(BitReader& reader, int8_t& value);
-inline void BindPointers(VideoAV1EncodeDecodeInfo& info);
-inline void FillIdentityGlobalMotion(VideoAV1GlobalMotionDesc& globalMotion);
-inline void FillSingleTileLayout(VideoAV1EncodeDecodeInfo& info, uint32_t width, uint32_t height);
+static inline uint32_t TileLog2(uint32_t blockSize, uint32_t target);
+static inline bool ReadDeltaQ(BitReader& reader, int8_t& value);
+static inline void BindPointers(VideoAV1EncodeDecodeInfo& info);
+static inline void FillIdentityGlobalMotion(VideoAV1GlobalMotionDesc& globalMotion);
+static inline void FillSingleTileLayout(VideoAV1EncodeDecodeInfo& info, uint32_t width, uint32_t height);
 
-inline VideoAV1ReferenceName GetReferenceNameFromReferenceIndex(uint32_t referenceIndex) {
+static inline VideoAV1ReferenceName GetReferenceNameFromReferenceIndex(uint32_t referenceIndex) {
     switch (referenceIndex) {
         case 0:
             return VideoAV1ReferenceName::LAST;
@@ -231,7 +231,7 @@ inline VideoAV1ReferenceName GetReferenceNameFromReferenceIndex(uint32_t referen
     }
 }
 
-inline const VideoAV1ReferenceDesc* FindReferenceByRefFrameIndex(const VideoAV1ReferenceDesc* references, uint32_t referenceNum, uint32_t refFrameIndex) {
+static inline const VideoAV1ReferenceDesc* FindReferenceByRefFrameIndex(const VideoAV1ReferenceDesc* references, uint32_t referenceNum, uint32_t refFrameIndex) {
     for (uint32_t i = 0; i < referenceNum; i++) {
         if (references[i].refFrameIndex == refFrameIndex)
             return references + i;
@@ -240,7 +240,7 @@ inline const VideoAV1ReferenceDesc* FindReferenceByRefFrameIndex(const VideoAV1R
     return nullptr;
 }
 
-inline bool BuildInterFrameReferences(const VideoAV1EncodeDecodeInfoDesc& desc, const std::array<uint8_t, 7>& refFrameIndices, VideoAV1EncodeDecodeInfo& info) {
+static inline bool BuildInterFrameReferences(const VideoAV1EncodeDecodeInfoDesc& desc, const std::array<uint8_t, 7>& refFrameIndices, VideoAV1EncodeDecodeInfo& info) {
     if (!desc.references || !desc.referenceNum || desc.referenceNum > 8)
         return false;
 
@@ -260,7 +260,7 @@ inline bool BuildInterFrameReferences(const VideoAV1EncodeDecodeInfoDesc& desc, 
     return true;
 }
 
-inline bool ParseGeneratedInterFrameHeader(const uint8_t* payload, size_t availablePayloadSize, size_t fullPayloadSize, bool requireTilePayload,
+static inline bool ParseGeneratedInterFrameHeader(const uint8_t* payload, size_t availablePayloadSize, size_t fullPayloadSize, bool requireTilePayload,
     const VideoAV1SequenceDesc& sequence,
     std::array<uint8_t, 7>& refFrameIndices, VideoAV1EncodeDecodeInfo& info) {
     BitReader reader{payload, availablePayloadSize, 0};
@@ -598,14 +598,14 @@ inline bool ParseGeneratedInterFrameHeader(const uint8_t* payload, size_t availa
     return true;
 }
 
-inline uint32_t TileLog2(uint32_t blockSize, uint32_t target) {
+static inline uint32_t TileLog2(uint32_t blockSize, uint32_t target) {
     uint32_t value = 0;
     while ((blockSize << value) < target)
         ++value;
     return value;
 }
 
-inline bool ReadNs(BitReader& reader, uint32_t n, uint32_t& value) {
+static inline bool ReadNs(BitReader& reader, uint32_t n, uint32_t& value) {
     uint32_t w = 0;
     uint32_t shifted = n;
     while (shifted) {
@@ -629,7 +629,7 @@ inline bool ReadNs(BitReader& reader, uint32_t n, uint32_t& value) {
     return true;
 }
 
-inline bool ReadDeltaQ(BitReader& reader, int8_t& value) {
+static inline bool ReadDeltaQ(BitReader& reader, int8_t& value) {
     uint8_t deltaCoded = 0;
     if (!reader.ReadFlag(deltaCoded))
         return false;
@@ -640,7 +640,7 @@ inline bool ReadDeltaQ(BitReader& reader, int8_t& value) {
     return reader.ReadSigned(7, value);
 }
 
-inline void BindPointers(VideoAV1EncodeDecodeInfo& info) {
+static inline void BindPointers(VideoAV1EncodeDecodeInfo& info) {
     info.tileLayout.miColumnStarts = info.miColumnStarts;
     info.tileLayout.miRowStarts = info.miRowStarts;
     info.tileLayout.widthInSuperblocksMinus1 = info.widthInSuperblocksMinus1;
@@ -656,14 +656,14 @@ inline void BindPointers(VideoAV1EncodeDecodeInfo& info) {
     info.picture.references = info.references;
 }
 
-inline void FillIdentityGlobalMotion(VideoAV1GlobalMotionDesc& globalMotion) {
+static inline void FillIdentityGlobalMotion(VideoAV1GlobalMotionDesc& globalMotion) {
     for (auto& params : globalMotion.params) {
         params[2] = 1 << 16;
         params[5] = 1 << 16;
     }
 }
 
-inline void FillSingleTileLayout(VideoAV1EncodeDecodeInfo& info, uint32_t width, uint32_t height) {
+static inline void FillSingleTileLayout(VideoAV1EncodeDecodeInfo& info, uint32_t width, uint32_t height) {
     const uint32_t miCols = 2 * ((width + 7) >> 3);
     const uint32_t miRows = 2 * ((height + 7) >> 3);
     const uint32_t sbCols = (miCols + 15) >> 4;
@@ -681,7 +681,7 @@ inline void FillSingleTileLayout(VideoAV1EncodeDecodeInfo& info, uint32_t width,
     info.heightInSuperblocksMinus1[0] = (uint16_t)(sbRows - 1);
 }
 
-inline bool ParseGeneratedKeyFrameHeader(const uint8_t* payload, size_t availablePayloadSize, const uint8_t* tilePayload, size_t availableTilePayloadSize,
+static inline bool ParseGeneratedKeyFrameHeader(const uint8_t* payload, size_t availablePayloadSize, const uint8_t* tilePayload, size_t availableTilePayloadSize,
     size_t fullTilePayloadSize, bool combinedFrameObu, const VideoAV1SequenceDesc& sequence, VideoAV1EncodeDecodeInfo& info) {
     constexpr uint32_t MAX_TILE_WIDTH = 4096;
     constexpr uint32_t MAX_TILE_AREA = 4096 * 2304;
@@ -1221,7 +1221,7 @@ inline bool ParseGeneratedKeyFrameHeader(const uint8_t* payload, size_t availabl
     return true;
 }
 
-inline Result GetVideoAV1EncodeDecodeInfoFromHeader(const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
+static inline Result GetVideoAV1EncodeDecodeInfoFromHeader(const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
     const bool hasRequiredInput = desc.feedback && desc.sequence && desc.encodedPayloadHeader && desc.encodedPayloadHeaderSize && desc.feedback->encodedBitstreamWrittenBytes;
 
     if (!hasRequiredInput)

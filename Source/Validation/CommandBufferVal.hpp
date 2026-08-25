@@ -196,6 +196,234 @@ static bool IsVideoEncodeRateControlDescValid(const VideoEncodeRateControlDesc& 
     return true;
 }
 
+static inline bool IsVideoAV1ReferenceNameValid(VideoAV1ReferenceName name) {
+    return (uint8_t)name < (uint8_t)VideoAV1ReferenceName::MAX_NUM;
+}
+
+static inline bool IsVideoFrameTypeValid(VideoFrameType frameType) {
+    return (uint8_t)frameType < (uint8_t)VideoFrameType::MAX_NUM;
+}
+
+static inline bool IsVideoPictureUsageValid(const VideoPictureVal& picture, VideoPictureUsage usage) {
+    if (picture.GetUsage() == usage)
+        return true;
+
+    return usage == VideoPictureUsage::DECODE_REFERENCE && picture.GetUsage() == VideoPictureUsage::DECODE_OUTPUT;
+}
+
+static inline bool IsVideoPictureValidForSession(const VideoPictureVal& picture, VideoPictureUsage usage, const VideoSessionDesc& sessionDesc) {
+    return IsVideoPictureUsageValid(picture, usage) && picture.IsCompatibleWith(sessionDesc);
+}
+
+static inline bool IsVideoDpbTextureArrayValid(const VideoPictureVal* setupPicture, const VideoReference* references, uint32_t referenceNum, const VideoCapabilities& capabilities) {
+    if (!capabilities.dpbTextureArrayRequired)
+        return true;
+
+    const VideoPictureVal* firstPicture = setupPicture;
+    for (uint32_t i = 0; i < referenceNum; i++) {
+        const VideoPictureVal* picture = (const VideoPictureVal*)references[i].picture;
+        if (!picture)
+            return false;
+
+        if (firstPicture && !firstPicture->IsSameTexture(*picture))
+            return false;
+
+        firstPicture = picture;
+    }
+
+    return !firstPicture || firstPicture->GetTextureLayerNum() >= capabilities.dpbTextureArrayMinLayerNum;
+}
+
+static inline bool HasVideoReferenceSlot(const VideoReference* references, uint32_t referenceNum, uint32_t slot) {
+    for (uint32_t i = 0; i < referenceNum; i++) {
+        if (references[i].slot == slot)
+            return true;
+    }
+
+    return false;
+}
+
+static inline bool HasVideoAV1ReferenceName(const VideoAV1ReferenceDesc* references, uint32_t referenceNum, VideoAV1ReferenceName name) {
+    for (uint32_t i = 0; i < referenceNum; i++) {
+        if (references[i].name == name)
+            return true;
+    }
+
+    return false;
+}
+
+static inline bool IsVideoEncodeH264ReferenceListValid(const VideoEncodeDesc& videoEncodeDesc, VideoFrameType frameType) {
+    const VideoH264EncodePictureDesc* h264PictureDesc = videoEncodeDesc.h264PictureDesc;
+    if (!h264PictureDesc || h264PictureDesc->referenceNum != videoEncodeDesc.referenceNum || videoEncodeDesc.referenceNum > 16)
+        return false;
+
+    uint32_t list0ReferenceNum = 0;
+    uint32_t list1ReferenceNum = 0;
+    for (uint32_t i = 0; i < h264PictureDesc->referenceNum; i++) {
+        const VideoH264EncodeReferenceDesc& reference = h264PictureDesc->references[i];
+        if (!IsVideoFrameTypeValid(reference.frameType) || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
+            return false;
+
+        if (reference.listIndex == 0)
+            list0ReferenceNum++;
+        else if (reference.listIndex == 1)
+            list1ReferenceNum++;
+        else
+            return false;
+    }
+
+    return frameType != VideoFrameType::B || (list0ReferenceNum != 0 && list1ReferenceNum != 0);
+}
+
+static inline bool IsVideoEncodeH265ReferenceListValid(const VideoEncodeDesc& videoEncodeDesc, VideoFrameType frameType) {
+    if (!videoEncodeDesc.h265ReferenceDescs || videoEncodeDesc.referenceNum > 15)
+        return false;
+
+    uint32_t list0ReferenceNum = 0;
+    uint32_t list1ReferenceNum = 0;
+    for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
+        const VideoH265ReferenceDesc* reference = FindVideoReferenceDesc(videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, videoEncodeDesc.references[i].slot);
+        if (!reference || !IsVideoFrameTypeValid(reference->frameType))
+            return false;
+
+        if (reference->listIndex == 0)
+            list0ReferenceNum++;
+        else if (reference->listIndex == 1)
+            list1ReferenceNum++;
+        else
+            return false;
+    }
+
+    return frameType != VideoFrameType::B || (list0ReferenceNum != 0 && list1ReferenceNum != 0);
+}
+
+static inline bool IsVideoAV1TileLayoutValid(const VideoAV1TileLayoutDesc& desc) {
+    const uint32_t tileNum = uint32_t(desc.columnNum) * desc.rowNum;
+    if (desc.columnNum == 0 || desc.rowNum == 0 || tileNum > 64 || desc.contextUpdateTileId >= tileNum || desc.tileSizeBytesMinus1 > 3)
+        return false;
+
+    return desc.uniformSpacing || (desc.miColumnStarts && desc.miRowStarts && desc.widthInSuperblocksMinus1 && desc.heightInSuperblocksMinus1);
+}
+
+static inline bool IsVideoAV1LoopRestorationDescValid(const VideoAV1LoopRestorationDesc& desc) {
+    return desc.lrUvShift <= desc.lrUnitShift;
+}
+
+static inline bool IsVideoAV1InterFrameWithoutReferences(VideoFrameType frameType, uint32_t referenceNum) {
+    return (frameType == VideoFrameType::P || frameType == VideoFrameType::B) && referenceNum == 0;
+}
+
+static inline bool AreVideoDecodeSliceOffsetsValid(const uint32_t* offsets, uint32_t offsetNum, uint64_t bitstreamSize) {
+    constexpr uint32_t annexBStartCodeSize = 4;
+    if (!offsets || !offsetNum)
+        return false;
+
+    for (uint32_t i = 0; i < offsetNum; i++) {
+        if ((uint64_t)offsets[i] + annexBStartCodeSize >= bitstreamSize || (i && offsets[i] <= offsets[i - 1]))
+            return false;
+    }
+
+    return true;
+}
+
+static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& videoDecodeDesc) {
+    const VideoAV1DecodePictureDesc& desc = *videoDecodeDesc.av1PictureDesc;
+    if (desc.flags & VideoAV1PictureBits::APPLY_GRAIN)
+        return false;
+
+    if (desc.tileNum == 0 || desc.tileNum > 64 || !desc.tiles)
+        return false;
+
+    if (desc.referenceNum > 8 || (desc.referenceNum != 0 && !desc.references))
+        return false;
+
+    if (desc.references && !HasValidVideoAV1ReferenceKeys(desc.references, desc.referenceNum))
+        return false;
+
+    if (desc.frameHeaderOffset >= videoDecodeDesc.bitstream.size)
+        return false;
+
+    if (!IsVideoFrameTypeValid(desc.frameType))
+        return false;
+
+    if (IsVideoAV1InterFrameWithoutReferences(desc.frameType, videoDecodeDesc.referenceNum))
+        return false;
+
+    for (uint32_t i = 0; i < desc.tileNum; i++) {
+        const VideoAV1DecodeTileDesc& tile = desc.tiles[i];
+        if (tile.offset >= videoDecodeDesc.bitstream.size || tile.size > videoDecodeDesc.bitstream.size - tile.offset)
+            return false;
+    }
+
+    if (!IsVideoAV1ReferenceNameValid(desc.primaryReferenceName))
+        return false;
+
+    if (desc.tileLayout && !IsVideoAV1TileLayoutValid(*desc.tileLayout))
+        return false;
+
+    if (desc.loopRestoration && !IsVideoAV1LoopRestorationDescValid(*desc.loopRestoration))
+        return false;
+
+    for (uint32_t i = 0; i < desc.referenceNum; i++) {
+        const VideoAV1ReferenceDesc& reference = desc.references[i];
+        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8)
+            return false;
+
+        if (reference.name != VideoAV1ReferenceName::NONE && !HasVideoReferenceSlot(videoDecodeDesc.references, videoDecodeDesc.referenceNum, reference.slot))
+            return false;
+    }
+
+    for (uint32_t i = 0; i < videoDecodeDesc.referenceNum; i++) {
+        const VideoAV1ReferenceDesc* reference = FindVideoReferenceDesc(desc.references, desc.referenceNum, videoDecodeDesc.references[i].slot);
+        if (!reference || reference->name == VideoAV1ReferenceName::NONE)
+            return false;
+    }
+
+    return desc.primaryReferenceName == VideoAV1ReferenceName::NONE || HasVideoAV1ReferenceName(desc.references, desc.referenceNum, desc.primaryReferenceName);
+}
+
+static inline bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& videoEncodeDesc) {
+    const VideoAV1EncodePictureDesc& desc = *videoEncodeDesc.av1PictureDesc;
+    if (desc.referenceNum > 8 || (desc.referenceNum != 0 && !desc.references))
+        return false;
+
+    if (desc.references && !HasValidVideoAV1ReferenceKeys(desc.references, desc.referenceNum))
+        return false;
+
+    if (!IsVideoAV1ReferenceNameValid(desc.primaryReferenceName))
+        return false;
+
+    if (desc.tileLayout && !IsVideoAV1TileLayoutValid(*desc.tileLayout))
+        return false;
+
+    if (desc.loopRestoration && !IsVideoAV1LoopRestorationDescValid(*desc.loopRestoration))
+        return false;
+
+    if (desc.refreshFrameFlags && !videoEncodeDesc.reconstructedPicture)
+        return false;
+
+    const VideoFrameType frameType = videoEncodeDesc.pictureDesc ? videoEncodeDesc.pictureDesc->frameType : VideoFrameType::IDR;
+    if (!IsVideoFrameTypeValid(frameType))
+        return false;
+
+    if ((frameType == VideoFrameType::IDR || frameType == VideoFrameType::I) && videoEncodeDesc.referenceNum)
+        return false;
+
+    for (uint32_t i = 0; i < desc.referenceNum; i++) {
+        const VideoAV1ReferenceDesc& reference = desc.references[i];
+        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8 || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
+            return false;
+    }
+
+    for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
+        const VideoAV1ReferenceDesc* reference = FindVideoReferenceDesc(desc.references, desc.referenceNum, videoEncodeDesc.references[i].slot);
+        if (!reference)
+            return false;
+    }
+
+    return desc.primaryReferenceName == VideoAV1ReferenceName::NONE || HasVideoAV1ReferenceName(desc.references, desc.referenceNum, desc.primaryReferenceName);
+}
+
 NRI_INLINE Result CommandBufferVal::Begin(const DescriptorPool* descriptorPool) {
     NRI_RETURN_ON_FAILURE(&m_Device, !m_IsRecordingStarted, Result::FAILURE, "already in the recording state");
 
@@ -1066,234 +1294,6 @@ NRI_INLINE void CommandBufferVal::DrawMeshTasksIndirect(const Buffer& buffer, ui
     Buffer* countBufferImpl = NRI_GET_IMPL(Buffer, countBuffer);
 
     GetMeshShaderInterfaceImpl().CmdDrawMeshTasksIndirect(*GetImpl(), *bufferImpl, offset, drawNum, stride, countBufferImpl, countBufferOffset);
-}
-
-static inline bool IsVideoAV1ReferenceNameValid(VideoAV1ReferenceName name) {
-    return (uint8_t)name < (uint8_t)VideoAV1ReferenceName::MAX_NUM;
-}
-
-static inline bool IsVideoFrameTypeValid(VideoFrameType frameType) {
-    return (uint8_t)frameType < (uint8_t)VideoFrameType::MAX_NUM;
-}
-
-static inline bool IsVideoPictureUsageValid(const VideoPictureVal& picture, VideoPictureUsage usage) {
-    if (picture.GetUsage() == usage)
-        return true;
-
-    return usage == VideoPictureUsage::DECODE_REFERENCE && picture.GetUsage() == VideoPictureUsage::DECODE_OUTPUT;
-}
-
-static inline bool IsVideoPictureValidForSession(const VideoPictureVal& picture, VideoPictureUsage usage, const VideoSessionDesc& sessionDesc) {
-    return IsVideoPictureUsageValid(picture, usage) && picture.IsCompatibleWith(sessionDesc);
-}
-
-static inline bool IsVideoDpbTextureArrayValid(const VideoPictureVal* setupPicture, const VideoReference* references, uint32_t referenceNum, const VideoCapabilities& capabilities) {
-    if (!capabilities.dpbTextureArrayRequired)
-        return true;
-
-    const VideoPictureVal* firstPicture = setupPicture;
-    for (uint32_t i = 0; i < referenceNum; i++) {
-        const VideoPictureVal* picture = (const VideoPictureVal*)references[i].picture;
-        if (!picture)
-            return false;
-
-        if (firstPicture && !firstPicture->IsSameTexture(*picture))
-            return false;
-
-        firstPicture = picture;
-    }
-
-    return !firstPicture || firstPicture->GetTextureLayerNum() >= capabilities.dpbTextureArrayMinLayerNum;
-}
-
-static inline bool HasVideoReferenceSlot(const VideoReference* references, uint32_t referenceNum, uint32_t slot) {
-    for (uint32_t i = 0; i < referenceNum; i++) {
-        if (references[i].slot == slot)
-            return true;
-    }
-
-    return false;
-}
-
-static inline bool HasVideoAV1ReferenceName(const VideoAV1ReferenceDesc* references, uint32_t referenceNum, VideoAV1ReferenceName name) {
-    for (uint32_t i = 0; i < referenceNum; i++) {
-        if (references[i].name == name)
-            return true;
-    }
-
-    return false;
-}
-
-static inline bool IsVideoEncodeH264ReferenceListValid(const VideoEncodeDesc& videoEncodeDesc, VideoFrameType frameType) {
-    const VideoH264EncodePictureDesc* h264PictureDesc = videoEncodeDesc.h264PictureDesc;
-    if (!h264PictureDesc || h264PictureDesc->referenceNum != videoEncodeDesc.referenceNum || videoEncodeDesc.referenceNum > 16)
-        return false;
-
-    uint32_t list0ReferenceNum = 0;
-    uint32_t list1ReferenceNum = 0;
-    for (uint32_t i = 0; i < h264PictureDesc->referenceNum; i++) {
-        const VideoH264EncodeReferenceDesc& reference = h264PictureDesc->references[i];
-        if (!IsVideoFrameTypeValid(reference.frameType) || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
-            return false;
-
-        if (reference.listIndex == 0)
-            list0ReferenceNum++;
-        else if (reference.listIndex == 1)
-            list1ReferenceNum++;
-        else
-            return false;
-    }
-
-    return frameType != VideoFrameType::B || (list0ReferenceNum != 0 && list1ReferenceNum != 0);
-}
-
-static inline bool IsVideoEncodeH265ReferenceListValid(const VideoEncodeDesc& videoEncodeDesc, VideoFrameType frameType) {
-    if (!videoEncodeDesc.h265ReferenceDescs || videoEncodeDesc.referenceNum > 15)
-        return false;
-
-    uint32_t list0ReferenceNum = 0;
-    uint32_t list1ReferenceNum = 0;
-    for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
-        const VideoH265ReferenceDesc* reference = FindVideoReferenceDesc(videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, videoEncodeDesc.references[i].slot);
-        if (!reference || !IsVideoFrameTypeValid(reference->frameType))
-            return false;
-
-        if (reference->listIndex == 0)
-            list0ReferenceNum++;
-        else if (reference->listIndex == 1)
-            list1ReferenceNum++;
-        else
-            return false;
-    }
-
-    return frameType != VideoFrameType::B || (list0ReferenceNum != 0 && list1ReferenceNum != 0);
-}
-
-static inline bool IsVideoAV1TileLayoutValid(const VideoAV1TileLayoutDesc& desc) {
-    const uint32_t tileNum = uint32_t(desc.columnNum) * desc.rowNum;
-    if (desc.columnNum == 0 || desc.rowNum == 0 || tileNum > 64 || desc.contextUpdateTileId >= tileNum || desc.tileSizeBytesMinus1 > 3)
-        return false;
-
-    return desc.uniformSpacing || (desc.miColumnStarts && desc.miRowStarts && desc.widthInSuperblocksMinus1 && desc.heightInSuperblocksMinus1);
-}
-
-static inline bool IsVideoAV1LoopRestorationDescValid(const VideoAV1LoopRestorationDesc& desc) {
-    return desc.lrUvShift <= desc.lrUnitShift;
-}
-
-static inline bool IsVideoAV1InterFrameWithoutReferences(VideoFrameType frameType, uint32_t referenceNum) {
-    return (frameType == VideoFrameType::P || frameType == VideoFrameType::B) && referenceNum == 0;
-}
-
-static inline bool AreVideoDecodeSliceOffsetsValid(const uint32_t* offsets, uint32_t offsetNum, uint64_t bitstreamSize) {
-    constexpr uint32_t annexBStartCodeSize = 4;
-    if (!offsets || !offsetNum)
-        return false;
-
-    for (uint32_t i = 0; i < offsetNum; i++) {
-        if ((uint64_t)offsets[i] + annexBStartCodeSize >= bitstreamSize || (i && offsets[i] <= offsets[i - 1]))
-            return false;
-    }
-
-    return true;
-}
-
-static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& videoDecodeDesc) {
-    const VideoAV1DecodePictureDesc& desc = *videoDecodeDesc.av1PictureDesc;
-    if (desc.flags & VideoAV1PictureBits::APPLY_GRAIN)
-        return false;
-
-    if (desc.tileNum == 0 || desc.tileNum > 64 || !desc.tiles)
-        return false;
-
-    if (desc.referenceNum > 8 || (desc.referenceNum != 0 && !desc.references))
-        return false;
-
-    if (desc.references && !HasValidVideoAV1ReferenceKeys(desc.references, desc.referenceNum))
-        return false;
-
-    if (desc.frameHeaderOffset >= videoDecodeDesc.bitstream.size)
-        return false;
-
-    if (!IsVideoFrameTypeValid(desc.frameType))
-        return false;
-
-    if (IsVideoAV1InterFrameWithoutReferences(desc.frameType, videoDecodeDesc.referenceNum))
-        return false;
-
-    for (uint32_t i = 0; i < desc.tileNum; i++) {
-        const VideoAV1DecodeTileDesc& tile = desc.tiles[i];
-        if (tile.offset >= videoDecodeDesc.bitstream.size || tile.size > videoDecodeDesc.bitstream.size - tile.offset)
-            return false;
-    }
-
-    if (!IsVideoAV1ReferenceNameValid(desc.primaryReferenceName))
-        return false;
-
-    if (desc.tileLayout && !IsVideoAV1TileLayoutValid(*desc.tileLayout))
-        return false;
-
-    if (desc.loopRestoration && !IsVideoAV1LoopRestorationDescValid(*desc.loopRestoration))
-        return false;
-
-    for (uint32_t i = 0; i < desc.referenceNum; i++) {
-        const VideoAV1ReferenceDesc& reference = desc.references[i];
-        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8)
-            return false;
-
-        if (reference.name != VideoAV1ReferenceName::NONE && !HasVideoReferenceSlot(videoDecodeDesc.references, videoDecodeDesc.referenceNum, reference.slot))
-            return false;
-    }
-
-    for (uint32_t i = 0; i < videoDecodeDesc.referenceNum; i++) {
-        const VideoAV1ReferenceDesc* reference = FindVideoReferenceDesc(desc.references, desc.referenceNum, videoDecodeDesc.references[i].slot);
-        if (!reference || reference->name == VideoAV1ReferenceName::NONE)
-            return false;
-    }
-
-    return desc.primaryReferenceName == VideoAV1ReferenceName::NONE || HasVideoAV1ReferenceName(desc.references, desc.referenceNum, desc.primaryReferenceName);
-}
-
-static inline bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& videoEncodeDesc) {
-    const VideoAV1EncodePictureDesc& desc = *videoEncodeDesc.av1PictureDesc;
-    if (desc.referenceNum > 8 || (desc.referenceNum != 0 && !desc.references))
-        return false;
-
-    if (desc.references && !HasValidVideoAV1ReferenceKeys(desc.references, desc.referenceNum))
-        return false;
-
-    if (!IsVideoAV1ReferenceNameValid(desc.primaryReferenceName))
-        return false;
-
-    if (desc.tileLayout && !IsVideoAV1TileLayoutValid(*desc.tileLayout))
-        return false;
-
-    if (desc.loopRestoration && !IsVideoAV1LoopRestorationDescValid(*desc.loopRestoration))
-        return false;
-
-    if (desc.refreshFrameFlags && !videoEncodeDesc.reconstructedPicture)
-        return false;
-
-    const VideoFrameType frameType = videoEncodeDesc.pictureDesc ? videoEncodeDesc.pictureDesc->frameType : VideoFrameType::IDR;
-    if (!IsVideoFrameTypeValid(frameType))
-        return false;
-
-    if ((frameType == VideoFrameType::IDR || frameType == VideoFrameType::I) && videoEncodeDesc.referenceNum)
-        return false;
-
-    for (uint32_t i = 0; i < desc.referenceNum; i++) {
-        const VideoAV1ReferenceDesc& reference = desc.references[i];
-        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8 || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
-            return false;
-    }
-
-    for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
-        const VideoAV1ReferenceDesc* reference = FindVideoReferenceDesc(desc.references, desc.referenceNum, videoEncodeDesc.references[i].slot);
-        if (!reference)
-            return false;
-    }
-
-    return desc.primaryReferenceName == VideoAV1ReferenceName::NONE || HasVideoAV1ReferenceName(desc.references, desc.referenceNum, desc.primaryReferenceName);
 }
 
 NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecodeDesc) {

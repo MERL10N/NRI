@@ -269,6 +269,156 @@ static VkBool32 VKAPI_PTR MessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT
     return VK_FALSE;
 }
 
+static uint32_t GetVideoCodecNumVK(VkVideoCodecOperationFlagsKHR videoCodecOperations, bool decode) {
+    const VkVideoCodecOperationFlagsKHR mask = decode ? VIDEO_DECODE_CODEC_OPERATION_MASK : VIDEO_ENCODE_CODEC_OPERATION_MASK;
+    videoCodecOperations &= mask;
+
+    uint32_t num = 0;
+    while (videoCodecOperations) {
+        num += videoCodecOperations & 1;
+        videoCodecOperations >>= 1;
+    }
+
+    return num;
+}
+
+static uint32_t BuildQueueCreateInfosVK(const QueueFamilyDesc* queueFamilies, uint32_t queueFamilyNum, const std::array<uint32_t, (size_t)QueueType::MAX_NUM>& familyIndices,
+    std::array<VkDeviceQueueCreateInfo, (size_t)QueueType::MAX_NUM>& queueCreateInfos, std::array<std::array<float, 256>, (size_t)QueueType::MAX_NUM>& queuePriorities) {
+    uint32_t queueCreateInfoNum = 0;
+
+    for (uint32_t i = 0; i < queueFamilyNum; i++) {
+        const QueueFamilyDesc& queueFamily = queueFamilies[i];
+        uint32_t queueFamilyIndex = familyIndices[(size_t)queueFamily.queueType];
+        if (!queueFamily.queueNum || queueFamilyIndex == INVALID_FAMILY_INDEX)
+            continue;
+
+        uint32_t queueCreateInfoIndex = queueCreateInfoNum;
+        for (uint32_t j = 0; j < queueCreateInfoNum; j++) {
+            if (queueCreateInfos[j].queueFamilyIndex == queueFamilyIndex && queueCreateInfos[j].flags == 0) {
+                queueCreateInfoIndex = j;
+                break;
+            }
+        }
+
+        if (queueCreateInfoIndex == queueCreateInfoNum) {
+            VkDeviceQueueCreateInfo& queueCreateInfo = queueCreateInfos[queueCreateInfoNum++];
+            queueCreateInfo = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+            queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+            queueCreateInfo.pQueuePriorities = queuePriorities[queueCreateInfoIndex].data();
+        }
+
+        VkDeviceQueueCreateInfo& queueCreateInfo = queueCreateInfos[queueCreateInfoIndex];
+        queueCreateInfo.queueCount = std::max(queueCreateInfo.queueCount, queueFamily.queueNum);
+        for (uint32_t j = 0; j < queueFamily.queueNum; j++) {
+            float priority = queueFamily.queuePriorities ? queueFamily.queuePriorities[j] : 0.0f;
+            queuePriorities[queueCreateInfoIndex][j] = std::max(queuePriorities[queueCreateInfoIndex][j], priority);
+        }
+    }
+
+    return queueCreateInfoNum;
+}
+
+static inline Lock* FindQueueLockVK(const std::array<Vector<QueueVK*>, (size_t)QueueType::MAX_NUM>& queueFamilies, VkQueue handle) {
+    for (const auto& queueFamily : queueFamilies) {
+        for (QueueVK* queue : queueFamily) {
+            if ((VkQueue)*queue == handle)
+                return &queue->GetLock();
+        }
+    }
+
+    return nullptr;
+}
+
+static void WriteSamplers(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
+    VkDescriptorImageInfo* imageInfos = (VkDescriptorImageInfo*)(scratch + scratchOffset);
+    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkDescriptorImageInfo);
+
+    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
+        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
+        imageInfos[i].imageView = VK_NULL_HANDLE;
+        imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfos[i].sampler = descriptorVK.GetSampler();
+    }
+
+    writeDescriptorSet.pImageInfo = imageInfos;
+}
+
+static void WriteTextures(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
+    VkDescriptorImageInfo* imageInfos = (VkDescriptorImageInfo*)(scratch + scratchOffset);
+    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkDescriptorImageInfo);
+
+    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
+        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
+
+        imageInfos[i].imageView = descriptorVK.GetImageView();
+        imageInfos[i].imageLayout = descriptorVK.GetTexViewDesc().expectedLayout;
+        imageInfos[i].sampler = VK_NULL_HANDLE;
+    }
+
+    writeDescriptorSet.pImageInfo = imageInfos;
+}
+
+static void WriteBuffers(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
+    VkDescriptorBufferInfo* bufferInfos = (VkDescriptorBufferInfo*)(scratch + scratchOffset);
+    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkDescriptorBufferInfo);
+
+    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
+        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
+        bufferInfos[i] = descriptorVK.GetBufferInfo();
+    }
+
+    writeDescriptorSet.pBufferInfo = bufferInfos;
+}
+
+static void WriteBufferViews(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
+    VkBufferView* bufferViews = (VkBufferView*)(scratch + scratchOffset);
+    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkBufferView);
+
+    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
+        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
+        bufferViews[i] = descriptorVK.GetBufferView();
+    }
+
+    writeDescriptorSet.pTexelBufferView = bufferViews;
+}
+
+static void WriteAccelerationStructures(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
+    VkAccelerationStructureKHR* accelerationStructures = (VkAccelerationStructureKHR*)(scratch + scratchOffset);
+    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkAccelerationStructureKHR);
+
+    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
+        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
+        accelerationStructures[i] = descriptorVK.GetAccelerationStructure();
+    }
+
+    VkWriteDescriptorSetAccelerationStructureKHR* accelerationStructureInfo = (VkWriteDescriptorSetAccelerationStructureKHR*)(scratch + scratchOffset);
+    scratchOffset += sizeof(VkWriteDescriptorSetAccelerationStructureKHR);
+
+    accelerationStructureInfo->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+    accelerationStructureInfo->pNext = nullptr;
+    accelerationStructureInfo->accelerationStructureCount = rangeUpdateDesc.descriptorNum;
+    accelerationStructureInfo->pAccelerationStructures = accelerationStructures;
+
+    writeDescriptorSet.pNext = accelerationStructureInfo;
+}
+
+typedef void (*WriteDescriptorsFunc)(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc);
+
+constexpr std::array<WriteDescriptorsFunc, (size_t)DescriptorType::MAX_NUM> g_WriteFuncs = {
+    WriteSamplers,               // SAMPLER
+    nullptr,                     // MUTABLE (never used)
+    WriteTextures,               // TEXTURE
+    WriteTextures,               // STORAGE_TEXTURE
+    WriteTextures,               // INPUT_ATTACHMENT
+    WriteBufferViews,            // BUFFER
+    WriteBufferViews,            // STORAGE_BUFFER
+    WriteBuffers,                // CONSTANT_BUFFER
+    WriteBuffers,                // STRUCTURED_BUFFER
+    WriteBuffers,                // STORAGE_STRUCTURED_BUFFER
+    WriteAccelerationStructures, // ACCELERATION_STRUCTURE
+};
+NRI_VALIDATE_ARRAY_BY_PTR(g_WriteFuncs);
+
 VkResult DeviceVK::CreateVma() {
     VmaVulkanFunctions vulkanFunctions = {};
     vulkanFunctions.vkGetInstanceProcAddr = m_VK.GetInstanceProcAddr;
@@ -459,66 +609,6 @@ void DeviceVK::ProcessDeviceExtensions(Vector<const char*>& desiredDeviceExts, b
     APPEND_EXT(true, VK_NVX_BINARY_IMPORT_EXTENSION_NAME);
     APPEND_EXT(true, VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME);
     APPEND_EXT(true, VK_NV_LOW_LATENCY_2_EXTENSION_NAME);
-}
-
-static uint32_t GetVideoCodecNumVK(VkVideoCodecOperationFlagsKHR videoCodecOperations, bool decode) {
-    const VkVideoCodecOperationFlagsKHR mask = decode ? VIDEO_DECODE_CODEC_OPERATION_MASK : VIDEO_ENCODE_CODEC_OPERATION_MASK;
-    videoCodecOperations &= mask;
-
-    uint32_t num = 0;
-    while (videoCodecOperations) {
-        num += videoCodecOperations & 1;
-        videoCodecOperations >>= 1;
-    }
-
-    return num;
-}
-
-static uint32_t BuildQueueCreateInfosVK(const QueueFamilyDesc* queueFamilies, uint32_t queueFamilyNum, const std::array<uint32_t, (size_t)QueueType::MAX_NUM>& familyIndices,
-    std::array<VkDeviceQueueCreateInfo, (size_t)QueueType::MAX_NUM>& queueCreateInfos, std::array<std::array<float, 256>, (size_t)QueueType::MAX_NUM>& queuePriorities) {
-    uint32_t queueCreateInfoNum = 0;
-
-    for (uint32_t i = 0; i < queueFamilyNum; i++) {
-        const QueueFamilyDesc& queueFamily = queueFamilies[i];
-        uint32_t queueFamilyIndex = familyIndices[(size_t)queueFamily.queueType];
-        if (!queueFamily.queueNum || queueFamilyIndex == INVALID_FAMILY_INDEX)
-            continue;
-
-        uint32_t queueCreateInfoIndex = queueCreateInfoNum;
-        for (uint32_t j = 0; j < queueCreateInfoNum; j++) {
-            if (queueCreateInfos[j].queueFamilyIndex == queueFamilyIndex && queueCreateInfos[j].flags == 0) {
-                queueCreateInfoIndex = j;
-                break;
-            }
-        }
-
-        if (queueCreateInfoIndex == queueCreateInfoNum) {
-            VkDeviceQueueCreateInfo& queueCreateInfo = queueCreateInfos[queueCreateInfoNum++];
-            queueCreateInfo = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-            queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
-            queueCreateInfo.pQueuePriorities = queuePriorities[queueCreateInfoIndex].data();
-        }
-
-        VkDeviceQueueCreateInfo& queueCreateInfo = queueCreateInfos[queueCreateInfoIndex];
-        queueCreateInfo.queueCount = std::max(queueCreateInfo.queueCount, queueFamily.queueNum);
-        for (uint32_t j = 0; j < queueFamily.queueNum; j++) {
-            float priority = queueFamily.queuePriorities ? queueFamily.queuePriorities[j] : 0.0f;
-            queuePriorities[queueCreateInfoIndex][j] = std::max(queuePriorities[queueCreateInfoIndex][j], priority);
-        }
-    }
-
-    return queueCreateInfoNum;
-}
-
-static inline Lock* FindQueueLockVK(const std::array<Vector<QueueVK*>, (size_t)QueueType::MAX_NUM>& queueFamilies, VkQueue handle) {
-    for (const auto& queueFamily : queueFamilies) {
-        for (QueueVK* queue : queueFamily) {
-            if ((VkQueue)*queue == handle)
-                return &queue->GetLock();
-        }
-    }
-
-    return nullptr;
 }
 
 DeviceVK::DeviceVK(const CallbackInterface& callbacks, const AllocationCallbacks& allocationCallbacks)
@@ -3203,96 +3293,6 @@ NRI_INLINE void DeviceVK::CopyDescriptorRanges(const CopyDescriptorRangeDesc* co
 
     m_VK.UpdateDescriptorSets(m_Device, 0, nullptr, copyDescriptorRangeDescNum, copies);
 }
-
-static void WriteSamplers(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
-    VkDescriptorImageInfo* imageInfos = (VkDescriptorImageInfo*)(scratch + scratchOffset);
-    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkDescriptorImageInfo);
-
-    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
-        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
-        imageInfos[i].imageView = VK_NULL_HANDLE;
-        imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfos[i].sampler = descriptorVK.GetSampler();
-    }
-
-    writeDescriptorSet.pImageInfo = imageInfos;
-}
-
-static void WriteTextures(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
-    VkDescriptorImageInfo* imageInfos = (VkDescriptorImageInfo*)(scratch + scratchOffset);
-    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkDescriptorImageInfo);
-
-    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
-        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
-
-        imageInfos[i].imageView = descriptorVK.GetImageView();
-        imageInfos[i].imageLayout = descriptorVK.GetTexViewDesc().expectedLayout;
-        imageInfos[i].sampler = VK_NULL_HANDLE;
-    }
-
-    writeDescriptorSet.pImageInfo = imageInfos;
-}
-
-static void WriteBuffers(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
-    VkDescriptorBufferInfo* bufferInfos = (VkDescriptorBufferInfo*)(scratch + scratchOffset);
-    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkDescriptorBufferInfo);
-
-    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
-        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
-        bufferInfos[i] = descriptorVK.GetBufferInfo();
-    }
-
-    writeDescriptorSet.pBufferInfo = bufferInfos;
-}
-
-static void WriteBufferViews(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
-    VkBufferView* bufferViews = (VkBufferView*)(scratch + scratchOffset);
-    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkBufferView);
-
-    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
-        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
-        bufferViews[i] = descriptorVK.GetBufferView();
-    }
-
-    writeDescriptorSet.pTexelBufferView = bufferViews;
-}
-
-static void WriteAccelerationStructures(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc) {
-    VkAccelerationStructureKHR* accelerationStructures = (VkAccelerationStructureKHR*)(scratch + scratchOffset);
-    scratchOffset += rangeUpdateDesc.descriptorNum * sizeof(VkAccelerationStructureKHR);
-
-    for (uint32_t i = 0; i < rangeUpdateDesc.descriptorNum; i++) {
-        const DescriptorVK& descriptorVK = *(DescriptorVK*)rangeUpdateDesc.descriptors[i];
-        accelerationStructures[i] = descriptorVK.GetAccelerationStructure();
-    }
-
-    VkWriteDescriptorSetAccelerationStructureKHR* accelerationStructureInfo = (VkWriteDescriptorSetAccelerationStructureKHR*)(scratch + scratchOffset);
-    scratchOffset += sizeof(VkWriteDescriptorSetAccelerationStructureKHR);
-
-    accelerationStructureInfo->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-    accelerationStructureInfo->pNext = nullptr;
-    accelerationStructureInfo->accelerationStructureCount = rangeUpdateDesc.descriptorNum;
-    accelerationStructureInfo->pAccelerationStructures = accelerationStructures;
-
-    writeDescriptorSet.pNext = accelerationStructureInfo;
-}
-
-typedef void (*WriteDescriptorsFunc)(VkWriteDescriptorSet& writeDescriptorSet, size_t& scratchOffset, uint8_t* scratch, const UpdateDescriptorRangeDesc& rangeUpdateDesc);
-
-constexpr std::array<WriteDescriptorsFunc, (size_t)DescriptorType::MAX_NUM> g_WriteFuncs = {
-    WriteSamplers,               // SAMPLER
-    nullptr,                     // MUTABLE (never used)
-    WriteTextures,               // TEXTURE
-    WriteTextures,               // STORAGE_TEXTURE
-    WriteTextures,               // INPUT_ATTACHMENT
-    WriteBufferViews,            // BUFFER
-    WriteBufferViews,            // STORAGE_BUFFER
-    WriteBuffers,                // CONSTANT_BUFFER
-    WriteBuffers,                // STRUCTURED_BUFFER
-    WriteBuffers,                // STORAGE_STRUCTURED_BUFFER
-    WriteAccelerationStructures, // ACCELERATION_STRUCTURE
-};
-NRI_VALIDATE_ARRAY_BY_PTR(g_WriteFuncs);
 
 NRI_INLINE void DeviceVK::UpdateDescriptorRanges(const UpdateDescriptorRangeDesc* updateDescriptorRangeDescs, uint32_t updateDescriptorRangeDescNum) {
     // Count and allocate scratch memory

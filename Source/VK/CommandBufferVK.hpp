@@ -393,6 +393,90 @@ static inline const VideoAV1ReferenceDesc* FindVideoEncodeAV1ReferenceDesc(const
     return nullptr;
 }
 
+static inline VkAccessFlags2 GetAccessFlags(AccessBits accessBits) {
+    VkAccessFlags2 flags = VK_ACCESS_2_NONE; // = 0
+
+    if (accessBits & AccessBits::INDEX_BUFFER)
+        flags |= VK_ACCESS_2_INDEX_READ_BIT;
+
+    if (accessBits & AccessBits::VERTEX_BUFFER)
+        flags |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
+
+    if (accessBits & AccessBits::CONSTANT_BUFFER)
+        flags |= VK_ACCESS_2_UNIFORM_READ_BIT;
+
+    if (accessBits & AccessBits::ARGUMENT_BUFFER)
+        flags |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
+
+    if (accessBits & AccessBits::SCRATCH_BUFFER)
+        flags |= VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+
+    if (accessBits & AccessBits::COLOR_ATTACHMENT_READ)
+        flags |= VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
+
+    if (accessBits & AccessBits::COLOR_ATTACHMENT_WRITE)
+        flags |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+
+    if (accessBits & AccessBits::DEPTH_STENCIL_ATTACHMENT_READ)
+        flags |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+
+    if (accessBits & AccessBits::DEPTH_STENCIL_ATTACHMENT_WRITE)
+        flags |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    if (accessBits & AccessBits::SHADING_RATE_ATTACHMENT)
+        flags |= VK_ACCESS_2_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR;
+
+    if (accessBits & AccessBits::INPUT_ATTACHMENT)
+        flags |= VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT;
+
+    if (accessBits & AccessBits::ACCELERATION_STRUCTURE_READ)
+        flags |= VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+
+    if (accessBits & AccessBits::ACCELERATION_STRUCTURE_WRITE)
+        flags |= VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+
+    if (accessBits & AccessBits::MICROMAP_READ)
+        flags |= VK_ACCESS_2_MICROMAP_READ_BIT_EXT;
+
+    if (accessBits & AccessBits::MICROMAP_WRITE)
+        flags |= VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT;
+
+    if (accessBits & AccessBits::SHADER_BINDING_TABLE)
+        flags |= VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR;
+
+    if (accessBits & AccessBits::SHADER_RESOURCE)
+        flags |= VK_ACCESS_2_SHADER_READ_BIT;
+
+    if (accessBits & AccessBits::SHADER_RESOURCE_STORAGE)
+        flags |= VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+
+    if (accessBits & (AccessBits::COPY_SOURCE | AccessBits::RESOLVE_SOURCE))
+        flags |= VK_ACCESS_2_TRANSFER_READ_BIT;
+
+    if (accessBits & (AccessBits::COPY_DESTINATION | AccessBits::RESOLVE_DESTINATION | AccessBits::CLEAR_STORAGE))
+        flags |= VK_ACCESS_2_TRANSFER_WRITE_BIT;
+
+    if (accessBits & AccessBits::HOST_READ)
+        flags |= VK_ACCESS_2_HOST_READ_BIT;
+
+    if (accessBits & AccessBits::HOST_WRITE)
+        flags |= VK_ACCESS_2_HOST_WRITE_BIT;
+
+    if (accessBits & AccessBits::VIDEO_DECODE_READ)
+        flags |= VK_ACCESS_2_VIDEO_DECODE_READ_BIT_KHR;
+
+    if (accessBits & AccessBits::VIDEO_DECODE_WRITE)
+        flags |= VK_ACCESS_2_VIDEO_DECODE_WRITE_BIT_KHR;
+
+    if (accessBits & AccessBits::VIDEO_ENCODE_READ)
+        flags |= VK_ACCESS_2_VIDEO_ENCODE_READ_BIT_KHR;
+
+    if (accessBits & AccessBits::VIDEO_ENCODE_WRITE)
+        flags |= VK_ACCESS_2_VIDEO_ENCODE_WRITE_BIT_KHR;
+
+    return flags;
+}
+
 CommandBufferVK::~CommandBufferVK() {
     if (m_CommandPool) {
         const auto& vk = m_Device.GetDispatchTable();
@@ -2443,90 +2527,6 @@ NRI_INLINE void CommandBufferVK::DispatchIndirect(const Buffer& buffer, uint64_t
     const BufferVK& bufferVK = (BufferVK&)buffer;
     const auto& vk = m_Device.GetDispatchTable();
     vk.CmdDispatchIndirect(m_Handle, bufferVK.GetHandle(), offset);
-}
-
-static inline VkAccessFlags2 GetAccessFlags(AccessBits accessBits) {
-    VkAccessFlags2 flags = VK_ACCESS_2_NONE; // = 0
-
-    if (accessBits & AccessBits::INDEX_BUFFER)
-        flags |= VK_ACCESS_2_INDEX_READ_BIT;
-
-    if (accessBits & AccessBits::VERTEX_BUFFER)
-        flags |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
-
-    if (accessBits & AccessBits::CONSTANT_BUFFER)
-        flags |= VK_ACCESS_2_UNIFORM_READ_BIT;
-
-    if (accessBits & AccessBits::ARGUMENT_BUFFER)
-        flags |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
-
-    if (accessBits & AccessBits::SCRATCH_BUFFER)
-        flags |= VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-
-    if (accessBits & AccessBits::COLOR_ATTACHMENT_READ)
-        flags |= VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
-
-    if (accessBits & AccessBits::COLOR_ATTACHMENT_WRITE)
-        flags |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-
-    if (accessBits & AccessBits::DEPTH_STENCIL_ATTACHMENT_READ)
-        flags |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-
-    if (accessBits & AccessBits::DEPTH_STENCIL_ATTACHMENT_WRITE)
-        flags |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    if (accessBits & AccessBits::SHADING_RATE_ATTACHMENT)
-        flags |= VK_ACCESS_2_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR;
-
-    if (accessBits & AccessBits::INPUT_ATTACHMENT)
-        flags |= VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT;
-
-    if (accessBits & AccessBits::ACCELERATION_STRUCTURE_READ)
-        flags |= VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-
-    if (accessBits & AccessBits::ACCELERATION_STRUCTURE_WRITE)
-        flags |= VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-
-    if (accessBits & AccessBits::MICROMAP_READ)
-        flags |= VK_ACCESS_2_MICROMAP_READ_BIT_EXT;
-
-    if (accessBits & AccessBits::MICROMAP_WRITE)
-        flags |= VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT;
-
-    if (accessBits & AccessBits::SHADER_BINDING_TABLE)
-        flags |= VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR;
-
-    if (accessBits & AccessBits::SHADER_RESOURCE)
-        flags |= VK_ACCESS_2_SHADER_READ_BIT;
-
-    if (accessBits & AccessBits::SHADER_RESOURCE_STORAGE)
-        flags |= VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
-
-    if (accessBits & (AccessBits::COPY_SOURCE | AccessBits::RESOLVE_SOURCE))
-        flags |= VK_ACCESS_2_TRANSFER_READ_BIT;
-
-    if (accessBits & (AccessBits::COPY_DESTINATION | AccessBits::RESOLVE_DESTINATION | AccessBits::CLEAR_STORAGE))
-        flags |= VK_ACCESS_2_TRANSFER_WRITE_BIT;
-
-    if (accessBits & AccessBits::HOST_READ)
-        flags |= VK_ACCESS_2_HOST_READ_BIT;
-
-    if (accessBits & AccessBits::HOST_WRITE)
-        flags |= VK_ACCESS_2_HOST_WRITE_BIT;
-
-    if (accessBits & AccessBits::VIDEO_DECODE_READ)
-        flags |= VK_ACCESS_2_VIDEO_DECODE_READ_BIT_KHR;
-
-    if (accessBits & AccessBits::VIDEO_DECODE_WRITE)
-        flags |= VK_ACCESS_2_VIDEO_DECODE_WRITE_BIT_KHR;
-
-    if (accessBits & AccessBits::VIDEO_ENCODE_READ)
-        flags |= VK_ACCESS_2_VIDEO_ENCODE_READ_BIT_KHR;
-
-    if (accessBits & AccessBits::VIDEO_ENCODE_WRITE)
-        flags |= VK_ACCESS_2_VIDEO_ENCODE_WRITE_BIT_KHR;
-
-    return flags;
 }
 
 NRI_INLINE void CommandBufferVK::Barrier(const BarrierDesc& barrierDesc) {

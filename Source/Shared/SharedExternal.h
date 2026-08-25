@@ -463,7 +463,7 @@ constexpr uint64_t MsToUs(uint32_t x) {
 constexpr void ReturnVoid() {
 }
 
-inline bool IsAligned(uint64_t value, uint64_t alignment) {
+static inline bool IsAligned(uint64_t value, uint64_t alignment) {
     return alignment <= 1 || value % alignment == 0;
 }
 

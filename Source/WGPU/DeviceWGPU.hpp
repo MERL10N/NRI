@@ -34,6 +34,96 @@ static void WaitForAsyncRequest(WGPUInstance instance, const bool& done) {
     }
 }
 
+static bool IsBCFormat(Format format) {
+    switch (format) {
+        case Format::BC1_RGBA_UNORM:
+        case Format::BC1_RGBA_SRGB:
+        case Format::BC2_RGBA_UNORM:
+        case Format::BC2_RGBA_SRGB:
+        case Format::BC3_RGBA_UNORM:
+        case Format::BC3_RGBA_SRGB:
+        case Format::BC4_R_UNORM:
+        case Format::BC4_R_SNORM:
+        case Format::BC5_RG_UNORM:
+        case Format::BC5_RG_SNORM:
+        case Format::BC6H_RGB_UFLOAT:
+        case Format::BC6H_RGB_SFLOAT:
+        case Format::BC7_RGBA_UNORM:
+        case Format::BC7_RGBA_SRGB:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool IsETC2Format(Format format) {
+    switch (format) {
+        case Format::ETC2_RGB8_UNORM:
+        case Format::ETC2_RGB8_SRGB:
+        case Format::ETC2_RGB8_A1_UNORM:
+        case Format::ETC2_RGB8_A1_SRGB:
+        case Format::ETC2_RGB8_A8_UNORM:
+        case Format::ETC2_RGB8_A8_SRGB:
+        case Format::ETC2_R11_UNORM:
+        case Format::ETC2_R11_SNORM:
+        case Format::ETC2_R11_G11_UNORM:
+        case Format::ETC2_R11_G11_SNORM:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool IsASTCFormat(Format format) {
+    switch (format) {
+        case Format::ASTC_4X4_UNORM:
+        case Format::ASTC_4X4_SRGB:
+        case Format::ASTC_5X4_UNORM:
+        case Format::ASTC_5X4_SRGB:
+        case Format::ASTC_5X5_UNORM:
+        case Format::ASTC_5X5_SRGB:
+        case Format::ASTC_6X5_UNORM:
+        case Format::ASTC_6X5_SRGB:
+        case Format::ASTC_6X6_UNORM:
+        case Format::ASTC_6X6_SRGB:
+        case Format::ASTC_8X5_UNORM:
+        case Format::ASTC_8X5_SRGB:
+        case Format::ASTC_8X6_UNORM:
+        case Format::ASTC_8X6_SRGB:
+        case Format::ASTC_8X8_UNORM:
+        case Format::ASTC_8X8_SRGB:
+        case Format::ASTC_10X5_UNORM:
+        case Format::ASTC_10X5_SRGB:
+        case Format::ASTC_10X6_UNORM:
+        case Format::ASTC_10X6_SRGB:
+        case Format::ASTC_10X8_UNORM:
+        case Format::ASTC_10X8_SRGB:
+        case Format::ASTC_10X10_UNORM:
+        case Format::ASTC_10X10_SRGB:
+        case Format::ASTC_12X10_UNORM:
+        case Format::ASTC_12X10_SRGB:
+        case Format::ASTC_12X12_UNORM:
+        case Format::ASTC_12X12_SRGB:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool Is16BitNormFormat(Format format) {
+    switch (format) {
+        case Format::R16_UNORM:
+        case Format::R16_SNORM:
+        case Format::RG16_UNORM:
+        case Format::RG16_SNORM:
+        case Format::RGBA16_UNORM:
+        case Format::RGBA16_SNORM:
+            return true;
+        default:
+            return false;
+    }
+}
+
 DeviceWGPU::DeviceWGPU(const CallbackInterface& callbacks, const AllocationCallbacks& allocationCallbacks)
     : DeviceBase(callbacks, allocationCallbacks)
     , m_QueueFamilies{
@@ -366,96 +456,6 @@ void DeviceWGPU::FillDesc(const AdapterDesc& adapterDesc) {
 
 void DeviceWGPU::Destruct() {
     Destroy(GetAllocationCallbacks(), this);
-}
-
-static bool IsBCFormat(Format format) {
-    switch (format) {
-        case Format::BC1_RGBA_UNORM:
-        case Format::BC1_RGBA_SRGB:
-        case Format::BC2_RGBA_UNORM:
-        case Format::BC2_RGBA_SRGB:
-        case Format::BC3_RGBA_UNORM:
-        case Format::BC3_RGBA_SRGB:
-        case Format::BC4_R_UNORM:
-        case Format::BC4_R_SNORM:
-        case Format::BC5_RG_UNORM:
-        case Format::BC5_RG_SNORM:
-        case Format::BC6H_RGB_UFLOAT:
-        case Format::BC6H_RGB_SFLOAT:
-        case Format::BC7_RGBA_UNORM:
-        case Format::BC7_RGBA_SRGB:
-            return true;
-        default:
-            return false;
-    }
-}
-
-static bool IsETC2Format(Format format) {
-    switch (format) {
-        case Format::ETC2_RGB8_UNORM:
-        case Format::ETC2_RGB8_SRGB:
-        case Format::ETC2_RGB8_A1_UNORM:
-        case Format::ETC2_RGB8_A1_SRGB:
-        case Format::ETC2_RGB8_A8_UNORM:
-        case Format::ETC2_RGB8_A8_SRGB:
-        case Format::ETC2_R11_UNORM:
-        case Format::ETC2_R11_SNORM:
-        case Format::ETC2_R11_G11_UNORM:
-        case Format::ETC2_R11_G11_SNORM:
-            return true;
-        default:
-            return false;
-    }
-}
-
-static bool IsASTCFormat(Format format) {
-    switch (format) {
-        case Format::ASTC_4X4_UNORM:
-        case Format::ASTC_4X4_SRGB:
-        case Format::ASTC_5X4_UNORM:
-        case Format::ASTC_5X4_SRGB:
-        case Format::ASTC_5X5_UNORM:
-        case Format::ASTC_5X5_SRGB:
-        case Format::ASTC_6X5_UNORM:
-        case Format::ASTC_6X5_SRGB:
-        case Format::ASTC_6X6_UNORM:
-        case Format::ASTC_6X6_SRGB:
-        case Format::ASTC_8X5_UNORM:
-        case Format::ASTC_8X5_SRGB:
-        case Format::ASTC_8X6_UNORM:
-        case Format::ASTC_8X6_SRGB:
-        case Format::ASTC_8X8_UNORM:
-        case Format::ASTC_8X8_SRGB:
-        case Format::ASTC_10X5_UNORM:
-        case Format::ASTC_10X5_SRGB:
-        case Format::ASTC_10X6_UNORM:
-        case Format::ASTC_10X6_SRGB:
-        case Format::ASTC_10X8_UNORM:
-        case Format::ASTC_10X8_SRGB:
-        case Format::ASTC_10X10_UNORM:
-        case Format::ASTC_10X10_SRGB:
-        case Format::ASTC_12X10_UNORM:
-        case Format::ASTC_12X10_SRGB:
-        case Format::ASTC_12X12_UNORM:
-        case Format::ASTC_12X12_SRGB:
-            return true;
-        default:
-            return false;
-    }
-}
-
-static bool Is16BitNormFormat(Format format) {
-    switch (format) {
-        case Format::R16_UNORM:
-        case Format::R16_SNORM:
-        case Format::RG16_UNORM:
-        case Format::RG16_SNORM:
-        case Format::RGBA16_UNORM:
-        case Format::RGBA16_SNORM:
-            return true;
-        default:
-            return false;
-    }
 }
 
 FormatSupportBits DeviceWGPU::GetFormatSupport(Format format) const {

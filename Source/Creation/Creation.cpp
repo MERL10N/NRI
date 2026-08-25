@@ -43,7 +43,7 @@ Result CreateDeviceVK(const DeviceCreationDesc& deviceCreationDesc, const Device
 Result CreateDeviceWGPU(const DeviceCreationDesc& deviceCreationDesc, DeviceBase*& device);
 DeviceBase* CreateDeviceValidation(const DeviceCreationDesc& deviceCreationDesc, DeviceBase& device);
 
-constexpr uint64_t Hash(const char* name) {
+static constexpr uint64_t Hash(const char* name) {
     return *name != 0 ? *name ^ (33 * Hash(name + 1)) : 5381;
 }
 

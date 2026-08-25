@@ -1,33 +1,6 @@
 // © 2026 NVIDIA Corporation
 
-PipelineWGPU::~PipelineWGPU() {
-    if (m_RenderPipeline)
-        wgpuRenderPipelineRelease(m_RenderPipeline);
-    if (m_ComputePipeline)
-        wgpuComputePipelineRelease(m_ComputePipeline);
-    if (m_PipelineLayout)
-        wgpuPipelineLayoutRelease(m_PipelineLayout);
-
-    for (DescriptorSetMappingWGPU& mapping : m_SetMappings) {
-        if (mapping.layout)
-            wgpuBindGroupLayoutRelease(mapping.layout);
-    }
-}
-
 static constexpr WGPUShaderStage GRAPHICS_SHADER_STAGE_MASK_WGPU = (WGPUShaderStage)(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment);
-
-bool PipelineWGPU::HasBindGroup(uint32_t bindGroupIndex) const {
-    return GetDescriptorSetMapping(bindGroupIndex) != nullptr;
-}
-
-const DescriptorSetMappingWGPU* PipelineWGPU::GetDescriptorSetMapping(uint32_t bindGroupIndex) const {
-    for (const DescriptorSetMappingWGPU& mapping : m_SetMappings) {
-        if (mapping.bindGroupIndex == bindGroupIndex && mapping.layout)
-            return &mapping;
-    }
-
-    return nullptr;
-}
 
 static bool IsSpirvBytecodeWGPU(const ShaderDesc& shaderDesc) {
     constexpr uint32_t SPIRV_MAGIC = 0x07230203;
@@ -143,6 +116,55 @@ static uint32_t AddNonReadableDecorationsForWriteOnlyStorageImagesWGPU(DeviceWGP
     return patchedWordNum;
 }
 
+static uint64_t GetVertexStreamStride(const VertexInputDesc& vertexInput, uint32_t streamIndex) {
+    // TODO: Compatibility fallback for older samples. Prefer explicit "VertexStreamDesc::stride" in sample code.
+    uint64_t stride = 0;
+
+    for (uint32_t i = 0; i < vertexInput.attributeNum; i++) {
+        const VertexAttributeDesc& attribute = vertexInput.attributes[i];
+        if (attribute.streamIndex != streamIndex)
+            continue;
+
+        stride = std::max(stride, (uint64_t)attribute.offset + GetFormatProps(attribute.format).stride);
+    }
+
+    return stride;
+}
+
+static void FillStencilFace(WGPUStencilFaceState& out, const StencilDesc& in) {
+    out.compare = in.compareOp == CompareOp::NONE ? WGPUCompareFunction_Always : GetCompareFunction(in.compareOp);
+    out.failOp = GetStencilOperation(in.failOp);
+    out.depthFailOp = GetStencilOperation(in.depthFailOp);
+    out.passOp = GetStencilOperation(in.passOp);
+}
+
+PipelineWGPU::~PipelineWGPU() {
+    if (m_RenderPipeline)
+        wgpuRenderPipelineRelease(m_RenderPipeline);
+    if (m_ComputePipeline)
+        wgpuComputePipelineRelease(m_ComputePipeline);
+    if (m_PipelineLayout)
+        wgpuPipelineLayoutRelease(m_PipelineLayout);
+
+    for (DescriptorSetMappingWGPU& mapping : m_SetMappings) {
+        if (mapping.layout)
+            wgpuBindGroupLayoutRelease(mapping.layout);
+    }
+}
+
+bool PipelineWGPU::HasBindGroup(uint32_t bindGroupIndex) const {
+    return GetDescriptorSetMapping(bindGroupIndex) != nullptr;
+}
+
+const DescriptorSetMappingWGPU* PipelineWGPU::GetDescriptorSetMapping(uint32_t bindGroupIndex) const {
+    for (const DescriptorSetMappingWGPU& mapping : m_SetMappings) {
+        if (mapping.bindGroupIndex == bindGroupIndex && mapping.layout)
+            return &mapping;
+    }
+
+    return nullptr;
+}
+
 WGPUShaderModule PipelineWGPU::CreateShaderModule(const ShaderDesc& shaderDesc) {
     WGPUShaderModuleDescriptor desc = WGPU_SHADER_MODULE_DESCRIPTOR_INIT;
 
@@ -168,28 +190,6 @@ WGPUShaderModule PipelineWGPU::CreateShaderModule(const ShaderDesc& shaderDesc) 
     desc.nextInChain = &spirv.chain;
 
     return wgpuDeviceCreateShaderModule(m_Device, &desc);
-}
-
-static uint64_t GetVertexStreamStride(const VertexInputDesc& vertexInput, uint32_t streamIndex) {
-    // TODO: Compatibility fallback for older samples. Prefer explicit "VertexStreamDesc::stride" in sample code.
-    uint64_t stride = 0;
-
-    for (uint32_t i = 0; i < vertexInput.attributeNum; i++) {
-        const VertexAttributeDesc& attribute = vertexInput.attributes[i];
-        if (attribute.streamIndex != streamIndex)
-            continue;
-
-        stride = std::max(stride, (uint64_t)attribute.offset + GetFormatProps(attribute.format).stride);
-    }
-
-    return stride;
-}
-
-static void FillStencilFace(WGPUStencilFaceState& out, const StencilDesc& in) {
-    out.compare = in.compareOp == CompareOp::NONE ? WGPUCompareFunction_Always : GetCompareFunction(in.compareOp);
-    out.failOp = GetStencilOperation(in.failOp);
-    out.depthFailOp = GetStencilOperation(in.depthFailOp);
-    out.passOp = GetStencilOperation(in.passOp);
 }
 
 Result PipelineWGPU::Create(const GraphicsPipelineDesc& graphicsPipelineDesc) {

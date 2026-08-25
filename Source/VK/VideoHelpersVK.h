@@ -6,7 +6,7 @@
 
 namespace nri {
 
-inline VkVideoEncodeRateControlModeFlagBitsKHR GetVideoEncodeRateControlModeVK(VideoEncodeRateControlMode mode) {
+static inline VkVideoEncodeRateControlModeFlagBitsKHR GetVideoEncodeRateControlModeVK(VideoEncodeRateControlMode mode) {
     switch (mode) {
         case VideoEncodeRateControlMode::CQP:
             return VK_VIDEO_ENCODE_RATE_CONTROL_MODE_DISABLED_BIT_KHR;
@@ -19,7 +19,7 @@ inline VkVideoEncodeRateControlModeFlagBitsKHR GetVideoEncodeRateControlModeVK(V
     }
 }
 
-inline uint32_t GetSupportedVideoEncodeRateControlModesVK(VkVideoEncodeRateControlModeFlagsKHR modes) {
+static inline uint32_t GetSupportedVideoEncodeRateControlModesVK(VkVideoEncodeRateControlModeFlagsKHR modes) {
     uint32_t result = VIDEO_ENCODE_RATE_CONTROL_CQP;
     if (modes & VK_VIDEO_ENCODE_RATE_CONTROL_MODE_CBR_BIT_KHR)
         result |= VIDEO_ENCODE_RATE_CONTROL_CBR;
@@ -29,7 +29,7 @@ inline uint32_t GetSupportedVideoEncodeRateControlModesVK(VkVideoEncodeRateContr
     return result;
 }
 
-inline void FillVideoEncodeRateControlVK(const VideoEncodeRateControlDesc& desc, VkVideoEncodeRateControlInfoKHR& info, VkVideoEncodeRateControlLayerInfoKHR& layer) {
+static inline void FillVideoEncodeRateControlVK(const VideoEncodeRateControlDesc& desc, VkVideoEncodeRateControlInfoKHR& info, VkVideoEncodeRateControlLayerInfoKHR& layer) {
     info = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_RATE_CONTROL_INFO_KHR};
     info.rateControlMode = GetVideoEncodeRateControlModeVK(desc.mode);
 
@@ -48,13 +48,13 @@ inline void FillVideoEncodeRateControlVK(const VideoEncodeRateControlDesc& desc,
     info.initialVirtualBufferSizeInMs = desc.initialVirtualBufferSizeMs ? desc.initialVirtualBufferSizeMs : info.virtualBufferSizeInMs;
 }
 
-inline VkVideoReferenceSlotInfoKHR GetVideoSetupReferenceSlotForBeginVK(const VkVideoReferenceSlotInfoKHR& setupReferenceSlot) {
+static inline VkVideoReferenceSlotInfoKHR GetVideoSetupReferenceSlotForBeginVK(const VkVideoReferenceSlotInfoKHR& setupReferenceSlot) {
     VkVideoReferenceSlotInfoKHR beginReferenceSlot = setupReferenceSlot;
     beginReferenceSlot.slotIndex = -1;
     return beginReferenceSlot;
 }
 
-inline void FillVideoCapabilitiesVK(VideoCapabilities& videoCapabilities, const VideoSessionDesc& videoSessionDesc, const VkVideoCapabilitiesKHR& capabilities) {
+static inline void FillVideoCapabilitiesVK(VideoCapabilities& videoCapabilities, const VideoSessionDesc& videoSessionDesc, const VkVideoCapabilitiesKHR& capabilities) {
     videoCapabilities = {};
     videoCapabilities.widthMin = capabilities.minCodedExtent.width;
     videoCapabilities.heightMin = capabilities.minCodedExtent.height;
@@ -77,7 +77,7 @@ inline void FillVideoCapabilitiesVK(VideoCapabilities& videoCapabilities, const 
     }
 }
 
-inline VideoAV1EncodeFeatureBits GetSupportedVideoEncodeAV1FeatureFlagsVK(VkVideoEncodeAV1StdFlagsKHR stdSyntaxFlags) {
+static inline VideoAV1EncodeFeatureBits GetSupportedVideoEncodeAV1FeatureFlagsVK(VkVideoEncodeAV1StdFlagsKHR stdSyntaxFlags) {
     VideoAV1EncodeFeatureBits flags = VideoAV1EncodeFeatureBits::NONE;
 
     if (stdSyntaxFlags & VK_VIDEO_ENCODE_AV1_STD_DELTA_Q_BIT_KHR)
@@ -86,16 +86,16 @@ inline VideoAV1EncodeFeatureBits GetSupportedVideoEncodeAV1FeatureFlagsVK(VkVide
     return flags;
 }
 
-inline uint32_t GetVideoAV1LevelFromSeqIndexVK(uint32_t seqLevelIdx) {
+static inline uint32_t GetVideoAV1LevelFromSeqIndexVK(uint32_t seqLevelIdx) {
     return (2 + seqLevelIdx / 4) * 10 + seqLevelIdx % 4;
 }
 
-inline void FillVideoDecodeAV1CapabilitiesVK(VideoAV1Capabilities& videoAV1Capabilities, const VkVideoDecodeAV1CapabilitiesKHR& capabilities) {
+static inline void FillVideoDecodeAV1CapabilitiesVK(VideoAV1Capabilities& videoAV1Capabilities, const VkVideoDecodeAV1CapabilitiesKHR& capabilities) {
     videoAV1Capabilities = {};
     videoAV1Capabilities.av1MaxLevel = GetVideoAV1LevelFromSeqIndexVK(capabilities.maxLevel);
 }
 
-inline void FillVideoEncodeAV1CapabilitiesVK(VideoAV1Capabilities& videoAV1Capabilities, const VkVideoEncodeAV1CapabilitiesKHR& capabilities) {
+static inline void FillVideoEncodeAV1CapabilitiesVK(VideoAV1Capabilities& videoAV1Capabilities, const VkVideoEncodeAV1CapabilitiesKHR& capabilities) {
     videoAV1Capabilities = {};
     videoAV1Capabilities.av1MaxLevel = GetVideoAV1LevelFromSeqIndexVK(capabilities.maxLevel);
     videoAV1Capabilities.av1MaxTileColumnNum = capabilities.maxTiles.width;
@@ -119,7 +119,7 @@ inline void FillVideoEncodeAV1CapabilitiesVK(VideoAV1Capabilities& videoAV1Capab
     videoAV1Capabilities.av1EncodeSupportedFeatureFlags = GetSupportedVideoEncodeAV1FeatureFlagsVK(capabilities.stdSyntaxFlags);
 }
 
-inline uint8_t GetVideoAV1ReferenceNameIndexVK(VideoAV1ReferenceName name) {
+static inline uint8_t GetVideoAV1ReferenceNameIndexVK(VideoAV1ReferenceName name) {
     switch (name) {
         case VideoAV1ReferenceName::NONE:
             return STD_VIDEO_AV1_PRIMARY_REF_NONE;
@@ -142,22 +142,22 @@ inline uint8_t GetVideoAV1ReferenceNameIndexVK(VideoAV1ReferenceName name) {
     }
 }
 
-inline uint8_t GetVideoAV1NamedReferenceIndexVK(VideoAV1ReferenceName name) {
+static inline uint8_t GetVideoAV1NamedReferenceIndexVK(VideoAV1ReferenceName name) {
     const uint8_t referenceNameIndex = GetVideoAV1ReferenceNameIndexVK(name);
     return (name != VideoAV1ReferenceName::NONE && referenceNameIndex < VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR)
         ? referenceNameIndex
         : VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR;
 }
 
-inline uint8_t GetVideoEncodeQPByFrameTypeVK(const VideoEncodeRateControlDesc& rateControlDesc, VideoFrameType frameType) {
+static inline uint8_t GetVideoEncodeQPByFrameTypeVK(const VideoEncodeRateControlDesc& rateControlDesc, VideoFrameType frameType) {
     return frameType == VideoFrameType::B ? rateControlDesc.qpB : (frameType == VideoFrameType::P ? rateControlDesc.qpP : rateControlDesc.qpI);
 }
 
-inline bool IsVideoFrameTypeSupportedByVK(VideoCodec codec, VideoFrameType frameType) {
+static inline bool IsVideoFrameTypeSupportedByVK(VideoCodec codec, VideoFrameType frameType) {
     return frameType != VideoFrameType::B || codec == VideoCodec::H264 || codec == VideoCodec::H265;
 }
 
-inline bool IsVideoEncodePictureUsedAsReferenceVK(VideoCodec codec, VideoFrameType frameType, uint32_t maxReferenceNum, bool hasReconstructedPicture, uint8_t av1RefreshFrameFlags) {
+static inline bool IsVideoEncodePictureUsedAsReferenceVK(VideoCodec codec, VideoFrameType frameType, uint32_t maxReferenceNum, bool hasReconstructedPicture, uint8_t av1RefreshFrameFlags) {
     if (!maxReferenceNum || !hasReconstructedPicture)
         return false;
 
@@ -167,7 +167,7 @@ inline bool IsVideoEncodePictureUsedAsReferenceVK(VideoCodec codec, VideoFrameTy
     return codec != VideoCodec::AV1 || av1RefreshFrameFlags != 0;
 }
 
-inline StdVideoAV1Level GetVideoAV1LevelVK(uint32_t width, uint32_t height) {
+static inline StdVideoAV1Level GetVideoAV1LevelVK(uint32_t width, uint32_t height) {
     const uint64_t samples = uint64_t(width) * height;
     if (samples <= 512ull * 288ull)
         return STD_VIDEO_AV1_LEVEL_2_0;
@@ -185,7 +185,7 @@ inline StdVideoAV1Level GetVideoAV1LevelVK(uint32_t width, uint32_t height) {
     return STD_VIDEO_AV1_LEVEL_5_1;
 }
 
-inline StdVideoAV1Level GetVideoAV1LevelVK(uint8_t level, uint32_t width, uint32_t height) {
+static inline StdVideoAV1Level GetVideoAV1LevelVK(uint8_t level, uint32_t width, uint32_t height) {
     switch (level) {
         case 20:
             return STD_VIDEO_AV1_LEVEL_2_0;
@@ -228,7 +228,7 @@ inline StdVideoAV1Level GetVideoAV1LevelVK(uint8_t level, uint32_t width, uint32
     }
 }
 
-inline uint8_t GetVideoAV1SizeBitsMinus1VK(uint32_t value) {
+static inline uint8_t GetVideoAV1SizeBitsMinus1VK(uint32_t value) {
     uint8_t bits = 0;
     value--;
     do {
@@ -239,11 +239,11 @@ inline uint8_t GetVideoAV1SizeBitsMinus1VK(uint32_t value) {
     return bits - 1;
 }
 
-inline VideoAV1PictureBits GetDefaultVideoAV1PictureFlagsVK() {
+static inline VideoAV1PictureBits GetDefaultVideoAV1PictureFlagsVK() {
     return VideoAV1PictureBits::ERROR_RESILIENT_MODE | VideoAV1PictureBits::DISABLE_CDF_UPDATE | VideoAV1PictureBits::ALLOW_SCREEN_CONTENT_TOOLS | VideoAV1PictureBits::FORCE_INTEGER_MV | VideoAV1PictureBits::SHOW_FRAME | VideoAV1PictureBits::SHOWABLE_FRAME;
 }
 
-inline void FillVideoH265ProfileTierLevelVK(StdVideoH265ProfileTierLevel& profileTierLevel, const VideoH265ProfileTierLevelDesc& desc) {
+static inline void FillVideoH265ProfileTierLevelVK(StdVideoH265ProfileTierLevel& profileTierLevel, const VideoH265ProfileTierLevelDesc& desc) {
     profileTierLevel = {};
     profileTierLevel.flags.general_tier_flag = !!(desc.flags & VideoH265ProfileTierLevelBits::TIER);
     profileTierLevel.flags.general_progressive_source_flag = !!(desc.flags & VideoH265ProfileTierLevelBits::PROGRESSIVE_SOURCE);
@@ -254,7 +254,7 @@ inline void FillVideoH265ProfileTierLevelVK(StdVideoH265ProfileTierLevel& profil
     profileTierLevel.general_level_idc = (StdVideoH265LevelIdc)desc.generalLevelIdc;
 }
 
-inline void FillVideoH265DecPicBufMgrVK(StdVideoH265DecPicBufMgr& decPicBufMgr, const VideoH265DecPicBufMgrDesc& desc) {
+static inline void FillVideoH265DecPicBufMgrVK(StdVideoH265DecPicBufMgr& decPicBufMgr, const VideoH265DecPicBufMgrDesc& desc) {
     decPicBufMgr = {};
     for (uint32_t i = 0; i < STD_VIDEO_H265_SUBLAYERS_LIST_SIZE; i++) {
         decPicBufMgr.max_dec_pic_buffering_minus1[i] = desc.maxDecPicBufferingMinus1[i];
@@ -263,7 +263,7 @@ inline void FillVideoH265DecPicBufMgrVK(StdVideoH265DecPicBufMgr& decPicBufMgr, 
     }
 }
 
-inline StdVideoH265ScalingLists GetVideoH265ScalingListsVK(const VideoH265ScalingListsDesc& desc) {
+static inline StdVideoH265ScalingLists GetVideoH265ScalingListsVK(const VideoH265ScalingListsDesc& desc) {
     StdVideoH265ScalingLists scalingLists = {};
     for (uint32_t i = 0; i < STD_VIDEO_H265_SCALING_LIST_4X4_NUM_LISTS; i++)
         for (uint32_t j = 0; j < STD_VIDEO_H265_SCALING_LIST_4X4_NUM_ELEMENTS; j++)
@@ -285,7 +285,7 @@ inline StdVideoH265ScalingLists GetVideoH265ScalingListsVK(const VideoH265Scalin
     return scalingLists;
 }
 
-inline StdVideoH265ShortTermRefPicSet GetVideoH265ShortTermRefPicSetVK(const VideoH265ShortTermRefPicSetDesc& desc) {
+static inline StdVideoH265ShortTermRefPicSet GetVideoH265ShortTermRefPicSetVK(const VideoH265ShortTermRefPicSetDesc& desc) {
     StdVideoH265ShortTermRefPicSet refPicSet = {};
     refPicSet.flags.inter_ref_pic_set_prediction_flag = !!(desc.flags & VideoH265ShortTermRefPicSetBits::INTER_REF_PIC_SET_PREDICTION);
     refPicSet.flags.delta_rps_sign = !!(desc.flags & VideoH265ShortTermRefPicSetBits::DELTA_RPS_SIGN);
@@ -305,7 +305,7 @@ inline StdVideoH265ShortTermRefPicSet GetVideoH265ShortTermRefPicSetVK(const Vid
     return refPicSet;
 }
 
-inline StdVideoH265LongTermRefPicsSps GetVideoH265LongTermRefPicsSpsVK(const VideoH265LongTermRefPicsSpsDesc& desc) {
+static inline StdVideoH265LongTermRefPicsSps GetVideoH265LongTermRefPicsSpsVK(const VideoH265LongTermRefPicsSpsDesc& desc) {
     StdVideoH265LongTermRefPicsSps longTermRefPics = {};
     longTermRefPics.used_by_curr_pic_lt_sps_flag = desc.usedByCurrPicLtSpsFlag;
     for (uint32_t i = 0; i < STD_VIDEO_H265_MAX_LONG_TERM_REF_PICS_SPS; i++)
@@ -314,7 +314,7 @@ inline StdVideoH265LongTermRefPicsSps GetVideoH265LongTermRefPicsSpsVK(const Vid
     return longTermRefPics;
 }
 
-inline StdVideoH265VideoParameterSet GetVideoH265VideoParameterSetVK(const VideoH265VideoParameterSetDesc& desc, const StdVideoH265ProfileTierLevel& profileTierLevel,
+static inline StdVideoH265VideoParameterSet GetVideoH265VideoParameterSetVK(const VideoH265VideoParameterSetDesc& desc, const StdVideoH265ProfileTierLevel& profileTierLevel,
     const StdVideoH265DecPicBufMgr& decPicBufMgr) {
     StdVideoH265VideoParameterSet vps = {};
     vps.flags.vps_temporal_id_nesting_flag = !!(desc.flags & VideoH265VideoParameterSetBits::TEMPORAL_ID_NESTING);
@@ -332,7 +332,7 @@ inline StdVideoH265VideoParameterSet GetVideoH265VideoParameterSetVK(const Video
     return vps;
 }
 
-inline StdVideoH265SequenceParameterSet GetVideoH265SequenceParameterSetVK(const VideoH265SequenceParameterSetDesc& desc,
+static inline StdVideoH265SequenceParameterSet GetVideoH265SequenceParameterSetVK(const VideoH265SequenceParameterSetDesc& desc,
     const StdVideoH265ProfileTierLevel& profileTierLevel, const StdVideoH265DecPicBufMgr& decPicBufMgr, const StdVideoH265ScalingLists* scalingLists,
     const StdVideoH265ShortTermRefPicSet* shortTermRefPicSets, const StdVideoH265LongTermRefPicsSps* longTermRefPicsSps) {
     StdVideoH265SequenceParameterSet sps = {};
@@ -384,7 +384,7 @@ inline StdVideoH265SequenceParameterSet GetVideoH265SequenceParameterSetVK(const
     return sps;
 }
 
-inline StdVideoH265PictureParameterSet GetVideoH265PictureParameterSetVK(const VideoH265PictureParameterSetDesc& desc, const StdVideoH265ScalingLists* scalingLists) {
+static inline StdVideoH265PictureParameterSet GetVideoH265PictureParameterSetVK(const VideoH265PictureParameterSetDesc& desc, const StdVideoH265ScalingLists* scalingLists) {
     StdVideoH265PictureParameterSet pps = {};
     pps.flags.dependent_slice_segments_enabled_flag = !!(desc.flags & VideoH265PictureParameterSetBits::DEPENDENT_SLICE_SEGMENTS_ENABLED);
     pps.flags.output_flag_present_flag = !!(desc.flags & VideoH265PictureParameterSetBits::OUTPUT_FLAG_PRESENT);
@@ -432,7 +432,7 @@ inline StdVideoH265PictureParameterSet GetVideoH265PictureParameterSetVK(const V
     return pps;
 }
 
-inline void FillVideoAV1ColorConfigVK(StdVideoAV1ColorConfig& colorConfig, const VideoAV1SequenceDesc& desc) {
+static inline void FillVideoAV1ColorConfigVK(StdVideoAV1ColorConfig& colorConfig, const VideoAV1SequenceDesc& desc) {
     colorConfig = {};
     colorConfig.flags.mono_chrome = !!(desc.flags & VideoAV1SequenceBits::MONO_CHROME);
     colorConfig.flags.color_range = !!(desc.flags & VideoAV1SequenceBits::COLOR_RANGE);
@@ -447,7 +447,7 @@ inline void FillVideoAV1ColorConfigVK(StdVideoAV1ColorConfig& colorConfig, const
     colorConfig.chroma_sample_position = (StdVideoAV1ChromaSamplePosition)desc.chromaSamplePosition;
 }
 
-inline void FillVideoAV1SequenceHeaderVK(StdVideoAV1SequenceHeader& sequenceHeader, const VideoAV1SequenceDesc& desc, const StdVideoAV1ColorConfig& colorConfig,
+static inline void FillVideoAV1SequenceHeaderVK(StdVideoAV1SequenceHeader& sequenceHeader, const VideoAV1SequenceDesc& desc, const StdVideoAV1ColorConfig& colorConfig,
     const StdVideoAV1TimingInfo* timingInfo) {
     sequenceHeader = {};
     sequenceHeader.flags.still_picture = !!(desc.flags & VideoAV1SequenceBits::STILL_PICTURE);
@@ -483,7 +483,7 @@ inline void FillVideoAV1SequenceHeaderVK(StdVideoAV1SequenceHeader& sequenceHead
     sequenceHeader.pTimingInfo = timingInfo;
 }
 
-inline void FillVideoAV1PictureFlagsVK(StdVideoDecodeAV1PictureInfoFlags& flags, VideoAV1PictureBits bits) {
+static inline void FillVideoAV1PictureFlagsVK(StdVideoDecodeAV1PictureInfoFlags& flags, VideoAV1PictureBits bits) {
     flags.error_resilient_mode = !!(bits & VideoAV1PictureBits::ERROR_RESILIENT_MODE);
     flags.disable_cdf_update = !!(bits & VideoAV1PictureBits::DISABLE_CDF_UPDATE);
     flags.use_superres = !!(bits & VideoAV1PictureBits::USE_SUPERRES);
@@ -515,7 +515,7 @@ inline void FillVideoAV1PictureFlagsVK(StdVideoDecodeAV1PictureInfoFlags& flags,
     flags.apply_grain = !!(bits & VideoAV1PictureBits::APPLY_GRAIN);
 }
 
-inline void FillVideoAV1PictureFlagsVK(StdVideoEncodeAV1PictureInfoFlags& flags, VideoAV1PictureBits bits) {
+static inline void FillVideoAV1PictureFlagsVK(StdVideoEncodeAV1PictureInfoFlags& flags, VideoAV1PictureBits bits) {
     flags.error_resilient_mode = !!(bits & VideoAV1PictureBits::ERROR_RESILIENT_MODE);
     flags.disable_cdf_update = !!(bits & VideoAV1PictureBits::DISABLE_CDF_UPDATE);
     flags.use_superres = !!(bits & VideoAV1PictureBits::USE_SUPERRES);
@@ -547,7 +547,7 @@ inline void FillVideoAV1PictureFlagsVK(StdVideoEncodeAV1PictureInfoFlags& flags,
     flags.showable_frame = !!(bits & VideoAV1PictureBits::SHOWABLE_FRAME);
 }
 
-inline StdVideoAV1FrameType GetVideoAV1FrameTypeVK(VideoFrameType frameType) {
+static inline StdVideoAV1FrameType GetVideoAV1FrameTypeVK(VideoFrameType frameType) {
     switch (frameType) {
         case VideoFrameType::IDR:
         case VideoFrameType::I:
@@ -574,7 +574,7 @@ struct VideoEncodeHEVCReferenceListsVK {
     bool invalidPictureOrderCount = false;
 };
 
-inline uint32_t FindVideoEncodeHEVCRpsIndexVK(const std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF>& references, uint32_t referenceNum, uint32_t referenceIndex) {
+static inline uint32_t FindVideoEncodeHEVCRpsIndexVK(const std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF>& references, uint32_t referenceNum, uint32_t referenceIndex) {
     for (uint32_t i = 0; i < referenceNum; i++) {
         if (references[i] == referenceIndex)
             return i;
@@ -583,7 +583,7 @@ inline uint32_t FindVideoEncodeHEVCRpsIndexVK(const std::array<uint32_t, STD_VID
     return STD_VIDEO_H265_MAX_NUM_LIST_REF;
 }
 
-inline uint32_t GetVideoEncodeHEVCList0EntryVK(const VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex) {
+static inline uint32_t GetVideoEncodeHEVCList0EntryVK(const VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex) {
     const uint32_t negativeIndex = FindVideoEncodeHEVCRpsIndexVK(lists.negative, lists.negativeNum, referenceIndex);
     if (negativeIndex != STD_VIDEO_H265_MAX_NUM_LIST_REF)
         return negativeIndex;
@@ -591,7 +591,7 @@ inline uint32_t GetVideoEncodeHEVCList0EntryVK(const VideoEncodeHEVCReferenceLis
     return lists.negativeNum + FindVideoEncodeHEVCRpsIndexVK(lists.positive, lists.positiveNum, referenceIndex);
 }
 
-inline uint32_t GetVideoEncodeHEVCList1EntryVK(const VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex) {
+static inline uint32_t GetVideoEncodeHEVCList1EntryVK(const VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex) {
     const uint32_t positiveIndex = FindVideoEncodeHEVCRpsIndexVK(lists.positive, lists.positiveNum, referenceIndex);
     if (positiveIndex != STD_VIDEO_H265_MAX_NUM_LIST_REF)
         return positiveIndex;
@@ -599,7 +599,7 @@ inline uint32_t GetVideoEncodeHEVCList1EntryVK(const VideoEncodeHEVCReferenceLis
     return lists.positiveNum + FindVideoEncodeHEVCRpsIndexVK(lists.negative, lists.negativeNum, referenceIndex);
 }
 
-inline void AppendVideoEncodeHEVCRpsReferenceVK(VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex, bool negative) {
+static inline void AppendVideoEncodeHEVCRpsReferenceVK(VideoEncodeHEVCReferenceListsVK& lists, uint32_t referenceIndex, bool negative) {
     std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF>& rps = negative ? lists.negative : lists.positive;
     uint32_t& rpsNum = negative ? lists.negativeNum : lists.positiveNum;
 
@@ -611,7 +611,7 @@ inline void AppendVideoEncodeHEVCRpsReferenceVK(VideoEncodeHEVCReferenceListsVK&
     rps[rpsNum++] = referenceIndex;
 }
 
-inline const VideoH265ReferenceDesc* GetVideoH265ReferenceDescVK(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs,
+static inline const VideoH265ReferenceDesc* GetVideoH265ReferenceDescVK(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs,
     uint32_t referenceNum, uint32_t referenceIndex) {
     if (!references || !referenceDescs || referenceIndex >= referenceNum)
         return nullptr;
@@ -622,7 +622,7 @@ inline const VideoH265ReferenceDesc* GetVideoH265ReferenceDescVK(const VideoRefe
     return FindVideoReferenceDesc(referenceDescs, referenceNum, references[referenceIndex].slot);
 }
 
-inline void FillVideoDecodeAV1ReferenceInfoVK(StdVideoDecodeAV1ReferenceInfo& info, VideoFrameType frameType, uint8_t orderHint, const uint8_t* savedOrderHints = nullptr) {
+static inline void FillVideoDecodeAV1ReferenceInfoVK(StdVideoDecodeAV1ReferenceInfo& info, VideoFrameType frameType, uint8_t orderHint, const uint8_t* savedOrderHints = nullptr) {
     info = {};
     info.frame_type = (uint8_t)GetVideoAV1FrameTypeVK(frameType);
     info.OrderHint = orderHint;
@@ -634,13 +634,13 @@ inline void FillVideoDecodeAV1ReferenceInfoVK(StdVideoDecodeAV1ReferenceInfo& in
     }
 }
 
-inline void FillVideoDecodeAV1SetupReferenceInfoVK(StdVideoDecodeAV1ReferenceInfo& info, const VideoAV1DecodePictureDesc& desc, VideoAV1PictureBits pictureFlags) {
+static inline void FillVideoDecodeAV1SetupReferenceInfoVK(StdVideoDecodeAV1ReferenceInfo& info, const VideoAV1DecodePictureDesc& desc, VideoAV1PictureBits pictureFlags) {
     FillVideoDecodeAV1ReferenceInfoVK(info, desc.frameType, desc.orderHint);
     info.flags.disable_frame_end_update_cdf = !!(pictureFlags & VideoAV1PictureBits::DISABLE_FRAME_END_UPDATE_CDF);
     info.flags.segmentation_enabled = !!(pictureFlags & VideoAV1PictureBits::SEGMENTATION_ENABLED);
 }
 
-inline void FillVideoAV1DefaultTileInfoVK(StdVideoAV1TileInfo& info, uint16_t* miColStarts, uint16_t* miRowStarts, uint16_t* widthInSbsMinus1,
+static inline void FillVideoAV1DefaultTileInfoVK(StdVideoAV1TileInfo& info, uint16_t* miColStarts, uint16_t* miRowStarts, uint16_t* widthInSbsMinus1,
     uint16_t* heightInSbsMinus1, uint32_t width, uint32_t height) {
     info = {};
     info.flags.uniform_tile_spacing_flag = true;
@@ -659,7 +659,7 @@ inline void FillVideoAV1DefaultTileInfoVK(StdVideoAV1TileInfo& info, uint16_t* m
     info.pHeightInSbsMinus1 = heightInSbsMinus1;
 }
 
-inline bool BuildVideoEncodeHEVCReferenceListsVK(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs, uint32_t referenceNum,
+static inline bool BuildVideoEncodeHEVCReferenceListsVK(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs, uint32_t referenceNum,
     VideoFrameType frameType, int32_t currentPictureOrderCount, VideoEncodeHEVCReferenceListsVK& lists) {
     lists = {};
 
@@ -746,7 +746,7 @@ struct VideoDecodeAV1ReferenceMappingVK {
     bool missingPrimaryReference = false;
 };
 
-inline bool HasVideoReferenceSlotVK(const VideoReference* references, uint32_t referenceNum, uint32_t slot) {
+static inline bool HasVideoReferenceSlotVK(const VideoReference* references, uint32_t referenceNum, uint32_t slot) {
     for (uint32_t i = 0; i < referenceNum; i++) {
         if (references[i].slot == slot)
             return true;
@@ -755,7 +755,7 @@ inline bool HasVideoReferenceSlotVK(const VideoReference* references, uint32_t r
     return false;
 }
 
-inline bool BuildVideoEncodeAV1ReferenceMappingVK(const VideoReference* references, uint32_t referenceNum, const VideoAV1EncodePictureDesc& pictureDesc,
+static inline bool BuildVideoEncodeAV1ReferenceMappingVK(const VideoReference* references, uint32_t referenceNum, const VideoAV1EncodePictureDesc& pictureDesc,
     VideoEncodeAV1ReferenceMappingVK& mapping) {
     for (int32_t& slotIndex : mapping.referenceNameSlotIndices)
         slotIndex = -1;
@@ -807,7 +807,7 @@ inline bool BuildVideoEncodeAV1ReferenceMappingVK(const VideoReference* referenc
     return true;
 }
 
-inline uint32_t GetVideoEncodeAV1ReferenceNameNumVK(const int32_t* referenceNameSlotIndices, uint32_t mask) {
+static inline uint32_t GetVideoEncodeAV1ReferenceNameNumVK(const int32_t* referenceNameSlotIndices, uint32_t mask) {
     uint32_t num = 0;
     for (uint32_t i = 0; i < VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR; i++) {
         if (referenceNameSlotIndices[i] >= 0 && (mask & (1u << i)))
@@ -817,27 +817,27 @@ inline uint32_t GetVideoEncodeAV1ReferenceNameNumVK(const int32_t* referenceName
     return num;
 }
 
-inline bool HasVideoEncodeAV1ReferenceNameVK(const int32_t* referenceNameSlotIndices, uint32_t mask) {
+static inline bool HasVideoEncodeAV1ReferenceNameVK(const int32_t* referenceNameSlotIndices, uint32_t mask) {
     return GetVideoEncodeAV1ReferenceNameNumVK(referenceNameSlotIndices, mask) != 0;
 }
 
-inline bool HasVideoEncodeAV1ReferenceNamePairVK(const int32_t* referenceNameSlotIndices, uint32_t mask, uint32_t a, uint32_t b) {
+static inline bool HasVideoEncodeAV1ReferenceNamePairVK(const int32_t* referenceNameSlotIndices, uint32_t mask, uint32_t a, uint32_t b) {
     return referenceNameSlotIndices[a] >= 0 && referenceNameSlotIndices[b] >= 0 && (mask & (1u << a)) && (mask & (1u << b));
 }
 
-inline bool IsVideoEncodeAV1TileWidthSupportedVK(uint32_t tileWidth, const VkExtent2D& minTileSize, const VkExtent2D& maxTileSize) {
+static inline bool IsVideoEncodeAV1TileWidthSupportedVK(uint32_t tileWidth, const VkExtent2D& minTileSize, const VkExtent2D& maxTileSize) {
     return tileWidth >= minTileSize.width && tileWidth <= maxTileSize.width;
 }
 
-inline bool IsVideoEncodeAV1TileHeightSupportedVK(uint32_t tileHeight, const VkExtent2D& minTileSize, const VkExtent2D& maxTileSize) {
+static inline bool IsVideoEncodeAV1TileHeightSupportedVK(uint32_t tileHeight, const VkExtent2D& minTileSize, const VkExtent2D& maxTileSize) {
     return tileHeight >= minTileSize.height && tileHeight <= maxTileSize.height;
 }
 
-inline bool IsVideoEncodeAV1TileSizeSupportedVK(uint32_t tileWidth, uint32_t tileHeight, const VkExtent2D& minTileSize, const VkExtent2D& maxTileSize) {
+static inline bool IsVideoEncodeAV1TileSizeSupportedVK(uint32_t tileWidth, uint32_t tileHeight, const VkExtent2D& minTileSize, const VkExtent2D& maxTileSize) {
     return IsVideoEncodeAV1TileWidthSupportedVK(tileWidth, minTileSize, maxTileSize) && IsVideoEncodeAV1TileHeightSupportedVK(tileHeight, minTileSize, maxTileSize);
 }
 
-inline bool BuildVideoDecodeAV1ReferenceMappingVK(const VideoAV1DecodePictureDesc& pictureDesc, VideoDecodeAV1ReferenceMappingVK& mapping) {
+static inline bool BuildVideoDecodeAV1ReferenceMappingVK(const VideoAV1DecodePictureDesc& pictureDesc, VideoDecodeAV1ReferenceMappingVK& mapping) {
     for (int32_t& slotIndex : mapping.referenceNameSlotIndices)
         slotIndex = -1;
     mapping.failingReference = 0;
@@ -884,7 +884,7 @@ inline bool BuildVideoDecodeAV1ReferenceMappingVK(const VideoAV1DecodePictureDes
     return true;
 }
 
-inline void FillVideoDecodeAV1PictureInfoVK(StdVideoDecodeAV1PictureInfo& info, const VideoAV1DecodePictureDesc& desc, VideoAV1PictureBits pictureFlags) {
+static inline void FillVideoDecodeAV1PictureInfoVK(StdVideoDecodeAV1PictureInfo& info, const VideoAV1DecodePictureDesc& desc, VideoAV1PictureBits pictureFlags) {
     info = {};
 
     FillVideoAV1PictureFlagsVK(info.flags, pictureFlags);
@@ -912,7 +912,7 @@ inline void FillVideoDecodeAV1PictureInfoVK(StdVideoDecodeAV1PictureInfo& info, 
     }
 }
 
-inline void FillVideoDecodeAV1TilePayloadVK(VkVideoDecodeAV1PictureInfoKHR& info, const VideoAV1DecodePictureDesc& desc, uint32_t* tileOffsets, uint32_t* tileSizes) {
+static inline void FillVideoDecodeAV1TilePayloadVK(VkVideoDecodeAV1PictureInfoKHR& info, const VideoAV1DecodePictureDesc& desc, uint32_t* tileOffsets, uint32_t* tileSizes) {
     for (uint32_t i = 0; i < desc.tileNum; i++) {
         tileOffsets[i] = desc.tiles[i].offset;
         tileSizes[i] = desc.tiles[i].size;
@@ -924,7 +924,7 @@ inline void FillVideoDecodeAV1TilePayloadVK(VkVideoDecodeAV1PictureInfoKHR& info
     info.pTileSizes = desc.tileNum ? tileSizes : nullptr;
 }
 
-inline void FillVideoDecodeAV1QuantizationVK(StdVideoAV1Quantization& info, const VideoAV1DecodePictureDesc& desc) {
+static inline void FillVideoDecodeAV1QuantizationVK(StdVideoAV1Quantization& info, const VideoAV1DecodePictureDesc& desc) {
     info = {};
     info.base_q_idx = desc.baseQIndex;
     if (!desc.quantization)
@@ -942,7 +942,7 @@ inline void FillVideoDecodeAV1QuantizationVK(StdVideoAV1Quantization& info, cons
     info.qm_v = desc.quantization->qmV;
 }
 
-inline void FillVideoDecodeAV1LoopFilterVK(StdVideoAV1LoopFilter& info, const VideoAV1DecodePictureDesc& desc) {
+static inline void FillVideoDecodeAV1LoopFilterVK(StdVideoAV1LoopFilter& info, const VideoAV1DecodePictureDesc& desc) {
     info = {};
     if (desc.loopFilter) {
         info.flags.loop_filter_delta_enabled = desc.loopFilter->deltaEnabled != 0;
@@ -961,7 +961,7 @@ inline void FillVideoDecodeAV1LoopFilterVK(StdVideoAV1LoopFilter& info, const Vi
     info.loop_filter_ref_deltas[7] = -1;
 }
 
-inline void FillVideoDecodeAV1CdefVK(StdVideoAV1CDEF& info, const VideoAV1DecodePictureDesc& desc) {
+static inline void FillVideoDecodeAV1CdefVK(StdVideoAV1CDEF& info, const VideoAV1DecodePictureDesc& desc) {
     info = {};
     info.cdef_damping_minus_3 = desc.cdefDampingMinus3;
     info.cdef_bits = desc.cdefBits;
@@ -974,7 +974,7 @@ inline void FillVideoDecodeAV1CdefVK(StdVideoAV1CDEF& info, const VideoAV1Decode
     std::memcpy(info.cdef_uv_sec_strength, desc.cdef->uvSecondaryStrength, sizeof(info.cdef_uv_sec_strength));
 }
 
-inline void FillVideoDecodeAV1LoopRestorationVK(StdVideoAV1LoopRestoration& info, const VideoAV1DecodePictureDesc& desc) {
+static inline void FillVideoDecodeAV1LoopRestorationVK(StdVideoAV1LoopRestoration& info, const VideoAV1DecodePictureDesc& desc) {
     info = {};
     if (!desc.loopRestoration) {
         info.LoopRestorationSize[0] = 1;
@@ -991,7 +991,7 @@ inline void FillVideoDecodeAV1LoopRestorationVK(StdVideoAV1LoopRestoration& info
     info.LoopRestorationSize[2] = 1 + desc.loopRestoration->lrUnitShift - desc.loopRestoration->lrUvShift;
 }
 
-inline void FillVideoDecodeAV1GlobalMotionVK(StdVideoAV1GlobalMotion& info, const VideoAV1DecodePictureDesc& desc) {
+static inline void FillVideoDecodeAV1GlobalMotionVK(StdVideoAV1GlobalMotion& info, const VideoAV1DecodePictureDesc& desc) {
     info = {};
     for (uint32_t i = 0; i < 8; i++) {
         info.gm_params[i][2] = 1 << 16;
@@ -1005,7 +1005,7 @@ inline void FillVideoDecodeAV1GlobalMotionVK(StdVideoAV1GlobalMotion& info, cons
     std::memcpy(info.gm_params, desc.globalMotion->params, sizeof(info.gm_params));
 }
 
-inline void FillVideoEncodeAV1QuantizationVK(StdVideoAV1Quantization& info, const VideoAV1EncodePictureDesc* desc, uint32_t baseQIndex) {
+static inline void FillVideoEncodeAV1QuantizationVK(StdVideoAV1Quantization& info, const VideoAV1EncodePictureDesc* desc, uint32_t baseQIndex) {
     info = {};
     info.base_q_idx = (uint8_t)baseQIndex;
     if (!desc || !desc->quantization)
@@ -1023,7 +1023,7 @@ inline void FillVideoEncodeAV1QuantizationVK(StdVideoAV1Quantization& info, cons
     info.qm_v = desc->quantization->qmV;
 }
 
-inline void FillVideoEncodeAV1LoopFilterVK(StdVideoAV1LoopFilter& info, const VideoAV1EncodePictureDesc* desc) {
+static inline void FillVideoEncodeAV1LoopFilterVK(StdVideoAV1LoopFilter& info, const VideoAV1EncodePictureDesc* desc) {
     info = {};
     if (desc && desc->loopFilter) {
         info.flags.loop_filter_delta_enabled = desc->loopFilter->deltaEnabled != 0;
@@ -1042,7 +1042,7 @@ inline void FillVideoEncodeAV1LoopFilterVK(StdVideoAV1LoopFilter& info, const Vi
     info.loop_filter_ref_deltas[7] = -1;
 }
 
-inline void FillVideoEncodeAV1CdefVK(StdVideoAV1CDEF& info, const VideoAV1EncodePictureDesc* desc) {
+static inline void FillVideoEncodeAV1CdefVK(StdVideoAV1CDEF& info, const VideoAV1EncodePictureDesc* desc) {
     info = {};
     if (!desc)
         return;
@@ -1058,7 +1058,7 @@ inline void FillVideoEncodeAV1CdefVK(StdVideoAV1CDEF& info, const VideoAV1Encode
     std::memcpy(info.cdef_uv_sec_strength, desc->cdef->uvSecondaryStrength, sizeof(info.cdef_uv_sec_strength));
 }
 
-inline void FillVideoEncodeAV1LoopRestorationVK(StdVideoAV1LoopRestoration& info, const VideoAV1EncodePictureDesc* desc) {
+static inline void FillVideoEncodeAV1LoopRestorationVK(StdVideoAV1LoopRestoration& info, const VideoAV1EncodePictureDesc* desc) {
     info = {};
     if (!desc || !desc->loopRestoration) {
         info.LoopRestorationSize[0] = 1;
@@ -1075,7 +1075,7 @@ inline void FillVideoEncodeAV1LoopRestorationVK(StdVideoAV1LoopRestoration& info
     info.LoopRestorationSize[2] = 1 + desc->loopRestoration->lrUnitShift - desc->loopRestoration->lrUvShift;
 }
 
-inline void FillVideoEncodeAV1GlobalMotionVK(StdVideoAV1GlobalMotion& info, const VideoAV1EncodePictureDesc* desc) {
+static inline void FillVideoEncodeAV1GlobalMotionVK(StdVideoAV1GlobalMotion& info, const VideoAV1EncodePictureDesc* desc) {
     info = {};
     for (uint32_t i = 0; i < 8; i++) {
         info.gm_params[i][2] = 1 << 16;
@@ -1089,7 +1089,7 @@ inline void FillVideoEncodeAV1GlobalMotionVK(StdVideoAV1GlobalMotion& info, cons
     std::memcpy(info.gm_params, desc->globalMotion->params, sizeof(info.gm_params));
 }
 
-inline void FillVideoDecodeAV1FilmGrainVK(StdVideoAV1FilmGrain& info, const VideoAV1FilmGrainDesc& desc) {
+static inline void FillVideoDecodeAV1FilmGrainVK(StdVideoAV1FilmGrain& info, const VideoAV1FilmGrainDesc& desc) {
     info = {};
     info.flags.chroma_scaling_from_luma = desc.chromaScalingFromLuma != 0;
     info.flags.overlap_flag = desc.overlapFlag != 0;
@@ -1121,7 +1121,7 @@ inline void FillVideoDecodeAV1FilmGrainVK(StdVideoAV1FilmGrain& info, const Vide
     std::memcpy(info.ar_coeffs_cr_plus_128, desc.arCoeffsCrPlus128, sizeof(info.ar_coeffs_cr_plus_128));
 }
 
-inline StdVideoH265LevelIdc GetVideoH265LevelIdcVK(uint32_t width, uint32_t height) {
+static inline StdVideoH265LevelIdc GetVideoH265LevelIdcVK(uint32_t width, uint32_t height) {
     const uint64_t samples = uint64_t(width) * height;
     if (samples <= 512ull * 512ull)
         return STD_VIDEO_H265_LEVEL_IDC_3_1;

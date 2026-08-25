@@ -88,7 +88,7 @@ struct RbspBitWriter {
     }
 };
 
-inline void AppendH264NalHeader(ByteWriter& bytes, uint8_t nalHeader) {
+static inline void AppendH264NalHeader(ByteWriter& bytes, uint8_t nalHeader) {
     bytes.WriteByte(0);
     bytes.WriteByte(0);
     bytes.WriteByte(0);
@@ -96,7 +96,7 @@ inline void AppendH264NalHeader(ByteWriter& bytes, uint8_t nalHeader) {
     bytes.WriteByte(nalHeader);
 }
 
-inline void AppendH265NalHeader(ByteWriter& bytes, uint8_t nalUnitType) {
+static inline void AppendH265NalHeader(ByteWriter& bytes, uint8_t nalUnitType) {
     bytes.WriteByte(0);
     bytes.WriteByte(0);
     bytes.WriteByte(0);
@@ -105,7 +105,7 @@ inline void AppendH265NalHeader(ByteWriter& bytes, uint8_t nalUnitType) {
     bytes.WriteByte(1);
 }
 
-inline void WriteH265ProfileTierLevel(RbspBitWriter& writer, const VideoH265ProfileTierLevelDesc& desc, uint8_t maxSubLayersMinus1) {
+static inline void WriteH265ProfileTierLevel(RbspBitWriter& writer, const VideoH265ProfileTierLevelDesc& desc, uint8_t maxSubLayersMinus1) {
     writer.WriteBits(0, 2); // general_profile_space
     writer.WriteBit(!!(desc.flags & VideoH265ProfileTierLevelBits::TIER));
     writer.WriteBits(desc.generalProfileIdc, 5);
@@ -132,7 +132,7 @@ inline void WriteH265ProfileTierLevel(RbspBitWriter& writer, const VideoH265Prof
     }
 }
 
-inline void WriteH265SubLayerOrdering(RbspBitWriter& writer, const VideoH265DecPicBufMgrDesc& desc, uint8_t maxSubLayersMinus1, bool allSubLayers) {
+static inline void WriteH265SubLayerOrdering(RbspBitWriter& writer, const VideoH265DecPicBufMgrDesc& desc, uint8_t maxSubLayersMinus1, bool allSubLayers) {
     const uint32_t firstLayer = allSubLayers ? 0 : maxSubLayersMinus1;
     for (uint32_t i = firstLayer; i <= maxSubLayersMinus1; i++) {
         writer.WriteUe(desc.maxDecPicBufferingMinus1[i]);
@@ -141,7 +141,7 @@ inline void WriteH265SubLayerOrdering(RbspBitWriter& writer, const VideoH265DecP
     }
 }
 
-inline Result WriteH264AnnexBParameterSets(const VideoAnnexBParameterSetsDesc& desc, ByteWriter& bytes) {
+static inline Result WriteH264AnnexBParameterSets(const VideoAnnexBParameterSetsDesc& desc, ByteWriter& bytes) {
     const bool hasParameterSets = desc.h264Sps && desc.h264Pps;
 
     if (!hasParameterSets)
@@ -231,7 +231,7 @@ inline Result WriteH264AnnexBParameterSets(const VideoAnnexBParameterSetsDesc& d
     return Result::SUCCESS;
 }
 
-inline Result WriteH265AnnexBParameterSets(const VideoAnnexBParameterSetsDesc& desc, ByteWriter& bytes) {
+static inline Result WriteH265AnnexBParameterSets(const VideoAnnexBParameterSetsDesc& desc, ByteWriter& bytes) {
     const bool hasParameterSets = desc.h265Vps && desc.h265Sps && desc.h265Pps;
 
     if (!hasParameterSets)
@@ -385,7 +385,7 @@ inline Result WriteH265AnnexBParameterSets(const VideoAnnexBParameterSetsDesc& d
     return Result::SUCCESS;
 }
 
-inline Result WriteH264AnnexBEndOfStream(ByteWriter& bytes) {
+static inline Result WriteH264AnnexBEndOfStream(ByteWriter& bytes) {
     AppendH264NalHeader(bytes, 10);
     bytes.WriteByte(0x80);
     AppendH264NalHeader(bytes, 11);
@@ -393,7 +393,7 @@ inline Result WriteH264AnnexBEndOfStream(ByteWriter& bytes) {
     return Result::SUCCESS;
 }
 
-inline Result WriteH265AnnexBEndOfStream(ByteWriter& bytes) {
+static inline Result WriteH265AnnexBEndOfStream(ByteWriter& bytes) {
     AppendH265NalHeader(bytes, 36);
     bytes.WriteByte(0x80);
     AppendH265NalHeader(bytes, 37);
@@ -443,7 +443,7 @@ struct ObuBitWriter {
     }
 };
 
-inline void WriteLeb128(ByteWriter& bytes, uint64_t value) {
+static inline void WriteLeb128(ByteWriter& bytes, uint64_t value) {
     do {
         uint8_t byte = uint8_t(value & 0x7F);
         value >>= 7;
@@ -453,12 +453,12 @@ inline void WriteLeb128(ByteWriter& bytes, uint64_t value) {
     } while (value);
 }
 
-inline void AppendAv1ObuHeader(ByteWriter& bytes, video_av1::ObuType type, uint64_t payloadSize) {
+static inline void AppendAv1ObuHeader(ByteWriter& bytes, video_av1::ObuType type, uint64_t payloadSize) {
     bytes.WriteByte((uint8_t(type) << 3) | 0x2);
     WriteLeb128(bytes, payloadSize);
 }
 
-inline uint8_t GetAv1LevelIndex(uint8_t level, uint32_t width, uint32_t height) {
+static inline uint8_t GetAv1LevelIndex(uint8_t level, uint32_t width, uint32_t height) {
     switch (level) {
         case 20:
             return 0;
@@ -521,7 +521,7 @@ static inline bool IsAv1IdentityColorConfig(const VideoAV1SequenceDesc& desc) {
     return (desc.flags & VideoAV1SequenceBits::COLOR_DESCRIPTION_PRESENT) && desc.colorPrimaries == 1 && desc.transferCharacteristics == 13 && desc.matrixCoefficients == 0;
 }
 
-inline void WriteAv1ColorConfig(ObuBitWriter& writer, const VideoAV1SequenceDesc& desc) {
+static inline void WriteAv1ColorConfig(ObuBitWriter& writer, const VideoAV1SequenceDesc& desc) {
     const bool highBitdepth = desc.bitDepth > 8;
     const bool twelveBit = desc.bitDepth > 10;
     const bool monochrome = !!(desc.flags & VideoAV1SequenceBits::MONO_CHROME);
@@ -566,7 +566,7 @@ inline void WriteAv1ColorConfig(ObuBitWriter& writer, const VideoAV1SequenceDesc
     writer.WriteBit(!!(desc.flags & VideoAV1SequenceBits::SEPARATE_UV_DELTA_Q));
 }
 
-inline Result WriteAv1SequenceHeaderPayload(const VideoAV1SequenceDesc& desc, ByteWriter& bytes) {
+static inline Result WriteAv1SequenceHeaderPayload(const VideoAV1SequenceDesc& desc, ByteWriter& bytes) {
     constexpr uint8_t maxSequenceProfile = 2;
 
     if (desc.seqProfile > maxSequenceProfile || (desc.bitDepth != 8 && desc.bitDepth != 10 && desc.bitDepth != 12) || desc.frameWidthBitsMinus1 > 15 || desc.frameHeightBitsMinus1 > 15)
@@ -696,7 +696,7 @@ inline Result WriteAv1SequenceHeaderPayload(const VideoAV1SequenceDesc& desc, By
     return Result::SUCCESS;
 }
 
-inline Result WriteAv1SequenceHeaderObu(const VideoAV1SequenceDesc& desc, ByteWriter& bytes) {
+static inline Result WriteAv1SequenceHeaderObu(const VideoAV1SequenceDesc& desc, ByteWriter& bytes) {
     ByteWriter payloadCounter = {};
     Result result = WriteAv1SequenceHeaderPayload(desc, payloadCounter);
     if (result != Result::SUCCESS)
@@ -707,14 +707,14 @@ inline Result WriteAv1SequenceHeaderObu(const VideoAV1SequenceDesc& desc, ByteWr
     return WriteAv1SequenceHeaderPayload(desc, bytes);
 }
 
-inline Result WriteAv1ObuHeaders(const VideoAV1SequenceDesc& desc, ByteWriter& bytes) {
+static inline Result WriteAv1ObuHeaders(const VideoAV1SequenceDesc& desc, ByteWriter& bytes) {
     AppendAv1ObuHeader(bytes, video_av1::ObuType::TemporalDelimiter, 0);
     return WriteAv1SequenceHeaderObu(desc, bytes);
 }
 
 } // namespace video_annex_b
 
-inline Result WriteVideoAnnexBParameterSetsShared(VideoAnnexBParameterSetsDesc& desc) {
+static inline Result WriteVideoAnnexBParameterSetsShared(VideoAnnexBParameterSetsDesc& desc) {
     video_annex_b::ByteWriter byteCounter = {};
     Result result = Result::UNSUPPORTED;
 
@@ -745,7 +745,7 @@ inline Result WriteVideoAnnexBParameterSetsShared(VideoAnnexBParameterSetsDesc& 
     return byteWriter.Finish(desc.writtenSize);
 }
 
-inline Result WriteVideoAV1ObuHeadersShared(VideoAV1ObuHeadersDesc& desc) {
+static inline Result WriteVideoAV1ObuHeadersShared(VideoAV1ObuHeadersDesc& desc) {
     video_annex_b::ByteWriter byteCounter = {};
     Result result = video_annex_b::WriteAv1ObuHeaders(desc.sequence, byteCounter);
     if (result != Result::SUCCESS)
@@ -766,7 +766,7 @@ inline Result WriteVideoAV1ObuHeadersShared(VideoAV1ObuHeadersDesc& desc) {
     return byteWriter.Finish(desc.writtenSize);
 }
 
-inline Result WriteVideoAnnexBEndOfStreamShared(VideoAnnexBEndOfStreamDesc& desc) {
+static inline Result WriteVideoAnnexBEndOfStreamShared(VideoAnnexBEndOfStreamDesc& desc) {
     video_annex_b::ByteWriter byteCounter = {};
     Result result = Result::UNSUPPORTED;
 
