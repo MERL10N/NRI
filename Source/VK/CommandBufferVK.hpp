@@ -775,7 +775,7 @@ NRI_INLINE void CommandBufferVK::EncodeVideo(const VideoEncodeDesc& videoEncodeD
         return;
     }
     if (!video::IsFrameTypeSupported(session.GetDesc().codec, pictureDesc.frameType, true)) {
-        NRI_REPORT_ERROR(&m_Device, "Vulkan video encode sessions are aligned with the no-B-frame parity target");
+        NRI_REPORT_ERROR(&m_Device, "Vulkan video encode does not support the requested frame type for this codec");
         return;
     }
     if (pictureDesc.frameType == VideoFrameType::B) {

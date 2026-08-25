@@ -861,7 +861,7 @@ NriStruct(VideoDecodeDesc) {
     NriOptional NriPtr(VideoPicture) setupPicture; // reconstructed/DPB setup picture; required for distinct mode, may alias "dstPicture" in coincide mode
     NriOptional const NriPtr(VideoReference) references;
     NriOptional uint32_t referenceNum;
-    uint32_t dstSlot;
+    uint32_t dstSlot; // reconstructed picture slot; native DXVA "CurrPic" must use this index and reference "PicEntry" indices must match "VideoReference::slot"
     NriOptional const NriPtr(VideoDecodeArgument) arguments; // native DXVA frame arguments; if omitted, the neutral codec picture description is used
     NriOptional uint32_t argumentNum;
     NriOptional const NriPtr(VideoH264DecodePictureDesc) h264PictureDesc; // neutral H.264 picture description; required if "argumentNum" is 0
