@@ -5,7 +5,6 @@
 namespace nri {
 
 constexpr uint32_t VIDEO_DECODE_MAX_PIC_ENTRY_SLOT = 127;
-constexpr uint32_t VIDEO_HEVC_MAX_REFERENCE_NUM = 15;
 constexpr uint32_t VIDEO_D3D12_ENCODE_SUPPORT_PROBE_SIZE = 512;
 constexpr uint32_t VIDEO_AV1_LEVEL_4_1 = 41;
 constexpr uint32_t VIDEO_D3D12_ENCODE_AV1_MIN_Q_INDEX = 1;
@@ -71,10 +70,6 @@ static inline VideoAV1SequenceDesc GetDefaultVideoAV1SequenceDescD3D12(uint32_t 
     return desc;
 }
 
-static constexpr VideoAV1PictureBits GetDefaultVideoAV1PictureFlags() {
-    return VideoAV1PictureBits::ERROR_RESILIENT_MODE | VideoAV1PictureBits::DISABLE_CDF_UPDATE | VideoAV1PictureBits::ALLOW_SCREEN_CONTENT_TOOLS | VideoAV1PictureBits::FORCE_INTEGER_MV;
-}
-
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
 
 using VideoEncodeAV1TilesLayoutD3D12 = D3D12_VIDEO_ENCODER_AV1_PICTURE_CONTROL_SUBREGIONS_LAYOUT_DATA_TILES;
@@ -135,74 +130,6 @@ static inline void FillVideoEncodeAV1CapabilitiesD3D12(VideoAV1Capabilities& vid
     videoAV1Capabilities.av1EncodeSupportedFeatureFlags = GetVideoEncodeAV1FeatureFlagsD3D12(supportedFeatureFlags);
 }
 
-struct VideoEncodeHEVCReferenceListsD3D12 {
-    std::array<uint32_t, VIDEO_HEVC_MAX_REFERENCE_NUM> list0 = {};
-    std::array<uint32_t, VIDEO_HEVC_MAX_REFERENCE_NUM> list1 = {};
-    uint32_t list0Num = 0;
-    uint32_t list1Num = 0;
-    uint32_t failingReference = 0;
-    bool missingDescriptor = false;
-    bool invalidPictureOrderCount = false;
-};
-
-static inline bool BuildVideoEncodeHEVCReferenceListsD3D12(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs, uint32_t referenceNum,
-    VideoFrameType frameType, int32_t currentPictureOrderCount, VideoEncodeHEVCReferenceListsD3D12& lists) {
-    lists = {};
-
-    if (referenceNum > VIDEO_HEVC_MAX_REFERENCE_NUM) {
-        lists.failingReference = VIDEO_HEVC_MAX_REFERENCE_NUM;
-        return false;
-    }
-
-    if (referenceNum && !referenceDescs) {
-        lists.missingDescriptor = true;
-        return false;
-    }
-
-    for (uint32_t i = 0; i < referenceNum; i++) {
-        const VideoH265ReferenceDesc* referenceDesc = FindVideoReferenceDesc(referenceDescs, referenceNum, references[i].slot);
-        if (!referenceDesc) {
-            lists.failingReference = i;
-            lists.missingDescriptor = true;
-            return false;
-        }
-
-        if (referenceDesc->listIndex == 0) {
-            if (referenceDesc->pictureOrderCount >= currentPictureOrderCount) {
-                lists.failingReference = i;
-                lists.invalidPictureOrderCount = true;
-                return false;
-            }
-
-            lists.list0[lists.list0Num++] = i;
-        } else if (referenceDesc->listIndex == 1) {
-            if (frameType != VideoFrameType::B) {
-                lists.failingReference = i;
-                lists.invalidPictureOrderCount = true;
-                return false;
-            }
-            if (referenceDesc->pictureOrderCount <= currentPictureOrderCount) {
-                lists.failingReference = i;
-                lists.invalidPictureOrderCount = true;
-                return false;
-            }
-
-            lists.list1[lists.list1Num++] = i;
-        } else {
-            lists.failingReference = i;
-            lists.invalidPictureOrderCount = true;
-            return false;
-        }
-    }
-
-    if (referenceNum && !lists.list0Num) {
-        lists.invalidPictureOrderCount = true;
-        return false;
-    }
-
-    return true;
-}
-
 struct VideoEncodeRateControlStateD3D12 {
     D3D12_VIDEO_ENCODER_RATE_CONTROL_CQP cqp = {};
     D3D12_VIDEO_ENCODER_RATE_CONTROL_CBR cbr = {};
@@ -233,7 +160,7 @@ static inline uint32_t GetSupportedVideoEncodeRateControlModesD3D12(ID3D12VideoD
         support.RateControlMode = GetVideoEncodeRateControlModeD3D12(mode);
         HRESULT hr = videoDevice->CheckFeatureSupport(D3D12_FEATURE_VIDEO_ENCODER_RATE_CONTROL_MODE, &support, sizeof(support));
         if (SUCCEEDED(hr) && support.IsSupported)
-            modes |= GetVideoEncodeRateControlModeMask(mode);
+            modes |= video::GetEncodeRateControlModeMask(mode);
     }
 
     return modes;
@@ -422,7 +349,7 @@ static bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, c
     }
 
     const uint32_t rateControlModes = GetSupportedVideoEncodeRateControlModesD3D12(videoDevice, d3d12Codec);
-    if ((rateControlModes & VIDEO_ENCODE_RATE_CONTROL_CQP) == 0)
+    if ((rateControlModes & video::ENCODE_RATE_CONTROL_CQP) == 0)
         return false;
 
     const VideoEncodeRateControlDesc defaultRateControl = {VideoEncodeRateControlMode::CQP, 26, 28, 30, 0, 51, 30, 1, 0, 0, 0, 0, 0};

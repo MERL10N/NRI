@@ -234,15 +234,6 @@ static inline bool IsVideoDpbTextureArrayValid(const VideoPictureVal* setupPictu
     return !firstPicture || firstPicture->GetTextureLayerNum() >= capabilities.dpbTextureArrayMinLayerNum;
 }
 
-static inline bool HasVideoReferenceSlot(const VideoReference* references, uint32_t referenceNum, uint32_t slot) {
-    for (uint32_t i = 0; i < referenceNum; i++) {
-        if (references[i].slot == slot)
-            return true;
-    }
-
-    return false;
-}
-
 static inline bool HasVideoAV1ReferenceName(const VideoAV1ReferenceDesc* references, uint32_t referenceNum, VideoAV1ReferenceName name) {
     for (uint32_t i = 0; i < referenceNum; i++) {
         if (references[i].name == name)
@@ -261,7 +252,7 @@ static inline bool IsVideoEncodeH264ReferenceListValid(const VideoEncodeDesc& vi
     uint32_t list1ReferenceNum = 0;
     for (uint32_t i = 0; i < h264PictureDesc->referenceNum; i++) {
         const VideoH264EncodeReferenceDesc& reference = h264PictureDesc->references[i];
-        if (!IsVideoFrameTypeValid(reference.frameType) || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
+        if (!IsVideoFrameTypeValid(reference.frameType) || !video::HasReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
             return false;
 
         if (reference.listIndex == 0)
@@ -282,7 +273,7 @@ static inline bool IsVideoEncodeH265ReferenceListValid(const VideoEncodeDesc& vi
     uint32_t list0ReferenceNum = 0;
     uint32_t list1ReferenceNum = 0;
     for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
-        const VideoH265ReferenceDesc* reference = FindVideoReferenceDesc(videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, videoEncodeDesc.references[i].slot);
+        const VideoH265ReferenceDesc* reference = video::FindReferenceDesc(videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, videoEncodeDesc.references[i].slot);
         if (!reference || !IsVideoFrameTypeValid(reference->frameType))
             return false;
 
@@ -369,12 +360,12 @@ static bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& videoDecodeD
         if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8)
             return false;
 
-        if (reference.name != VideoAV1ReferenceName::NONE && !HasVideoReferenceSlot(videoDecodeDesc.references, videoDecodeDesc.referenceNum, reference.slot))
+        if (reference.name != VideoAV1ReferenceName::NONE && !video::HasReferenceSlot(videoDecodeDesc.references, videoDecodeDesc.referenceNum, reference.slot))
             return false;
     }
 
     for (uint32_t i = 0; i < videoDecodeDesc.referenceNum; i++) {
-        const VideoAV1ReferenceDesc* reference = FindVideoReferenceDesc(desc.references, desc.referenceNum, videoDecodeDesc.references[i].slot);
+        const VideoAV1ReferenceDesc* reference = video::FindReferenceDesc(desc.references, desc.referenceNum, videoDecodeDesc.references[i].slot);
         if (!reference || reference->name == VideoAV1ReferenceName::NONE)
             return false;
     }
@@ -411,12 +402,12 @@ static bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& videoEncodeD
 
     for (uint32_t i = 0; i < desc.referenceNum; i++) {
         const VideoAV1ReferenceDesc& reference = desc.references[i];
-        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8 || !HasVideoReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
+        if (!IsVideoAV1ReferenceNameValid(reference.name) || !IsVideoFrameTypeValid(reference.frameType) || reference.refFrameIndex >= 8 || !video::HasReferenceSlot(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot))
             return false;
     }
 
     for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
-        const VideoAV1ReferenceDesc* reference = FindVideoReferenceDesc(desc.references, desc.referenceNum, videoEncodeDesc.references[i].slot);
+        const VideoAV1ReferenceDesc* reference = video::FindReferenceDesc(desc.references, desc.referenceNum, videoEncodeDesc.references[i].slot);
         if (!reference)
             return false;
     }
@@ -1383,7 +1374,7 @@ NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecode
         NRI_RETURN_ON_FAILURE(&m_Device, desc.referenceNum <= 16 && desc.referenceNum == videoDecodeDesc.referenceNum && (!desc.referenceNum || desc.references), ReturnVoid(), "'h264PictureDesc->references' must describe all decode references");
 
         for (uint32_t i = 0; i < videoDecodeDesc.referenceNum; i++)
-            NRI_RETURN_ON_FAILURE(&m_Device, FindVideoReferenceDesc(desc.references, desc.referenceNum, videoDecodeDesc.references[i].slot), ReturnVoid(), "'h264PictureDesc->references' must include slot %u", videoDecodeDesc.references[i].slot);
+            NRI_RETURN_ON_FAILURE(&m_Device, video::FindReferenceDesc(desc.references, desc.referenceNum, videoDecodeDesc.references[i].slot), ReturnVoid(), "'h264PictureDesc->references' must include slot %u", videoDecodeDesc.references[i].slot);
     }
 
     if (videoDecodeDesc.h265PictureDesc) {
@@ -1394,7 +1385,7 @@ NRI_INLINE void CommandBufferVal::DecodeVideo(const VideoDecodeDesc& videoDecode
         uint32_t afterNum = 0;
         uint32_t longTermNum = 0;
         for (uint32_t i = 0; i < videoDecodeDesc.referenceNum; i++) {
-            NRI_RETURN_ON_FAILURE(&m_Device, FindVideoReferenceDesc(desc.references, desc.referenceNum, videoDecodeDesc.references[i].slot), ReturnVoid(), "'h265PictureDesc->references' must include slot %u", videoDecodeDesc.references[i].slot);
+            NRI_RETURN_ON_FAILURE(&m_Device, video::FindReferenceDesc(desc.references, desc.referenceNum, videoDecodeDesc.references[i].slot), ReturnVoid(), "'h265PictureDesc->references' must include slot %u", videoDecodeDesc.references[i].slot);
 
             const VideoH265ReferenceDesc& reference = desc.references[i];
             if (reference.longTerm)

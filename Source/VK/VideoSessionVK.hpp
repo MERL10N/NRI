@@ -433,7 +433,7 @@ NRI_INLINE Result VideoSessionVK::GetEncodeAV1DecodeInfo(BufferVK& resolvedMetad
         return Result::FAILURE;
 
     if (desc.encodedPayloadHeader && desc.encodedPayloadHeaderSize)
-        return video_av1::GetVideoAV1EncodeDecodeInfoFromHeader(desc, info);
+        return video::av1::GetEncodeDecodeInfoFromHeader(desc, info);
 
     return Result::UNSUPPORTED;
 }

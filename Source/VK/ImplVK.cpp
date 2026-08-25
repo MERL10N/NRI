@@ -1217,15 +1217,15 @@ static Result NRI_CALL GetVideoPictureState(const VideoPicture&, VideoPictureRol
 }
 
 static Result NRI_CALL WriteVideoAnnexBParameterSets(VideoAnnexBParameterSetsDesc& annexBParameterSetsDesc) {
-    return WriteVideoAnnexBParameterSetsShared(annexBParameterSetsDesc);
+    return video::WriteAnnexBParameterSets(annexBParameterSetsDesc);
 }
 
 static Result NRI_CALL WriteVideoAnnexBEndOfStream(VideoAnnexBEndOfStreamDesc& annexBEndOfStreamDesc) {
-    return WriteVideoAnnexBEndOfStreamShared(annexBEndOfStreamDesc);
+    return video::WriteAnnexBEndOfStream(annexBEndOfStreamDesc);
 }
 
 static Result NRI_CALL WriteVideoAV1ObuHeaders(VideoAV1ObuHeadersDesc& av1ObuHeadersDesc) {
-    return WriteVideoAV1ObuHeadersShared(av1ObuHeadersDesc);
+    return video::WriteAV1ObuHeaders(av1ObuHeadersDesc);
 }
 
 static void NRI_CALL CmdDecodeVideo(CommandBuffer& commandBuffer, const VideoDecodeDesc& videoDecodeDesc) {

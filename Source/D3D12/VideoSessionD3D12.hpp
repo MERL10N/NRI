@@ -126,7 +126,7 @@ static Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataRead
     if (desc.feedback->errorFlags || !desc.feedback->encodedBitstreamWrittenBytes || !desc.feedback->writtenSubregionNum)
         return Result::FAILURE;
     if (desc.encodedPayloadHeader && desc.encodedPayloadHeaderSize)
-        return video_av1::GetVideoAV1EncodeDecodeInfoFromHeader(desc, info);
+        return video::av1::GetEncodeDecodeInfoFromHeader(desc, info);
 
     const void* metadata = resolvedMetadataReadback.Map(resolvedMetadataOffset);
     if (!metadata)
@@ -152,8 +152,8 @@ static Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataRead
     info.sequence.flags |= VideoAV1SequenceBits::ENABLE_CDEF | VideoAV1SequenceBits::ENABLE_RESTORATION;
     const uint32_t width = info.sequence.maxFrameWidthMinus1 + 1;
     const uint32_t height = info.sequence.maxFrameHeightMinus1 + 1;
-    video_av1::BindPointers(info);
-    video_av1::FillSingleTileLayout(info, width, height);
+    video::av1::BindPointers(info);
+    video::av1::FillSingleTileLayout(info, width, height);
     info.tileLayout.contextUpdateTileId = (uint16_t)tilesLayout.ContextUpdateTileId;
 
     info.bitstreamOffset = subregion.bStartOffset;
@@ -200,12 +200,12 @@ static Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataRead
             refFrameIndices[i] = (uint8_t)post.ReferenceIndices[i];
         }
 
-        if (post.PrimaryRefFrame > 7 || !video_av1::BuildInterFrameReferences(desc, refFrameIndices, info))
+        if (post.PrimaryRefFrame > 7 || !video::av1::BuildInterFrameReferences(desc, refFrameIndices, info))
             return Result::FAILURE;
 
         info.picture.frameType = VideoFrameType::P;
         info.picture.refreshFrameFlags = 0;
-        info.picture.primaryReferenceName = video_av1::GetReferenceNameFromReferenceIndex((uint32_t)post.PrimaryRefFrame);
+        info.picture.primaryReferenceName = video::av1::GetReferenceNameFromReferenceIndex((uint32_t)post.PrimaryRefFrame);
         info.picture.flags = VideoAV1PictureBits::SHOW_FRAME;
     }
 
@@ -247,8 +247,8 @@ static Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataRead
     info.picture.renderWidthMinus1 = (uint16_t)(width - 1);
     info.picture.renderHeightMinus1 = (uint16_t)(height - 1);
     info.picture.baseQIndex = (uint8_t)post.Quantization.BaseQIndex;
-    info.picture.interpolationFilter = video_av1::INTERPOLATION_FILTER_EIGHTTAP;
-    info.picture.txMode = video_av1::TX_MODE_SELECT;
+    info.picture.interpolationFilter = video::av1::INTERPOLATION_FILTER_EIGHTTAP;
+    info.picture.txMode = video::av1::TX_MODE_SELECT;
     info.picture.cdefDampingMinus3 = (uint8_t)post.CDEF.CdefDampingMinus3;
     info.picture.cdefBits = (uint8_t)post.CDEF.CdefBits;
     info.picture.tileNum = 1;
@@ -260,8 +260,8 @@ static Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataRead
         info.cdef.uvSecondaryStrength[i] = (uint8_t)post.CDEF.CdefUVSecStrength[i];
     }
 
-    video_av1::FillIdentityGlobalMotion(info.globalMotion);
-    video_av1::BindPointers(info);
+    video::av1::FillIdentityGlobalMotion(info.globalMotion);
+    video::av1::BindPointers(info);
 
     return Result::SUCCESS;
 #else
@@ -426,7 +426,7 @@ Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
         }
 
         m_RateControlModes = GetSupportedVideoEncodeRateControlModesD3D12(videoDevice, codec);
-        if ((m_RateControlModes & VIDEO_ENCODE_RATE_CONTROL_CQP) == 0)
+        if ((m_RateControlModes & video::ENCODE_RATE_CONTROL_CQP) == 0)
             return Result::UNSUPPORTED;
 
         const VideoEncodeRateControlDesc defaultRateControl = {VideoEncodeRateControlMode::CQP, 26, 28, 30, 0, 51, 30, 1, 0, 0, 0, 0, 0};

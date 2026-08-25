@@ -42,8 +42,6 @@ typedef uint32_t DXGI_FORMAT;
 #include "Extensions/NRIWrapperVK.h"
 
 #include "Lock.h"
-#include "VideoAV1.h"
-#include "VideoAnnexB.h"
 #include "VideoShared.h"
 
 // NRI default settings (if not provided in "NRIConfig.h")

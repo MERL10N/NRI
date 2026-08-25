@@ -421,29 +421,6 @@ static constexpr D3D12_RESOLVE_MODE GetResolveOp(ResolveOp resolveOp) {
     return g_ResolveOps[(size_t)resolveOp];
 }
 
-static uint32_t GetVideoDecodeAV1ReferenceNameIndexD3D12(VideoAV1ReferenceName name) {
-    switch (name) {
-        case VideoAV1ReferenceName::NONE:
-            return 7;
-        case VideoAV1ReferenceName::LAST:
-            return 0;
-        case VideoAV1ReferenceName::LAST2:
-            return 1;
-        case VideoAV1ReferenceName::LAST3:
-            return 2;
-        case VideoAV1ReferenceName::GOLDEN:
-            return 3;
-        case VideoAV1ReferenceName::BWDREF:
-            return 4;
-        case VideoAV1ReferenceName::ALTREF2:
-            return 5;
-        case VideoAV1ReferenceName::ALTREF:
-            return 6;
-        default:
-            return 7;
-    }
-}
-
 static inline uint8_t GetVideoDecodeAV1FrameTypeD3D12(VideoFrameType frameType) {
     return (frameType == VideoFrameType::IDR || frameType == VideoFrameType::I) ? 0 : 1;
 }
@@ -459,30 +436,6 @@ static inline bool GetVideoDecodeReferenceSlotCountD3D12(const VideoReference* r
     }
 
     return true;
-}
-
-static inline const VideoH264SequenceParameterSetDesc* FindVideoH264SequenceParameterSetD3D12(const VideoH264SessionParametersDesc& parameters, uint8_t id) {
-    if (!parameters.sequenceParameterSets)
-        return nullptr;
-
-    for (uint32_t i = 0; i < parameters.sequenceParameterSetNum; i++) {
-        if (parameters.sequenceParameterSets[i].sequenceParameterSetId == id)
-            return &parameters.sequenceParameterSets[i];
-    }
-
-    return nullptr;
-}
-
-static inline const VideoH264PictureParameterSetDesc* FindVideoH264PictureParameterSetD3D12(const VideoH264SessionParametersDesc& parameters, uint8_t id) {
-    if (!parameters.pictureParameterSets)
-        return nullptr;
-
-    for (uint32_t i = 0; i < parameters.pictureParameterSetNum; i++) {
-        if (parameters.pictureParameterSets[i].pictureParameterSetId == id)
-            return &parameters.pictureParameterSets[i];
-    }
-
-    return nullptr;
 }
 
 static bool BuildVideoDecodeH264ArgumentsD3D12(const VideoH264SessionParametersDesc& parameters, const VideoH264DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
@@ -507,11 +460,11 @@ static bool BuildVideoDecodeH264ArgumentsD3D12(const VideoH264SessionParametersD
         usedReferenceSlots[wordIndex] |= slotBit;
     }
 
-    const VideoH264PictureParameterSetDesc* pps = FindVideoH264PictureParameterSetD3D12(parameters, pictureDesc.pictureParameterSetId);
+    const VideoH264PictureParameterSetDesc* pps = video::FindParameterSet(parameters.pictureParameterSets, parameters.pictureParameterSetNum, &VideoH264PictureParameterSetDesc::pictureParameterSetId, pictureDesc.pictureParameterSetId);
     if (!pps)
         return false;
 
-    const VideoH264SequenceParameterSetDesc* sps = FindVideoH264SequenceParameterSetD3D12(parameters, pictureDesc.sequenceParameterSetId);
+    const VideoH264SequenceParameterSetDesc* sps = video::FindParameterSet(parameters.sequenceParameterSets, parameters.sequenceParameterSetNum, &VideoH264SequenceParameterSetDesc::sequenceParameterSetId, pictureDesc.sequenceParameterSetId);
     if (!sps || pps->sequenceParameterSetId != sps->sequenceParameterSetId)
         return false;
 
@@ -606,30 +559,6 @@ static bool BuildVideoDecodeH264ArgumentsD3D12(const VideoH264SessionParametersD
     return true;
 }
 
-static inline const VideoH265SequenceParameterSetDesc* FindVideoH265SequenceParameterSetD3D12(const VideoH265SessionParametersDesc& parameters, uint8_t id) {
-    if (!parameters.sequenceParameterSets)
-        return nullptr;
-
-    for (uint32_t i = 0; i < parameters.sequenceParameterSetNum; i++) {
-        if (parameters.sequenceParameterSets[i].sequenceParameterSetId == id)
-            return &parameters.sequenceParameterSets[i];
-    }
-
-    return nullptr;
-}
-
-static inline const VideoH265PictureParameterSetDesc* FindVideoH265PictureParameterSetD3D12(const VideoH265SessionParametersDesc& parameters, uint8_t id) {
-    if (!parameters.pictureParameterSets)
-        return nullptr;
-
-    for (uint32_t i = 0; i < parameters.pictureParameterSetNum; i++) {
-        if (parameters.pictureParameterSets[i].pictureParameterSetId == id)
-            return &parameters.pictureParameterSets[i];
-    }
-
-    return nullptr;
-}
-
 static inline void FillVideoH265ScalingListsD3D12(DXVA_Qmatrix_HEVC& matrix, const VideoH265ScalingListsDesc* scalingLists) {
     matrix = {};
     if (scalingLists) {
@@ -656,17 +585,17 @@ static bool BuildVideoDecodeH265ArgumentsD3D12(const VideoH265SessionParametersD
     if (sliceNum == 0 || sliceNum != pictureDesc.sliceSegmentOffsetNum || !pictureDesc.sliceSegmentOffsets || !slices)
         return false;
 
-    if (pictureDesc.referenceNum > VIDEO_HEVC_MAX_REFERENCE_NUM || (pictureDesc.referenceNum && !pictureDesc.references))
+    if (pictureDesc.referenceNum > video::h265::MAX_REFERENCE_NUM || (pictureDesc.referenceNum && !pictureDesc.references))
         return false;
 
     if (dstSlot > VIDEO_DECODE_MAX_PIC_ENTRY_SLOT || bitstreamSize > UINT32_MAX)
         return false;
 
-    const VideoH265PictureParameterSetDesc* pps = FindVideoH265PictureParameterSetD3D12(parameters, pictureDesc.pictureParameterSetId);
+    const VideoH265PictureParameterSetDesc* pps = video::FindParameterSet(parameters.pictureParameterSets, parameters.pictureParameterSetNum, &VideoH265PictureParameterSetDesc::pictureParameterSetId, pictureDesc.pictureParameterSetId);
     if (!pps)
         return false;
 
-    const VideoH265SequenceParameterSetDesc* sps = FindVideoH265SequenceParameterSetD3D12(parameters, pictureDesc.sequenceParameterSetId);
+    const VideoH265SequenceParameterSetDesc* sps = video::FindParameterSet(parameters.sequenceParameterSets, parameters.sequenceParameterSetNum, &VideoH265SequenceParameterSetDesc::sequenceParameterSetId, pictureDesc.sequenceParameterSetId);
     if (!sps || pps->sequenceParameterSetId != sps->sequenceParameterSetId || pps->videoParameterSetId != sps->videoParameterSetId)
         return false;
 
@@ -803,36 +732,6 @@ static bool BuildVideoDecodeH265ArgumentsD3D12(const VideoH265SessionParametersD
 }
 
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
-static inline bool IsVideoFrameTypeSupportedByD3D12(VideoCodec codec, VideoFrameType frameType, bool isBFrameSupported) {
-    return frameType != VideoFrameType::B || ((codec == VideoCodec::H264 || codec == VideoCodec::H265) && isBFrameSupported);
-}
-
-static inline bool IsVideoEncodePictureUsedAsReferenceD3D12(VideoCodec codec, VideoFrameType frameType, uint32_t maxReferenceNum, bool hasReconstructedPicture, uint8_t av1RefreshFrameFlags) {
-    if (!maxReferenceNum || !hasReconstructedPicture)
-        return false;
-
-    if ((codec == VideoCodec::H264 || codec == VideoCodec::H265) && frameType == VideoFrameType::B)
-        return false;
-
-    return codec != VideoCodec::AV1 || av1RefreshFrameFlags != 0;
-}
-
-static inline uint8_t GetVideoEncodeQPByFrameTypeD3D12(const VideoEncodeRateControlDesc& rateControlDesc, VideoFrameType frameType) {
-    return frameType == VideoFrameType::B ? rateControlDesc.qpB : (frameType == VideoFrameType::P ? rateControlDesc.qpP : rateControlDesc.qpI);
-}
-
-static inline const VideoH264EncodeReferenceDesc* FindVideoEncodeH264ReferenceDesc(const VideoH264EncodePictureDesc* h264PictureDesc, uint32_t slot) {
-    if (!h264PictureDesc)
-        return nullptr;
-
-    for (uint32_t i = 0; i < h264PictureDesc->referenceNum; i++) {
-        if (h264PictureDesc->references[i].slot == slot)
-            return &h264PictureDesc->references[i];
-    }
-
-    return nullptr;
-}
-
 static inline D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE GetVideoEncodeAV1FrameTypeD3D12(VideoFrameType frameType) {
     switch (frameType) {
         case VideoFrameType::IDR:
@@ -843,29 +742,6 @@ static inline D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE GetVideoEncodeAV1FrameTypeD3D12
             return D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE_INTER_FRAME;
         default:
             return (D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE)-1;
-    }
-}
-
-static uint32_t GetVideoEncodeAV1ReferenceNameIndexD3D12(VideoAV1ReferenceName name) {
-    switch (name) {
-        case VideoAV1ReferenceName::NONE:
-            return 7;
-        case VideoAV1ReferenceName::LAST:
-            return 0;
-        case VideoAV1ReferenceName::LAST2:
-            return 1;
-        case VideoAV1ReferenceName::LAST3:
-            return 2;
-        case VideoAV1ReferenceName::GOLDEN:
-            return 3;
-        case VideoAV1ReferenceName::BWDREF:
-            return 4;
-        case VideoAV1ReferenceName::ALTREF2:
-            return 5;
-        case VideoAV1ReferenceName::ALTREF:
-            return 6;
-        default:
-            return 7;
     }
 }
 
@@ -1025,7 +901,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
         if (!h264Parameters)
             return;
 
-        const uint32_t h264DstSlot = GetVideoDecodeSetupSlot(videoDecodeDesc);
+        const uint32_t h264DstSlot = video::GetDecodeSetupSlot(videoDecodeDesc);
         const bool areH264ArgumentsBuilt = BuildVideoDecodeH264ArgumentsD3D12(*h264Parameters, *videoDecodeDesc.h264PictureDesc, videoDecodeDesc.bitstream.size, h264DstSlot,
             h264PictureParameters, h264InverseQuantizationMatrix, h264Slices, videoDecodeDesc.h264PictureDesc->sliceOffsetNum);
         NRI_CHECK(areH264ArgumentsBuilt, "Failed to build D3D12 H.264 decode arguments from validated neutral descriptors");
@@ -1071,7 +947,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
         const VideoAV1SessionParametersDesc defaultAV1Parameters = {GetDefaultVideoAV1SequenceDescD3D12(sessionDesc.width, sessionDesc.height, sessionDesc.format)};
         const VideoAV1SessionParametersDesc& av1Parameters = (parameters && parameters->GetAV1Parameters()) ? *parameters->GetAV1Parameters() : defaultAV1Parameters;
         const VideoAV1SequenceDesc& sequence = av1Parameters.sequence;
-        const VideoAV1PictureBits pictureFlags = desc.flags == VideoAV1PictureBits::NONE ? GetDefaultVideoAV1PictureFlags() : desc.flags;
+        const VideoAV1PictureBits pictureFlags = desc.flags == VideoAV1PictureBits::NONE ? video::av1::GetDefaultPictureFlags() : desc.flags;
         av1PictureParameters.width = sessionDesc.width;
         av1PictureParameters.height = sessionDesc.height;
         av1PictureParameters.max_width = sequence.maxFrameWidthMinus1 + 1;
@@ -1124,17 +1000,17 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
         av1PictureParameters.format.subsampling_x = sequence.subsamplingX;
         av1PictureParameters.format.subsampling_y = sequence.subsamplingY;
         av1PictureParameters.format.mono_chrome = !!(sequence.flags & VideoAV1SequenceBits::MONO_CHROME);
-        av1PictureParameters.primary_ref_frame = (UCHAR)GetVideoDecodeAV1ReferenceNameIndexD3D12(desc.primaryReferenceName);
+        av1PictureParameters.primary_ref_frame = (UCHAR)video::av1::GetReferenceNameIndex(desc.primaryReferenceName);
         av1PictureParameters.order_hint = desc.orderHint;
         av1PictureParameters.order_hint_bits = (UCHAR)(sequence.orderHintBitsMinus1 + 1);
         std::memset(av1PictureParameters.RefFrameMapTextureIndex, 0xFF, sizeof(av1PictureParameters.RefFrameMapTextureIndex));
-        for (uint32_t i = 0; i < 7; i++)
+        for (uint32_t i = 0; i < video::av1::REFERENCE_NAME_NUM; i++)
             av1PictureParameters.frame_refs[i].Index = 0xFF;
         for (uint32_t i = 0; i < desc.referenceNum; i++) {
             const VideoAV1ReferenceDesc& reference = desc.references[i];
             av1PictureParameters.RefFrameMapTextureIndex[reference.refFrameIndex] = (UCHAR)reference.slot;
-            const uint32_t referenceNameIndex = GetVideoDecodeAV1ReferenceNameIndexD3D12(reference.name);
-            if (referenceNameIndex < 7) {
+            const uint32_t referenceNameIndex = video::av1::GetReferenceNameIndex(reference.name);
+            if (referenceNameIndex < video::av1::REFERENCE_NAME_NUM) {
                 av1PictureParameters.frame_refs[referenceNameIndex].Index = reference.refFrameIndex;
                 av1PictureParameters.frame_refs[referenceNameIndex].width = sessionDesc.width;
                 av1PictureParameters.frame_refs[referenceNameIndex].height = sessionDesc.height;
@@ -1288,7 +1164,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
     const bool h264NeutralDecode = videoDecodeDesc.h264PictureDesc != nullptr;
     const bool h265NeutralDecode = videoDecodeDesc.h265PictureDesc != nullptr;
     const bool av1NeutralDecode = videoDecodeDesc.av1PictureDesc != nullptr;
-    const uint32_t setupSlot = GetVideoDecodeSetupSlot(videoDecodeDesc);
+    const uint32_t setupSlot = video::GetDecodeSetupSlot(videoDecodeDesc);
 
     uint32_t referenceSlotCount = 0;
     const bool isReferenceSlotCountValid = GetVideoDecodeReferenceSlotCountD3D12(videoDecodeDesc.references, videoDecodeDesc.referenceNum, referenceSlotCount);
@@ -1364,7 +1240,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
         referenceSubresources[i] = reference.GetSubresource();
 
         if (sessionDesc.codec == VideoCodec::H264) {
-            const VideoH264EncodeReferenceDesc* referenceDesc = FindVideoEncodeH264ReferenceDesc(videoEncodeDesc.h264PictureDesc, videoEncodeDesc.references[i].slot);
+            const VideoH264EncodeReferenceDesc* referenceDesc = video::FindReferenceDesc(videoEncodeDesc.h264PictureDesc, videoEncodeDesc.references[i].slot);
             NRI_CHECK(referenceDesc, "H.264 reference is missing after NRI validation");
 
             if (referenceDesc->listIndex == 0)
@@ -1384,7 +1260,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
 
     const VideoEncodeRateControlDesc defaultRateControl = {VideoEncodeRateControlMode::CQP, 26, 28, 30, 0, 51, 30, 1, 0, 0, 0, 0, 0};
     const VideoEncodeRateControlDesc& rateControlDesc = videoEncodeDesc.rateControlDesc ? *videoEncodeDesc.rateControlDesc : defaultRateControl;
-    if ((session.GetRateControlModes() & GetVideoEncodeRateControlModeMask(rateControlDesc.mode)) == 0) {
+    if ((session.GetRateControlModes() & video::GetEncodeRateControlModeMask(rateControlDesc.mode)) == 0) {
         NRI_REPORT_ERROR(&m_Device, "Unsupported D3D12 video encode rate control mode");
         return;
     }
@@ -1457,7 +1333,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
     VideoEncodePictureDesc pictureDesc = videoEncodeDesc.pictureDesc ? *videoEncodeDesc.pictureDesc : defaultPicture;
     if (videoEncodeDesc.flags & VideoEncodeBits::FORCE_KEY_FRAME)
         pictureDesc.frameType = VideoFrameType::IDR;
-    if (!IsVideoFrameTypeSupportedByD3D12(sessionDesc.codec, pictureDesc.frameType, session.IsBFrameSupported())) {
+    if (!video::IsFrameTypeSupported(sessionDesc.codec, pictureDesc.frameType, session.IsBFrameSupported())) {
         NRI_REPORT_ERROR(&m_Device, "D3D12 video encode session does not support the requested frame type");
         return;
     }
@@ -1514,9 +1390,9 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
     Scratch<UINT> hevcList1References = NRI_ALLOCATE_SCRATCH(m_Device, UINT, videoEncodeDesc.referenceNum ? videoEncodeDesc.referenceNum : 1);
     Scratch<D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_HEVC> hevcReferenceDescriptors = NRI_ALLOCATE_SCRATCH(m_Device, D3D12_VIDEO_ENCODER_REFERENCE_PICTURE_DESCRIPTOR_HEVC, videoEncodeDesc.referenceNum ? videoEncodeDesc.referenceNum : 1);
     if (sessionDesc.codec == VideoCodec::H265) {
-        VideoEncodeHEVCReferenceListsD3D12 hevcReferenceLists = {};
-        if (!BuildVideoEncodeHEVCReferenceListsD3D12(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, pictureDesc.frameType,
-                pictureDesc.pictureOrderCount, hevcReferenceLists)) {
+        video::h265::EncodeReferenceLists hevcReferenceLists = {};
+        if (!video::h265::BuildEncodeReferenceLists(videoEncodeDesc.references, videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, pictureDesc.frameType,
+                pictureDesc.pictureOrderCount, true, hevcReferenceLists)) {
             NRI_CHECK(false, "Failed to build D3D12 H.265 reference lists from validated descriptors");
             return;
         }
@@ -1526,7 +1402,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
             hevcList1References[i] = hevcReferenceLists.list1[i];
 
         for (uint32_t i = 0; i < videoEncodeDesc.referenceNum; i++) {
-            const VideoH265ReferenceDesc* referenceDesc = FindVideoReferenceDesc(videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, videoEncodeDesc.references[i].slot);
+            const VideoH265ReferenceDesc* referenceDesc = video::FindReferenceDesc(videoEncodeDesc.h265ReferenceDescs, videoEncodeDesc.referenceNum, videoEncodeDesc.references[i].slot);
             hevcReferenceDescriptors[i] = {};
             hevcReferenceDescriptors[i].ReconstructedPictureResourceIndex = i;
             hevcReferenceDescriptors[i].IsRefUsedByCurrentPic = TRUE;
@@ -1556,14 +1432,11 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
 
         for (auto& referenceDescriptor : av1Picture.ReferenceFramesReconPictureDescriptors)
             referenceDescriptor.ReconstructedPictureResourceIndex = 0xFF;
-        std::array<uint32_t, 7> referenceNameSlots = {};
-        for (uint32_t& slot : referenceNameSlots)
-            slot = UINT32_MAX;
-        std::array<bool, 7> av1ReferenceNameSpecified = {};
+        std::array<bool, video::av1::REFERENCE_NAME_NUM> av1ReferenceNameSpecified = {};
 
         const VideoAV1PictureBits pictureFlags = (videoEncodeDesc.av1PictureDesc && videoEncodeDesc.av1PictureDesc->flags != VideoAV1PictureBits::NONE)
             ? videoEncodeDesc.av1PictureDesc->flags
-            : GetDefaultVideoAV1PictureFlags();
+            : video::av1::GetDefaultPictureFlags();
         if (pictureFlags & VideoAV1PictureBits::ERROR_RESILIENT_MODE)
             av1Picture.Flags |= D3D12_VIDEO_ENCODER_AV1_PICTURE_CONTROL_FLAG_ENABLE_ERROR_RESILIENT_MODE;
         if (session.GetAV1FeatureFlags() & D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_LOOP_RESTORATION_FILTER) {
@@ -1600,7 +1473,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
         }
         av1Picture.Quantization.BaseQIndex = (videoEncodeDesc.av1PictureDesc && videoEncodeDesc.av1PictureDesc->baseQIndex)
             ? videoEncodeDesc.av1PictureDesc->baseQIndex
-            : GetVideoEncodeQPByFrameTypeD3D12(rateControlDesc, pictureDesc.frameType);
+            : video::GetEncodeQPByFrameType(rateControlDesc, pictureDesc.frameType);
 
         if (av1Picture.Quantization.BaseQIndex < VIDEO_D3D12_ENCODE_AV1_MIN_Q_INDEX || av1Picture.Quantization.BaseQIndex > VIDEO_D3D12_ENCODE_AV1_MAX_Q_INDEX) {
             NRI_REPORT_ERROR(&m_Device, "AV1 base Q index must be in [%u, %u]", VIDEO_D3D12_ENCODE_AV1_MIN_Q_INDEX, VIDEO_D3D12_ENCODE_AV1_MAX_Q_INDEX);
@@ -1666,15 +1539,9 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
         if (videoEncodeDesc.av1PictureDesc) {
             for (uint32_t i = 0; i < videoEncodeDesc.av1PictureDesc->referenceNum; i++) {
                 const VideoAV1ReferenceDesc& reference = videoEncodeDesc.av1PictureDesc->references[i];
-                const uint32_t referenceNameIndex = GetVideoEncodeAV1ReferenceNameIndexD3D12(reference.name);
+                const uint32_t referenceNameIndex = video::av1::GetReferenceNameIndex(reference.name);
 
-                uint32_t resourceIndex = UINT32_MAX;
-                for (uint32_t j = 0; j < videoEncodeDesc.referenceNum; j++) {
-                    if (videoEncodeDesc.references[j].slot == reference.slot) {
-                        resourceIndex = j;
-                        break;
-                    }
-                }
+                const uint32_t resourceIndex = video::FindReferenceIndex(videoEncodeDesc.references, videoEncodeDesc.referenceNum, reference.slot);
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex] = {};
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].ReconstructedPictureResourceIndex = resourceIndex;
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].TemporalLayerIndexPlus1 = reference.frameType == VideoFrameType::MAX_NUM ? 0 : 1;
@@ -1685,22 +1552,21 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
                 if (reference.name != VideoAV1ReferenceName::NONE) {
                     av1Picture.ReferenceIndices[referenceNameIndex] = reference.refFrameIndex;
                     av1ReferenceNameSpecified[referenceNameIndex] = true;
-                    referenceNameSlots[referenceNameIndex] = reference.slot;
                 }
             }
 
             // Unspecified AV1 reference names must resolve to an invalid DPB descriptor, otherwise D3D12 treats them as active references.
             uint32_t invalidReferenceIndex = UINT32_MAX;
-            for (uint32_t i = 0; i < 8; i++) {
+            for (uint32_t i = 0; i < video::av1::REFERENCE_FRAME_NUM; i++) {
                 if (av1Picture.ReferenceFramesReconPictureDescriptors[i].ReconstructedPictureResourceIndex == 0xFF) {
                     invalidReferenceIndex = i;
                     break;
                 }
             }
-            const uint32_t primaryReferenceNameIndex = GetVideoEncodeAV1ReferenceNameIndexD3D12(videoEncodeDesc.av1PictureDesc->primaryReferenceName);
-            const uint32_t unusedReferenceIndex = primaryReferenceNameIndex < 7 ? av1Picture.ReferenceIndices[primaryReferenceNameIndex] : invalidReferenceIndex;
-            av1Picture.PrimaryRefFrame = primaryReferenceNameIndex < 7 ? (UCHAR)primaryReferenceNameIndex : 7;
-            for (uint32_t i = 0; i < 7; i++) {
+            const uint32_t primaryReferenceNameIndex = video::av1::GetReferenceNameIndex(videoEncodeDesc.av1PictureDesc->primaryReferenceName);
+            const uint32_t unusedReferenceIndex = primaryReferenceNameIndex < video::av1::REFERENCE_NAME_NUM ? av1Picture.ReferenceIndices[primaryReferenceNameIndex] : invalidReferenceIndex;
+            av1Picture.PrimaryRefFrame = primaryReferenceNameIndex < video::av1::REFERENCE_NAME_NUM ? (UCHAR)primaryReferenceNameIndex : video::av1::REFERENCE_NAME_NUM;
+            for (uint32_t i = 0; i < video::av1::REFERENCE_NAME_NUM; i++) {
                 if (av1ReferenceNameSpecified[i])
                     continue;
 
@@ -1734,7 +1600,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
         pictureCodecData.pAV1PicData = &av1Picture;
     }
 
-    const bool isUsedAsReferencePicture = IsVideoEncodePictureUsedAsReferenceD3D12(sessionDesc.codec, pictureDesc.frameType, sessionDesc.maxReferenceNum,
+    const bool isUsedAsReferencePicture = video::IsEncodePictureUsedAsReference(sessionDesc.codec, pictureDesc.frameType, sessionDesc.maxReferenceNum,
         videoEncodeDesc.reconstructedPicture != nullptr, av1RefreshFrameFlags);
 
     if (isUsedAsReferencePicture)

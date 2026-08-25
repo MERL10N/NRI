@@ -201,7 +201,7 @@ static inline bool HasUniqueVideoReferenceSlots(const VideoReference* references
 }
 
 static inline bool IsVideoDecodeDpbLayoutValid(const VideoDecodeDesc& desc, uint32_t maxReferenceNum) {
-    if (desc.referenceNum > maxReferenceNum || (desc.referenceNum && !desc.references) || GetVideoDecodeSetupSlot(desc) > maxReferenceNum || (desc.references && !HasUniqueVideoReferenceSlots(desc.references, desc.referenceNum)))
+    if (desc.referenceNum > maxReferenceNum || (desc.referenceNum && !desc.references) || video::GetDecodeSetupSlot(desc) > maxReferenceNum || (desc.references && !HasUniqueVideoReferenceSlots(desc.references, desc.referenceNum)))
         return false;
 
     for (uint32_t i = 0; i < desc.referenceNum; i++) {
@@ -1762,18 +1762,18 @@ static Result NRI_CALL WriteVideoAnnexBParameterSets(VideoAnnexBParameterSetsDes
     } else
         return Result::UNSUPPORTED;
 
-    return WriteVideoAnnexBParameterSetsShared(annexBParameterSetsDesc);
+    return video::WriteAnnexBParameterSets(annexBParameterSetsDesc);
 }
 
 static Result NRI_CALL WriteVideoAnnexBEndOfStream(VideoAnnexBEndOfStreamDesc& annexBEndOfStreamDesc) {
     if (annexBEndOfStreamDesc.codec != VideoCodec::H264 && annexBEndOfStreamDesc.codec != VideoCodec::H265)
         return Result::UNSUPPORTED;
 
-    return WriteVideoAnnexBEndOfStreamShared(annexBEndOfStreamDesc);
+    return video::WriteAnnexBEndOfStream(annexBEndOfStreamDesc);
 }
 
 static Result NRI_CALL WriteVideoAV1ObuHeaders(VideoAV1ObuHeadersDesc& av1ObuHeadersDesc) {
-    return WriteVideoAV1ObuHeadersShared(av1ObuHeadersDesc);
+    return video::WriteAV1ObuHeaders(av1ObuHeadersDesc);
 }
 
 static void NRI_CALL CmdDecodeVideo(CommandBuffer& commandBuffer, const VideoDecodeDesc& videoDecodeDesc) {

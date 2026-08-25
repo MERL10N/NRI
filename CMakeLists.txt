@@ -394,8 +394,6 @@ set(SHARED_SOURCE
     "Source/Shared/StreamerInterface.hpp"
     "Source/Shared/UpscalerInterface.h"
     "Source/Shared/UpscalerInterface.hpp"
-    "Source/Shared/VideoAV1.h"
-    "Source/Shared/VideoAnnexB.h"
     "Source/Shared/VideoShared.h"
 )
 

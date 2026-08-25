@@ -98,7 +98,7 @@ static StdVideoH264PictureParameterSet GetVideoH264PictureParameterSetVK(const V
     return pps;
 }
 
-static bool SkipVideoAV1TimingInfoVK(video_av1::BitReader& reader) {
+static bool SkipVideoAV1TimingInfoVK(video::av1::BitReader& reader) {
     uint32_t ignored = 0;
     uint8_t equalPictureInterval = 0;
     if (!reader.ReadBits(32, ignored) || !reader.ReadBits(32, ignored) || !reader.ReadFlag(equalPictureInterval))
@@ -115,7 +115,7 @@ static bool SkipVideoAV1TimingInfoVK(video_av1::BitReader& reader) {
     return true;
 }
 
-static bool SkipVideoAV1DecoderModelInfoVK(video_av1::BitReader& reader, uint32_t& bufferDelayLength) {
+static bool SkipVideoAV1DecoderModelInfoVK(video::av1::BitReader& reader, uint32_t& bufferDelayLength) {
     uint32_t ignored = 0;
     if (!reader.ReadBits(5, bufferDelayLength) || !reader.ReadBits(32, ignored) || !reader.ReadBits(5, ignored) || !reader.ReadBits(5, ignored))
         return false;
@@ -127,13 +127,13 @@ static bool SkipVideoAV1DecoderModelInfoVK(video_av1::BitReader& reader, uint32_
 static bool ApplyVideoEncodeAV1SequenceHeaderOverrideVK(StdVideoAV1SequenceHeader& header, const uint8_t* data, size_t size) {
     size_t cursor = 0;
     while (cursor < size) {
-        video_av1::ObuSpan span = {};
-        if (!video_av1::ReadObuHeader(data, size, cursor, span))
+        video::av1::ObuSpan span = {};
+        if (!video::av1::ReadObuHeader(data, size, cursor, span))
             return false;
-        if (span.type != video_av1::ObuType::SequenceHeader)
+        if (span.type != video::av1::ObuType::SequenceHeader)
             continue;
 
-        video_av1::BitReader reader{data + span.payloadOffset, span.payloadSize, 0};
+        video::av1::BitReader reader{data + span.payloadOffset, span.payloadSize, 0};
         uint32_t ignored = 0;
         uint8_t reducedStillPictureHeader = 0;
         uint8_t ignoredFlag = 0;
@@ -467,7 +467,7 @@ NRI_INLINE Result VideoSessionParametersVK::CreateAV1(VideoSessionVK& session, c
             timingInfo = &m_AV1TimingInfo;
         }
         FillVideoAV1SequenceHeaderVK(m_AV1SequenceHeader, parameters->sequence, m_AV1ColorConfig, timingInfo);
-        m_AV1OperatingPoint.seq_level_idx = (uint8_t)GetVideoAV1LevelVK(parameters->sequence.level, session.GetDesc().width, session.GetDesc().height);
+        m_AV1OperatingPoint.seq_level_idx = video::av1::GetLevelIndex(parameters->sequence.level, session.GetDesc().width, session.GetDesc().height);
     } else {
         m_AV1ColorConfig.BitDepth = (session.GetDesc().format == Format::P010_UNORM || session.GetDesc().format == Format::P016_UNORM) ? 10 : 8;
         m_AV1ColorConfig.subsampling_x = 1;
@@ -487,7 +487,7 @@ NRI_INLINE Result VideoSessionParametersVK::CreateAV1(VideoSessionVK& session, c
         m_AV1SequenceHeader.seq_force_integer_mv = STD_VIDEO_AV1_SELECT_INTEGER_MV;
         m_AV1SequenceHeader.seq_force_screen_content_tools = STD_VIDEO_AV1_SELECT_SCREEN_CONTENT_TOOLS;
         m_AV1SequenceHeader.pColorConfig = &m_AV1ColorConfig;
-        m_AV1OperatingPoint.seq_level_idx = (uint8_t)GetVideoAV1LevelVK(session.GetDesc().width, session.GetDesc().height);
+        m_AV1OperatingPoint.seq_level_idx = video::av1::GetLevelIndex(0, session.GetDesc().width, session.GetDesc().height);
     }
 
     if (session.GetDesc().type == VideoSessionType::ENCODE) {

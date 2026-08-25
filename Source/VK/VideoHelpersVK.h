@@ -6,6 +6,9 @@
 
 namespace nri {
 
+static_assert(video::av1::REFERENCE_NAME_NUM == VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR);
+static_assert(video::av1::REFERENCE_NAME_NUM == STD_VIDEO_AV1_PRIMARY_REF_NONE);
+
 static inline VkVideoEncodeRateControlModeFlagBitsKHR GetVideoEncodeRateControlModeVK(VideoEncodeRateControlMode mode) {
     switch (mode) {
         case VideoEncodeRateControlMode::CQP:
@@ -20,11 +23,11 @@ static inline VkVideoEncodeRateControlModeFlagBitsKHR GetVideoEncodeRateControlM
 }
 
 static inline uint32_t GetSupportedVideoEncodeRateControlModesVK(VkVideoEncodeRateControlModeFlagsKHR modes) {
-    uint32_t result = VIDEO_ENCODE_RATE_CONTROL_CQP;
+    uint32_t result = video::ENCODE_RATE_CONTROL_CQP;
     if (modes & VK_VIDEO_ENCODE_RATE_CONTROL_MODE_CBR_BIT_KHR)
-        result |= VIDEO_ENCODE_RATE_CONTROL_CBR;
+        result |= video::ENCODE_RATE_CONTROL_CBR;
     if (modes & VK_VIDEO_ENCODE_RATE_CONTROL_MODE_VBR_BIT_KHR)
-        result |= VIDEO_ENCODE_RATE_CONTROL_VBR;
+        result |= video::ENCODE_RATE_CONTROL_VBR;
 
     return result;
 }
@@ -119,115 +122,6 @@ static inline void FillVideoEncodeAV1CapabilitiesVK(VideoAV1Capabilities& videoA
     videoAV1Capabilities.av1EncodeSupportedFeatureFlags = GetSupportedVideoEncodeAV1FeatureFlagsVK(capabilities.stdSyntaxFlags);
 }
 
-static inline uint8_t GetVideoAV1ReferenceNameIndexVK(VideoAV1ReferenceName name) {
-    switch (name) {
-        case VideoAV1ReferenceName::NONE:
-            return STD_VIDEO_AV1_PRIMARY_REF_NONE;
-        case VideoAV1ReferenceName::LAST:
-            return 0;
-        case VideoAV1ReferenceName::LAST2:
-            return 1;
-        case VideoAV1ReferenceName::LAST3:
-            return 2;
-        case VideoAV1ReferenceName::GOLDEN:
-            return 3;
-        case VideoAV1ReferenceName::BWDREF:
-            return 4;
-        case VideoAV1ReferenceName::ALTREF2:
-            return 5;
-        case VideoAV1ReferenceName::ALTREF:
-            return 6;
-        default:
-            return STD_VIDEO_AV1_PRIMARY_REF_NONE;
-    }
-}
-
-static inline uint8_t GetVideoAV1NamedReferenceIndexVK(VideoAV1ReferenceName name) {
-    const uint8_t referenceNameIndex = GetVideoAV1ReferenceNameIndexVK(name);
-    return (name != VideoAV1ReferenceName::NONE && referenceNameIndex < VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR)
-        ? referenceNameIndex
-        : VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR;
-}
-
-static inline uint8_t GetVideoEncodeQPByFrameTypeVK(const VideoEncodeRateControlDesc& rateControlDesc, VideoFrameType frameType) {
-    return frameType == VideoFrameType::B ? rateControlDesc.qpB : (frameType == VideoFrameType::P ? rateControlDesc.qpP : rateControlDesc.qpI);
-}
-
-static inline bool IsVideoFrameTypeSupportedByVK(VideoCodec codec, VideoFrameType frameType) {
-    return frameType != VideoFrameType::B || codec == VideoCodec::H264 || codec == VideoCodec::H265;
-}
-
-static inline bool IsVideoEncodePictureUsedAsReferenceVK(VideoCodec codec, VideoFrameType frameType, uint32_t maxReferenceNum, bool hasReconstructedPicture, uint8_t av1RefreshFrameFlags) {
-    if (!maxReferenceNum || !hasReconstructedPicture)
-        return false;
-
-    if ((codec == VideoCodec::H264 || codec == VideoCodec::H265) && frameType == VideoFrameType::B)
-        return false;
-
-    return codec != VideoCodec::AV1 || av1RefreshFrameFlags != 0;
-}
-
-static inline StdVideoAV1Level GetVideoAV1LevelVK(uint32_t width, uint32_t height) {
-    const uint64_t samples = uint64_t(width) * height;
-    if (samples <= 512ull * 288ull)
-        return STD_VIDEO_AV1_LEVEL_2_0;
-    if (samples <= 704ull * 396ull)
-        return STD_VIDEO_AV1_LEVEL_2_1;
-    if (samples <= 1088ull * 612ull)
-        return STD_VIDEO_AV1_LEVEL_3_0;
-    if (samples <= 1376ull * 774ull)
-        return STD_VIDEO_AV1_LEVEL_3_1;
-    if (samples <= 2048ull * 1152ull)
-        return STD_VIDEO_AV1_LEVEL_4_0;
-    if (samples <= 4096ull * 2176ull)
-        return STD_VIDEO_AV1_LEVEL_5_0;
-
-    return STD_VIDEO_AV1_LEVEL_5_1;
-}
-
-static inline StdVideoAV1Level GetVideoAV1LevelVK(uint8_t level, uint32_t width, uint32_t height) {
-    switch (level) {
-        case 20:
-            return STD_VIDEO_AV1_LEVEL_2_0;
-        case 21:
-            return STD_VIDEO_AV1_LEVEL_2_1;
-        case 30:
-            return STD_VIDEO_AV1_LEVEL_3_0;
-        case 31:
-            return STD_VIDEO_AV1_LEVEL_3_1;
-        case 40:
-            return STD_VIDEO_AV1_LEVEL_4_0;
-        case 41:
-            return STD_VIDEO_AV1_LEVEL_4_1;
-        case 50:
-            return STD_VIDEO_AV1_LEVEL_5_0;
-        case 51:
-            return STD_VIDEO_AV1_LEVEL_5_1;
-        case 52:
-            return STD_VIDEO_AV1_LEVEL_5_2;
-        case 53:
-            return STD_VIDEO_AV1_LEVEL_5_3;
-        case 60:
-            return STD_VIDEO_AV1_LEVEL_6_0;
-        case 61:
-            return STD_VIDEO_AV1_LEVEL_6_1;
-        case 62:
-            return STD_VIDEO_AV1_LEVEL_6_2;
-        case 63:
-            return STD_VIDEO_AV1_LEVEL_6_3;
-        case 70:
-            return STD_VIDEO_AV1_LEVEL_7_0;
-        case 71:
-            return STD_VIDEO_AV1_LEVEL_7_1;
-        case 72:
-            return STD_VIDEO_AV1_LEVEL_7_2;
-        case 73:
-            return STD_VIDEO_AV1_LEVEL_7_3;
-        default:
-            return GetVideoAV1LevelVK(width, height);
-    }
-}
-
 static inline uint8_t GetVideoAV1SizeBitsMinus1VK(uint32_t value) {
     uint8_t bits = 0;
     value--;
@@ -237,10 +131,6 @@ static inline uint8_t GetVideoAV1SizeBitsMinus1VK(uint32_t value) {
     } while (value);
 
     return bits - 1;
-}
-
-static inline VideoAV1PictureBits GetDefaultVideoAV1PictureFlagsVK() {
-    return VideoAV1PictureBits::ERROR_RESILIENT_MODE | VideoAV1PictureBits::DISABLE_CDF_UPDATE | VideoAV1PictureBits::ALLOW_SCREEN_CONTENT_TOOLS | VideoAV1PictureBits::FORCE_INTEGER_MV | VideoAV1PictureBits::SHOW_FRAME | VideoAV1PictureBits::SHOWABLE_FRAME;
 }
 
 static inline void FillVideoH265ProfileTierLevelVK(StdVideoH265ProfileTierLevel& profileTierLevel, const VideoH265ProfileTierLevelDesc& desc) {
@@ -560,18 +450,13 @@ static inline StdVideoAV1FrameType GetVideoAV1FrameTypeVK(VideoFrameType frameTy
     }
 }
 
-struct VideoEncodeHEVCReferenceListsVK {
-    std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF> list0 = {};
-    std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF> list1 = {};
+static_assert(video::h265::MAX_REFERENCE_NUM == STD_VIDEO_H265_MAX_NUM_LIST_REF);
+
+struct VideoEncodeHEVCReferenceListsVK : video::h265::EncodeReferenceLists {
     std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF> negative = {};
     std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF> positive = {};
-    uint32_t list0Num = 0;
-    uint32_t list1Num = 0;
     uint32_t negativeNum = 0;
     uint32_t positiveNum = 0;
-    uint32_t failingReference = 0;
-    bool missingDescriptor = false;
-    bool invalidPictureOrderCount = false;
 };
 
 static inline uint32_t FindVideoEncodeHEVCRpsIndexVK(const std::array<uint32_t, STD_VIDEO_H265_MAX_NUM_LIST_REF>& references, uint32_t referenceNum, uint32_t referenceIndex) {
@@ -609,17 +494,6 @@ static inline void AppendVideoEncodeHEVCRpsReferenceVK(VideoEncodeHEVCReferenceL
     }
 
     rps[rpsNum++] = referenceIndex;
-}
-
-static inline const VideoH265ReferenceDesc* GetVideoH265ReferenceDescVK(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs,
-    uint32_t referenceNum, uint32_t referenceIndex) {
-    if (!references || !referenceDescs || referenceIndex >= referenceNum)
-        return nullptr;
-
-    if (referenceDescs[referenceIndex].slot == references[referenceIndex].slot)
-        return &referenceDescs[referenceIndex];
-
-    return FindVideoReferenceDesc(referenceDescs, referenceNum, references[referenceIndex].slot);
 }
 
 static inline void FillVideoDecodeAV1ReferenceInfoVK(StdVideoDecodeAV1ReferenceInfo& info, VideoFrameType frameType, uint8_t orderHint, const uint8_t* savedOrderHints = nullptr) {
@@ -662,62 +536,16 @@ static inline void FillVideoAV1DefaultTileInfoVK(StdVideoAV1TileInfo& info, uint
 static inline bool BuildVideoEncodeHEVCReferenceListsVK(const VideoReference* references, const VideoH265ReferenceDesc* referenceDescs, uint32_t referenceNum,
     VideoFrameType frameType, int32_t currentPictureOrderCount, VideoEncodeHEVCReferenceListsVK& lists) {
     lists = {};
-
-    if (referenceNum > STD_VIDEO_H265_MAX_NUM_LIST_REF) {
-        lists.failingReference = STD_VIDEO_H265_MAX_NUM_LIST_REF;
+    if (!video::h265::BuildEncodeReferenceLists(references, referenceDescs, referenceNum, frameType, currentPictureOrderCount, false, lists))
         return false;
-    }
-
-    if (referenceNum && !referenceDescs) {
-        lists.missingDescriptor = true;
-        return false;
-    }
 
     for (uint32_t i = 0; i < referenceNum; i++) {
-        const VideoH265ReferenceDesc* referenceDesc = GetVideoH265ReferenceDescVK(references, referenceDescs, referenceNum, i);
-        if (!referenceDesc) {
-            lists.failingReference = i;
-            lists.missingDescriptor = true;
-            return false;
-        }
-
-        if (referenceDesc->listIndex == 0) {
-            if (referenceDesc->pictureOrderCount >= currentPictureOrderCount) {
-                lists.failingReference = i;
-                lists.invalidPictureOrderCount = true;
-                return false;
-            }
-
-            lists.list0[lists.list0Num++] = i;
-            AppendVideoEncodeHEVCRpsReferenceVK(lists, i, true);
-        } else if (referenceDesc->listIndex == 1) {
-            if (frameType != VideoFrameType::B) {
-                lists.failingReference = i;
-                lists.invalidPictureOrderCount = true;
-                return false;
-            }
-            if (referenceDesc->pictureOrderCount == currentPictureOrderCount) {
-                lists.failingReference = i;
-                lists.invalidPictureOrderCount = true;
-                return false;
-            }
-
-            lists.list1[lists.list1Num++] = i;
-            AppendVideoEncodeHEVCRpsReferenceVK(lists, i, referenceDesc->pictureOrderCount < currentPictureOrderCount);
-        } else {
-            lists.failingReference = i;
-            lists.invalidPictureOrderCount = true;
-            return false;
-        }
-    }
-
-    if (referenceNum && !lists.list0Num) {
-        lists.invalidPictureOrderCount = true;
-        return false;
+        const VideoH265ReferenceDesc* referenceDesc = video::h265::GetReferenceDesc(references, referenceDescs, referenceNum, i);
+        AppendVideoEncodeHEVCRpsReferenceVK(lists, i, referenceDesc->pictureOrderCount < currentPictureOrderCount);
     }
 
     auto getPictureOrderCount = [&](uint32_t referenceIndex) {
-        const VideoH265ReferenceDesc* referenceDesc = GetVideoH265ReferenceDescVK(references, referenceDescs, referenceNum, referenceIndex);
+        const VideoH265ReferenceDesc* referenceDesc = video::h265::GetReferenceDesc(references, referenceDescs, referenceNum, referenceIndex);
         return referenceDesc->pictureOrderCount;
     };
 
@@ -746,15 +574,6 @@ struct VideoDecodeAV1ReferenceMappingVK {
     bool missingPrimaryReference = false;
 };
 
-static inline bool HasVideoReferenceSlotVK(const VideoReference* references, uint32_t referenceNum, uint32_t slot) {
-    for (uint32_t i = 0; i < referenceNum; i++) {
-        if (references[i].slot == slot)
-            return true;
-    }
-
-    return false;
-}
-
 static inline bool BuildVideoEncodeAV1ReferenceMappingVK(const VideoReference* references, uint32_t referenceNum, const VideoAV1EncodePictureDesc& pictureDesc,
     VideoEncodeAV1ReferenceMappingVK& mapping) {
     for (int32_t& slotIndex : mapping.referenceNameSlotIndices)
@@ -766,25 +585,25 @@ static inline bool BuildVideoEncodeAV1ReferenceMappingVK(const VideoReference* r
     mapping.missingResource = false;
     mapping.missingPrimaryReference = false;
 
-    if (pictureDesc.referenceNum > 8) {
-        mapping.failingReference = 8;
+    if (pictureDesc.referenceNum > video::av1::REFERENCE_FRAME_NUM) {
+        mapping.failingReference = video::av1::REFERENCE_FRAME_NUM;
         return false;
     }
 
     for (uint32_t i = 0; i < pictureDesc.referenceNum; i++) {
         const VideoAV1ReferenceDesc& reference = pictureDesc.references[i];
-        if (!HasVideoReferenceSlotVK(references, referenceNum, reference.slot)) {
+        if (!video::HasReferenceSlot(references, referenceNum, reference.slot)) {
             mapping.failingReference = i;
             mapping.missingResource = true;
             return false;
         }
 
-        if (reference.refFrameIndex >= 8) {
+        if (reference.refFrameIndex >= video::av1::REFERENCE_FRAME_NUM) {
             mapping.failingReference = i;
             return false;
         }
 
-        const uint8_t referenceNameIndex = GetVideoAV1NamedReferenceIndexVK(reference.name);
+        const uint8_t referenceNameIndex = video::av1::GetReferenceNameIndex(reference.name);
         if (reference.name == VideoAV1ReferenceName::NONE)
             continue;
 
@@ -798,7 +617,7 @@ static inline bool BuildVideoEncodeAV1ReferenceMappingVK(const VideoReference* r
         mapping.refFrameIndices[referenceNameIndex] = (int8_t)reference.refFrameIndex;
     }
 
-    const uint8_t primaryReferenceIndex = GetVideoAV1ReferenceNameIndexVK(pictureDesc.primaryReferenceName);
+    const uint8_t primaryReferenceIndex = video::av1::GetReferenceNameIndex(pictureDesc.primaryReferenceName);
     if (primaryReferenceIndex < VK_MAX_VIDEO_AV1_REFERENCES_PER_FRAME_KHR && mapping.referenceNameSlotIndices[primaryReferenceIndex] < 0) {
         mapping.missingPrimaryReference = true;
         return false;
@@ -845,20 +664,20 @@ static inline bool BuildVideoDecodeAV1ReferenceMappingVK(const VideoAV1DecodePic
     mapping.invalidRefFrameIndex = false;
     mapping.missingPrimaryReference = false;
 
-    if (pictureDesc.referenceNum > 8) {
-        mapping.failingReference = 8;
+    if (pictureDesc.referenceNum > video::av1::REFERENCE_FRAME_NUM) {
+        mapping.failingReference = video::av1::REFERENCE_FRAME_NUM;
         return false;
     }
 
     for (uint32_t i = 0; i < pictureDesc.referenceNum; i++) {
         const VideoAV1ReferenceDesc& reference = pictureDesc.references[i];
-        if (reference.refFrameIndex >= 8) {
+        if (reference.refFrameIndex >= video::av1::REFERENCE_FRAME_NUM) {
             mapping.failingReference = i;
             mapping.invalidRefFrameIndex = true;
             return false;
         }
 
-        const uint8_t referenceNameIndex = GetVideoAV1NamedReferenceIndexVK(reference.name);
+        const uint8_t referenceNameIndex = video::av1::GetReferenceNameIndex(reference.name);
         if (reference.name == VideoAV1ReferenceName::NONE)
             continue;
 
@@ -871,7 +690,7 @@ static inline bool BuildVideoDecodeAV1ReferenceMappingVK(const VideoAV1DecodePic
         mapping.referenceNameSlotIndices[referenceNameIndex] = (int32_t)reference.slot;
     }
 
-    const uint8_t primaryReferenceIndex = GetVideoAV1ReferenceNameIndexVK(pictureDesc.primaryReferenceName);
+    const uint8_t primaryReferenceIndex = video::av1::GetReferenceNameIndex(pictureDesc.primaryReferenceName);
     if (pictureDesc.primaryReferenceName == VideoAV1ReferenceName::MAX_NUM) {
         mapping.invalidName = true;
         return false;
@@ -891,7 +710,7 @@ static inline void FillVideoDecodeAV1PictureInfoVK(StdVideoDecodeAV1PictureInfo&
     info.frame_type = GetVideoAV1FrameTypeVK(desc.frameType);
     info.current_frame_id = desc.currentFrameId;
     info.OrderHint = desc.orderHint;
-    info.primary_ref_frame = GetVideoAV1ReferenceNameIndexVK(desc.primaryReferenceName);
+    info.primary_ref_frame = video::av1::GetReferenceNameIndex(desc.primaryReferenceName);
     info.refresh_frame_flags = desc.refreshFrameFlags;
     info.interpolation_filter = desc.interpolationFilter ? (StdVideoAV1InterpolationFilter)desc.interpolationFilter : STD_VIDEO_AV1_INTERPOLATION_FILTER_SWITCHABLE;
     info.TxMode = desc.txMode ? (StdVideoAV1TxMode)desc.txMode : STD_VIDEO_AV1_TX_MODE_SELECT;
