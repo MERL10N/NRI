@@ -318,7 +318,7 @@ static inline bool FillVideoEncodeResourceCapabilitiesD3D12(ID3D12VideoDevice* v
     return true;
 }
 
-static inline bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, VideoCapabilities* videoCapabilities = nullptr, VideoAV1Capabilities* videoAV1Capabilities = nullptr) {
+static bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, VideoCapabilities* videoCapabilities = nullptr, VideoAV1Capabilities* videoAV1Capabilities = nullptr) {
     if (videoSessionDesc.type != VideoSessionType::ENCODE || videoSessionDesc.width == 0 || videoSessionDesc.height == 0 || videoSessionDesc.format == Format::UNKNOWN)
         return false;
 

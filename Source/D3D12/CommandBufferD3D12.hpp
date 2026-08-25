@@ -444,7 +444,7 @@ static uint32_t GetVideoDecodeAV1ReferenceNameIndexD3D12(VideoAV1ReferenceName n
     }
 }
 
-static uint8_t GetVideoDecodeAV1FrameTypeD3D12(VideoFrameType frameType) {
+static inline uint8_t GetVideoDecodeAV1FrameTypeD3D12(VideoFrameType frameType) {
     return (frameType == VideoFrameType::IDR || frameType == VideoFrameType::I) ? 0 : 1;
 }
 
@@ -485,7 +485,7 @@ static inline const VideoH264PictureParameterSetDesc* FindVideoH264PictureParame
     return nullptr;
 }
 
-static inline bool BuildVideoDecodeH264ArgumentsD3D12(const VideoH264SessionParametersDesc& parameters, const VideoH264DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
+static bool BuildVideoDecodeH264ArgumentsD3D12(const VideoH264SessionParametersDesc& parameters, const VideoH264DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
     uint32_t dstSlot, DXVA_PicParams_H264& pictureParameters, DXVA_Qmatrix_H264& inverseQuantizationMatrix, DXVA_Slice_H264_Short* slices, uint32_t sliceNum) {
     if (sliceNum == 0 || sliceNum != pictureDesc.sliceOffsetNum || !pictureDesc.sliceOffsets || !slices)
         return false;
@@ -651,7 +651,7 @@ static inline void FillVideoH265ScalingListsD3D12(DXVA_Qmatrix_HEVC& matrix, con
     std::memset(matrix.ucScalingListDCCoefSizeID3, 16, sizeof(matrix.ucScalingListDCCoefSizeID3));
 }
 
-static inline bool BuildVideoDecodeH265ArgumentsD3D12(const VideoH265SessionParametersDesc& parameters, const VideoH265DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
+static bool BuildVideoDecodeH265ArgumentsD3D12(const VideoH265SessionParametersDesc& parameters, const VideoH265DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
     uint32_t dstSlot, DXVA_PicParams_HEVC& pictureParameters, DXVA_Qmatrix_HEVC& inverseQuantizationMatrix, DXVA_Slice_HEVC_Short* slices, uint32_t sliceNum) {
     if (sliceNum == 0 || sliceNum != pictureDesc.sliceSegmentOffsetNum || !pictureDesc.sliceSegmentOffsets || !slices)
         return false;
@@ -821,7 +821,7 @@ static inline uint8_t GetVideoEncodeQPByFrameTypeD3D12(const VideoEncodeRateCont
     return frameType == VideoFrameType::B ? rateControlDesc.qpB : (frameType == VideoFrameType::P ? rateControlDesc.qpP : rateControlDesc.qpI);
 }
 
-static const VideoH264EncodeReferenceDesc* FindVideoEncodeH264ReferenceDesc(const VideoH264EncodePictureDesc* h264PictureDesc, uint32_t slot) {
+static inline const VideoH264EncodeReferenceDesc* FindVideoEncodeH264ReferenceDesc(const VideoH264EncodePictureDesc* h264PictureDesc, uint32_t slot) {
     if (!h264PictureDesc)
         return nullptr;
 
@@ -833,7 +833,7 @@ static const VideoH264EncodeReferenceDesc* FindVideoEncodeH264ReferenceDesc(cons
     return nullptr;
 }
 
-static D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE GetVideoEncodeAV1FrameTypeD3D12(VideoFrameType frameType) {
+static inline D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE GetVideoEncodeAV1FrameTypeD3D12(VideoFrameType frameType) {
     switch (frameType) {
         case VideoFrameType::IDR:
         case VideoFrameType::I:

@@ -1,6 +1,6 @@
 // © 2026 NVIDIA Corporation
 
-static inline bool CanCreateVideoDecodeSessionD3D12(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, const D3D12_VIDEO_DECODE_CONFIGURATION& configuration) {
+static bool CanCreateVideoDecodeSessionD3D12(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, const D3D12_VIDEO_DECODE_CONFIGURATION& configuration) {
     D3D12_VIDEO_DECODER_DESC decoderDesc = {};
     decoderDesc.Configuration = configuration;
 
@@ -22,7 +22,7 @@ static inline bool CanCreateVideoDecodeSessionD3D12(ID3D12VideoDevice* videoDevi
     return SUCCEEDED(hr);
 }
 
-static inline Result GetVideoCapabilitiesD3D12(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
+static Result GetVideoCapabilitiesD3D12(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
     FillVideoCapabilitiesD3D12(videoCapabilities, videoSessionDesc);
 
     ComPtr<ID3D12VideoDevice> videoDevice;
@@ -65,7 +65,7 @@ static inline Result GetVideoCapabilitiesD3D12(DeviceD3D12& device, const VideoS
     return Result::UNSUPPORTED;
 }
 
-static inline Result GetVideoAV1CapabilitiesD3D12(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
+static Result GetVideoAV1CapabilitiesD3D12(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
     videoAV1Capabilities = {};
     if (videoSessionDesc.codec != VideoCodec::AV1)
         return Result::UNSUPPORTED;
@@ -91,7 +91,7 @@ static inline Result GetVideoAV1CapabilitiesD3D12(DeviceD3D12& device, const Vid
     return Result::UNSUPPORTED;
 }
 
-static inline Result GetVideoEncodeFeedbackD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, VideoEncodeFeedback& feedback) {
+static Result GetVideoEncodeFeedbackD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, VideoEncodeFeedback& feedback) {
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
     const void* metadata = resolvedMetadataReadback.Map(resolvedMetadataOffset);
     if (!metadata)
@@ -120,7 +120,7 @@ static inline Result GetVideoEncodeFeedbackD3D12(BufferD3D12& resolvedMetadataRe
 #endif
 }
 
-static inline Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
+static Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
     info = {};
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
     if (desc.feedback->errorFlags || !desc.feedback->encodedBitstreamWrittenBytes || !desc.feedback->writtenSubregionNum)

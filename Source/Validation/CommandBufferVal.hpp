@@ -185,7 +185,7 @@ static bool ValidateTextureBarrierDesc(const DeviceVal& device, uint32_t i, cons
     return true;
 }
 
-static bool IsVideoEncodeRateControlDescValid(const VideoEncodeRateControlDesc& rateControlDesc) {
+static inline bool IsVideoEncodeRateControlDescValid(const VideoEncodeRateControlDesc& rateControlDesc) {
     if ((uint32_t)rateControlDesc.mode >= (uint32_t)VideoEncodeRateControlMode::MAX_NUM)
         return false;
     if (rateControlDesc.mode != VideoEncodeRateControlMode::CQP && rateControlDesc.targetBitrate == 0)
@@ -326,7 +326,7 @@ static inline bool AreVideoDecodeSliceOffsetsValid(const uint32_t* offsets, uint
     return true;
 }
 
-static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& videoDecodeDesc) {
+static bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& videoDecodeDesc) {
     const VideoAV1DecodePictureDesc& desc = *videoDecodeDesc.av1PictureDesc;
     if (desc.flags & VideoAV1PictureBits::APPLY_GRAIN)
         return false;
@@ -382,7 +382,7 @@ static inline bool IsVideoAV1DecodePictureDescValid(const VideoDecodeDesc& video
     return desc.primaryReferenceName == VideoAV1ReferenceName::NONE || HasVideoAV1ReferenceName(desc.references, desc.referenceNum, desc.primaryReferenceName);
 }
 
-static inline bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& videoEncodeDesc) {
+static bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& videoEncodeDesc) {
     const VideoAV1EncodePictureDesc& desc = *videoEncodeDesc.av1PictureDesc;
     if (desc.referenceNum > 8 || (desc.referenceNum != 0 && !desc.references))
         return false;

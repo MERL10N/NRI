@@ -41,7 +41,7 @@ static inline uint64_t HashRootSignatureAndStride(ID3D12RootSignature* rootSigna
     return ((uint64_t)stride << 52ull) | ((uint64_t)rootSignature & ((1ull << 52) - 1));
 }
 
-static inline const char* GetDredDeviceStateName(D3D12_DRED_DEVICE_STATE state) {
+static const char* GetDredDeviceStateName(D3D12_DRED_DEVICE_STATE state) {
     switch (state) {
         case D3D12_DRED_DEVICE_STATE_UNKNOWN:
             return "Unknown";
@@ -56,7 +56,7 @@ static inline const char* GetDredDeviceStateName(D3D12_DRED_DEVICE_STATE state) 
     return "Invalid";
 }
 
-static inline const char* GetDredBreadcrumbOpName(D3D12_AUTO_BREADCRUMB_OP op) {
+static const char* GetDredBreadcrumbOpName(D3D12_AUTO_BREADCRUMB_OP op) {
     switch (op) {
         case D3D12_AUTO_BREADCRUMB_OP_SETMARKER:
             return "SetMarker";
@@ -173,7 +173,7 @@ static inline const char* GetDredBreadcrumbOpName(D3D12_AUTO_BREADCRUMB_OP op) {
     }
 }
 
-static inline const char* GetDredObjectName(const char* ansiName, const wchar_t* wideName, char* storage, size_t storageSize) {
+static const char* GetDredObjectName(const char* ansiName, const wchar_t* wideName, char* storage, size_t storageSize) {
     if (ansiName && ansiName[0] != '\0')
         return ansiName;
 
@@ -282,7 +282,7 @@ static void vmaFree(void* pMemory, void* pPrivateData) {
     return allocationCallbacks.Free(allocationCallbacks.userArg, pMemory);
 }
 
-static inline bool IsVideoDecodeCodecSupportedD3D12(ID3D12VideoDevice* videoDevice, VideoCodec codec) {
+static bool IsVideoDecodeCodecSupportedD3D12(ID3D12VideoDevice* videoDevice, VideoCodec codec) {
     constexpr uint32_t width = 128;
     constexpr uint32_t height = 128;
 
@@ -310,7 +310,7 @@ static inline bool IsVideoDecodeCodecSupportedD3D12(ID3D12VideoDevice* videoDevi
     return (decodeSupport.ConfigurationFlags & D3D12_VIDEO_DECODE_CONFIGURATION_FLAG_REFERENCE_ONLY_ALLOCATIONS_REQUIRED) == 0;
 }
 
-static inline bool CanUseSmallAlignment(const D3D12_RESOURCE_DESC1& desc, const FormatProps& formatProps) {
+static bool CanUseSmallAlignment(const D3D12_RESOURCE_DESC1& desc, const FormatProps& formatProps) {
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_resource_desc#alignment
     // WTF, MS? You never explained the hidden logic behind "small alignment" assuming "GetResourceAllocationInfo" usage, which just
     // throws a debug error, if a user wants to check the support. And the error is what we want to avoid! Thanks for the "chicken-egg" problem!

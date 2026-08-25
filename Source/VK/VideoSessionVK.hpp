@@ -136,7 +136,7 @@ static inline VkVideoComponentBitDepthFlagsKHR GetVideoBitDepthVK(Format format)
     return (format == Format::P010_UNORM || format == Format::P016_UNORM) ? VK_VIDEO_COMPONENT_BIT_DEPTH_10_BIT_KHR : VK_VIDEO_COMPONENT_BIT_DEPTH_8_BIT_KHR;
 }
 
-static inline Result IsVideoFormatSupportedVK(DeviceVK& device, const VideoSessionDesc& videoSessionDesc, const VkVideoProfileInfoKHR& profile, bool& isSupported) {
+static Result IsVideoFormatSupportedVK(DeviceVK& device, const VideoSessionDesc& videoSessionDesc, const VkVideoProfileInfoKHR& profile, bool& isSupported) {
     isSupported = false;
 
     VkVideoProfileListInfoKHR profileList = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_LIST_INFO_KHR};
@@ -197,7 +197,7 @@ static inline void FillVideoEncodeFeedbackVK(VideoEncodeFeedback& feedback, cons
         feedback.errorFlags = (uint64_t)status;
 }
 
-static inline Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
+static Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
     const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
     if (!operation || !IsVideoCodecOperationSupportedVK(deviceVK, videoSessionDesc, operation))
         return Result::UNSUPPORTED;
@@ -298,7 +298,7 @@ static inline Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessi
     return isExtentSupported ? Result::SUCCESS : Result::UNSUPPORTED;
 }
 
-static inline Result GetVideoAV1CapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
+static Result GetVideoAV1CapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
     videoAV1Capabilities = {};
     if (videoSessionDesc.codec != VideoCodec::AV1)
         return Result::UNSUPPORTED;

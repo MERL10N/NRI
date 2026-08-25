@@ -75,7 +75,7 @@ static inline Dim_t GetMaxMipNum(uint16_t w, uint16_t h, uint16_t d) {
     return mipNum;
 }
 
-static inline bool IsViewTypeSupported(const TextureDesc& textureDesc, TextureView textureView) {
+static bool IsViewTypeSupported(const TextureDesc& textureDesc, TextureView textureView) {
     if (textureDesc.type == TextureType::TEXTURE_1D) {
         switch (textureView) {
             case TextureView::TEXTURE:
