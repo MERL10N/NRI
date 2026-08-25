@@ -421,11 +421,11 @@ static constexpr D3D12_RESOLVE_MODE GetResolveOp(ResolveOp resolveOp) {
     return g_ResolveOps[(size_t)resolveOp];
 }
 
-static inline uint8_t GetVideoDecodeAV1FrameTypeD3D12(VideoFrameType frameType) {
+static inline uint8_t GetVideoDecodeAV1FrameType(VideoFrameType frameType) {
     return (frameType == VideoFrameType::IDR || frameType == VideoFrameType::I) ? 0 : 1;
 }
 
-static inline bool GetVideoDecodeReferenceSlotCountD3D12(const VideoReference* references, uint32_t referenceNum, uint32_t& slotCount) {
+static inline bool GetVideoDecodeReferenceSlotCount(const VideoReference* references, uint32_t referenceNum, uint32_t& slotCount) {
     slotCount = 0;
     for (uint32_t i = 0; i < referenceNum; i++) {
         const uint32_t slot = references[i].slot;
@@ -438,7 +438,7 @@ static inline bool GetVideoDecodeReferenceSlotCountD3D12(const VideoReference* r
     return true;
 }
 
-static bool BuildVideoDecodeH264ArgumentsD3D12(const VideoH264SessionParametersDesc& parameters, const VideoH264DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
+static bool BuildVideoDecodeH264Arguments(const VideoH264SessionParametersDesc& parameters, const VideoH264DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
     uint32_t dstSlot, DXVA_PicParams_H264& pictureParameters, DXVA_Qmatrix_H264& inverseQuantizationMatrix, DXVA_Slice_H264_Short* slices, uint32_t sliceNum) {
     if (sliceNum == 0 || sliceNum != pictureDesc.sliceOffsetNum || !pictureDesc.sliceOffsets || !slices)
         return false;
@@ -559,7 +559,7 @@ static bool BuildVideoDecodeH264ArgumentsD3D12(const VideoH264SessionParametersD
     return true;
 }
 
-static inline void FillVideoH265ScalingListsD3D12(DXVA_Qmatrix_HEVC& matrix, const VideoH265ScalingListsDesc* scalingLists) {
+static inline void FillVideoH265ScalingLists(DXVA_Qmatrix_HEVC& matrix, const VideoH265ScalingListsDesc* scalingLists) {
     matrix = {};
     if (scalingLists) {
         std::memcpy(matrix.ucScalingLists0, scalingLists->scalingList4x4, sizeof(matrix.ucScalingLists0));
@@ -580,7 +580,7 @@ static inline void FillVideoH265ScalingListsD3D12(DXVA_Qmatrix_HEVC& matrix, con
     std::memset(matrix.ucScalingListDCCoefSizeID3, 16, sizeof(matrix.ucScalingListDCCoefSizeID3));
 }
 
-static bool BuildVideoDecodeH265ArgumentsD3D12(const VideoH265SessionParametersDesc& parameters, const VideoH265DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
+static bool BuildVideoDecodeH265Arguments(const VideoH265SessionParametersDesc& parameters, const VideoH265DecodePictureDesc& pictureDesc, uint64_t bitstreamSize,
     uint32_t dstSlot, DXVA_PicParams_HEVC& pictureParameters, DXVA_Qmatrix_HEVC& inverseQuantizationMatrix, DXVA_Slice_HEVC_Short* slices, uint32_t sliceNum) {
     if (sliceNum == 0 || sliceNum != pictureDesc.sliceSegmentOffsetNum || !pictureDesc.sliceSegmentOffsets || !slices)
         return false;
@@ -711,7 +711,7 @@ static bool BuildVideoDecodeH265ArgumentsD3D12(const VideoH265SessionParametersD
             return false;
     }
 
-    FillVideoH265ScalingListsD3D12(inverseQuantizationMatrix, pps->scalingLists ? pps->scalingLists : sps->scalingLists);
+    FillVideoH265ScalingLists(inverseQuantizationMatrix, pps->scalingLists ? pps->scalingLists : sps->scalingLists);
 
     for (uint32_t i = 0; i < sliceNum; i++) {
         const uint32_t offset = pictureDesc.sliceSegmentOffsets[i];
@@ -732,7 +732,7 @@ static bool BuildVideoDecodeH265ArgumentsD3D12(const VideoH265SessionParametersD
 }
 
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
-static inline D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE GetVideoEncodeAV1FrameTypeD3D12(VideoFrameType frameType) {
+static inline D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE GetVideoEncodeAV1FrameType(VideoFrameType frameType) {
     switch (frameType) {
         case VideoFrameType::IDR:
         case VideoFrameType::I:
@@ -902,7 +902,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
             return;
 
         const uint32_t h264DstSlot = video::GetDecodeSetupSlot(videoDecodeDesc);
-        const bool areH264ArgumentsBuilt = BuildVideoDecodeH264ArgumentsD3D12(*h264Parameters, *videoDecodeDesc.h264PictureDesc, videoDecodeDesc.bitstream.size, h264DstSlot,
+        const bool areH264ArgumentsBuilt = BuildVideoDecodeH264Arguments(*h264Parameters, *videoDecodeDesc.h264PictureDesc, videoDecodeDesc.bitstream.size, h264DstSlot,
             h264PictureParameters, h264InverseQuantizationMatrix, h264Slices, videoDecodeDesc.h264PictureDesc->sliceOffsetNum);
         NRI_CHECK(areH264ArgumentsBuilt, "Failed to build D3D12 H.264 decode arguments from validated neutral descriptors");
         if (!areH264ArgumentsBuilt)
@@ -925,7 +925,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
         if (!h265Parameters)
             return;
 
-        const bool areH265ArgumentsBuilt = BuildVideoDecodeH265ArgumentsD3D12(*h265Parameters, desc, videoDecodeDesc.bitstream.size, videoDecodeDesc.dstSlot,
+        const bool areH265ArgumentsBuilt = BuildVideoDecodeH265Arguments(*h265Parameters, desc, videoDecodeDesc.bitstream.size, videoDecodeDesc.dstSlot,
             h265PictureParameters, h265InverseQuantizationMatrix, h265Slices, desc.sliceSegmentOffsetNum);
         NRI_CHECK(areH265ArgumentsBuilt, "Failed to build D3D12 H.265 decode arguments from validated neutral descriptors");
         if (!areH265ArgumentsBuilt)
@@ -944,7 +944,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
     } else if (videoDecodeDesc.av1PictureDesc) {
         const VideoAV1DecodePictureDesc& desc = *videoDecodeDesc.av1PictureDesc;
 
-        const VideoAV1SessionParametersDesc defaultAV1Parameters = {GetDefaultVideoAV1SequenceDescD3D12(sessionDesc.width, sessionDesc.height, sessionDesc.format)};
+        const VideoAV1SessionParametersDesc defaultAV1Parameters = {GetDefaultVideoAV1SequenceDesc(sessionDesc.width, sessionDesc.height, sessionDesc.format)};
         const VideoAV1SessionParametersDesc& av1Parameters = (parameters && parameters->GetAV1Parameters()) ? *parameters->GetAV1Parameters() : defaultAV1Parameters;
         const VideoAV1SequenceDesc& sequence = av1Parameters.sequence;
         const VideoAV1PictureBits pictureFlags = desc.flags == VideoAV1PictureBits::NONE ? video::av1::GetDefaultPictureFlags() : desc.flags;
@@ -994,7 +994,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
         av1PictureParameters.coding.tx_mode = desc.txMode ? desc.txMode : 2;
         av1PictureParameters.coding.use_ref_frame_mvs = !!(pictureFlags & VideoAV1PictureBits::USE_REF_FRAME_MVS);
         av1PictureParameters.coding.reference_frame_update = desc.refreshFrameFlags != 0;
-        av1PictureParameters.format.frame_type = GetVideoDecodeAV1FrameTypeD3D12(desc.frameType);
+        av1PictureParameters.format.frame_type = GetVideoDecodeAV1FrameType(desc.frameType);
         av1PictureParameters.format.show_frame = !!(pictureFlags & VideoAV1PictureBits::SHOW_FRAME);
         av1PictureParameters.format.showable_frame = !!(pictureFlags & VideoAV1PictureBits::SHOWABLE_FRAME);
         av1PictureParameters.format.subsampling_x = sequence.subsamplingX;
@@ -1167,7 +1167,7 @@ NRI_INLINE void CommandBufferD3D12::DecodeVideo(const VideoDecodeDesc& videoDeco
     const uint32_t setupSlot = video::GetDecodeSetupSlot(videoDecodeDesc);
 
     uint32_t referenceSlotCount = 0;
-    const bool isReferenceSlotCountValid = GetVideoDecodeReferenceSlotCountD3D12(videoDecodeDesc.references, videoDecodeDesc.referenceNum, referenceSlotCount);
+    const bool isReferenceSlotCountValid = GetVideoDecodeReferenceSlotCount(videoDecodeDesc.references, videoDecodeDesc.referenceNum, referenceSlotCount);
     NRI_CHECK(isReferenceSlotCountValid, "D3D12 decode reference slot exceeds the native range after NRI validation");
     if (!isReferenceSlotCountValid)
         return;
@@ -1266,7 +1266,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
     }
 
     VideoEncodeRateControlStateD3D12 rateControlState;
-    FillVideoEncodeRateControlD3D12(rateControlDesc, rateControlState);
+    FillVideoEncodeRateControl(rateControlDesc, rateControlState);
 
     D3D12_VIDEO_ENCODER_SEQUENCE_GOP_STRUCTURE_H264 h264Gop = {};
     h264Gop.GOPLength = sessionDesc.maxReferenceNum ? 60 : 1;
@@ -1424,7 +1424,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
 
     uint8_t av1RefreshFrameFlags = 0;
     if (sessionDesc.codec == VideoCodec::AV1) {
-        D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE frameType = GetVideoEncodeAV1FrameTypeD3D12(pictureDesc.frameType);
+        D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE frameType = GetVideoEncodeAV1FrameType(pictureDesc.frameType);
         if (frameType == (D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE)-1) {
             NRI_CHECK(false, "Unexpected AV1 video encode frame type");
             return;
@@ -1546,7 +1546,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].ReconstructedPictureResourceIndex = resourceIndex;
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].TemporalLayerIndexPlus1 = reference.frameType == VideoFrameType::MAX_NUM ? 0 : 1;
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].SpatialLayerIndexPlus1 = 1;
-                av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].FrameType = GetVideoEncodeAV1FrameTypeD3D12(reference.frameType);
+                av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].FrameType = GetVideoEncodeAV1FrameType(reference.frameType);
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].OrderHint = reference.orderHint;
                 av1Picture.ReferenceFramesReconPictureDescriptors[reference.refFrameIndex].PictureIndex = reference.frameId;
                 if (reference.name != VideoAV1ReferenceName::NONE) {
@@ -1646,7 +1646,7 @@ NRI_INLINE void CommandBufferD3D12::EncodeVideo(const VideoEncodeDesc& videoEnco
     }
 
     if (videoEncodeDesc.resolvedMetadata) {
-        resolveInput.EncoderCodec = GetVideoEncodeCodecD3D12(sessionDesc.codec);
+        resolveInput.EncoderCodec = GetVideoEncodeCodec(sessionDesc.codec);
         resolveInput.EncoderProfile = resolveProfile;
         resolveInput.EncoderInputFormat = GetDxgiFormat(sessionDesc.format).typed;
         resolveInput.EncodedPictureEffectiveResolution = {sessionDesc.width, sessionDesc.height};

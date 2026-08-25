@@ -1,6 +1,6 @@
 // © 2026 NVIDIA Corporation
 
-static bool CanCreateVideoDecodeSessionD3D12(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, const D3D12_VIDEO_DECODE_CONFIGURATION& configuration) {
+static bool CanCreateVideoDecodeSession(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, const D3D12_VIDEO_DECODE_CONFIGURATION& configuration) {
     D3D12_VIDEO_DECODER_DESC decoderDesc = {};
     decoderDesc.Configuration = configuration;
 
@@ -22,8 +22,8 @@ static bool CanCreateVideoDecodeSessionD3D12(ID3D12VideoDevice* videoDevice, con
     return SUCCEEDED(hr);
 }
 
-static Result GetVideoCapabilitiesD3D12(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
-    FillVideoCapabilitiesD3D12(videoCapabilities, videoSessionDesc);
+static Result GetVideoCapabilities(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
+    FillVideoCapabilities(videoCapabilities, videoSessionDesc);
 
     ComPtr<ID3D12VideoDevice> videoDevice;
     HRESULT hr = device->QueryInterface(IID_PPV_ARGS(&videoDevice));
@@ -31,7 +31,7 @@ static Result GetVideoCapabilitiesD3D12(DeviceD3D12& device, const VideoSessionD
 
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
         D3D12_VIDEO_DECODE_CONFIGURATION configuration = {};
-        configuration.DecodeProfile = GetVideoDecodeProfileD3D12(videoSessionDesc.codec, videoSessionDesc.format);
+        configuration.DecodeProfile = GetVideoDecodeProfile(videoSessionDesc.codec, videoSessionDesc.format);
         if (configuration.DecodeProfile == GUID{})
             return Result::UNSUPPORTED;
 
@@ -54,18 +54,18 @@ static Result GetVideoCapabilitiesD3D12(DeviceD3D12& device, const VideoSessionD
         if (decodeSupport.ConfigurationFlags & D3D12_VIDEO_DECODE_CONFIGURATION_FLAG_REFERENCE_ONLY_ALLOCATIONS_REQUIRED)
             return Result::UNSUPPORTED;
 
-        return CanCreateVideoDecodeSessionD3D12(videoDevice.GetInterface(), videoSessionDesc, configuration) ? Result::SUCCESS : Result::UNSUPPORTED;
+        return CanCreateVideoDecodeSession(videoDevice.GetInterface(), videoSessionDesc, configuration) ? Result::SUCCESS : Result::UNSUPPORTED;
     }
 
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
     if (videoSessionDesc.type == VideoSessionType::ENCODE)
-        return IsVideoEncodeSessionSupportedD3D12(videoDevice, videoSessionDesc, &videoCapabilities) ? Result::SUCCESS : Result::UNSUPPORTED;
+        return IsVideoEncodeSessionSupported(videoDevice, videoSessionDesc, &videoCapabilities) ? Result::SUCCESS : Result::UNSUPPORTED;
 #endif
 
     return Result::UNSUPPORTED;
 }
 
-static Result GetVideoAV1CapabilitiesD3D12(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
+static Result GetVideoAV1Capabilities(DeviceD3D12& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
     videoAV1Capabilities = {};
     if (videoSessionDesc.codec != VideoCodec::AV1)
         return Result::UNSUPPORTED;
@@ -76,22 +76,22 @@ static Result GetVideoAV1CapabilitiesD3D12(DeviceD3D12& device, const VideoSessi
 
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
         VideoCapabilities videoCapabilities = {};
-        Result result = GetVideoCapabilitiesD3D12(device, videoSessionDesc, videoCapabilities);
+        Result result = GetVideoCapabilities(device, videoSessionDesc, videoCapabilities);
         if (result == Result::SUCCESS)
-            FillVideoDecodeAV1CapabilitiesD3D12(videoAV1Capabilities);
+            FillVideoDecodeAV1Capabilities(videoAV1Capabilities);
 
         return result;
     }
 
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
     if (videoSessionDesc.type == VideoSessionType::ENCODE)
-        return IsVideoEncodeSessionSupportedD3D12(videoDevice, videoSessionDesc, nullptr, &videoAV1Capabilities) ? Result::SUCCESS : Result::UNSUPPORTED;
+        return IsVideoEncodeSessionSupported(videoDevice, videoSessionDesc, nullptr, &videoAV1Capabilities) ? Result::SUCCESS : Result::UNSUPPORTED;
 #endif
 
     return Result::UNSUPPORTED;
 }
 
-static Result GetVideoEncodeFeedbackD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, VideoEncodeFeedback& feedback) {
+static Result GetVideoEncodeFeedback(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, VideoEncodeFeedback& feedback) {
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
     const void* metadata = resolvedMetadataReadback.Map(resolvedMetadataOffset);
     if (!metadata)
@@ -120,7 +120,7 @@ static Result GetVideoEncodeFeedbackD3D12(BufferD3D12& resolvedMetadataReadback,
 #endif
 }
 
-static Result GetVideoAV1EncodeDecodeInfoD3D12(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
+static Result GetVideoAV1EncodeDecodeInfo(BufferD3D12& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
     info = {};
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
     if (desc.feedback->errorFlags || !desc.feedback->encodedBitstreamWrittenBytes || !desc.feedback->writtenSubregionNum)
@@ -280,7 +280,7 @@ Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
         NRI_RETURN_ON_BAD_HRESULT(&m_Device, hr, "ID3D12Device::QueryInterface(ID3D12VideoDevice)");
 
         D3D12_VIDEO_DECODE_CONFIGURATION configuration = {};
-        configuration.DecodeProfile = GetVideoDecodeProfileD3D12(videoSessionDesc.codec, videoSessionDesc.format);
+        configuration.DecodeProfile = GetVideoDecodeProfile(videoSessionDesc.codec, videoSessionDesc.format);
         configuration.BitstreamEncryption = D3D12_BITSTREAM_ENCRYPTION_TYPE_NONE;
         configuration.InterlaceType = D3D12_VIDEO_FRAME_CODED_INTERLACE_TYPE_NONE;
         if (configuration.DecodeProfile == GUID{})
@@ -328,7 +328,7 @@ Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
         HRESULT hr = m_Device->QueryInterface(IID_PPV_ARGS(&videoDevice)); // TODO-VIDEO: use "QueryLatestInterface", merge with "decoder" code path
         NRI_RETURN_ON_BAD_HRESULT(&m_Device, hr, "ID3D12Device::QueryInterface(ID3D12VideoDevice3)");
 
-        D3D12_VIDEO_ENCODER_CODEC codec = GetVideoEncodeCodecD3D12(videoSessionDesc.codec);
+        D3D12_VIDEO_ENCODER_CODEC codec = GetVideoEncodeCodec(videoSessionDesc.codec);
         if (codec == (D3D12_VIDEO_ENCODER_CODEC)-1)
             return Result::UNSUPPORTED;
 
@@ -403,12 +403,12 @@ Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
             if (!av1ConfigSupport.IsSupported)
                 return Result::UNSUPPORTED;
 
-            if (!IsVideoEncodeAV1FeatureSetSupportedD3D12(av1Caps.RequiredFeatureFlags)) {
+            if (!IsVideoEncodeAV1FeatureSetSupported(av1Caps.RequiredFeatureFlags)) {
                 NRI_REPORT_WARNING(&m_Device, "D3D12 AV1 encoder requires unsupported feature flags: required=0x%X", av1Caps.RequiredFeatureFlags);
                 return Result::UNSUPPORTED;
             }
 
-            const uint32_t supportedFeatureFlags = (av1Caps.RequiredFeatureFlags | av1Caps.SupportedFeatureFlags) & (uint32_t)GetSupportedVideoEncodeAV1FeatureFlagsD3D12();
+            const uint32_t supportedFeatureFlags = (av1Caps.RequiredFeatureFlags | av1Caps.SupportedFeatureFlags) & (uint32_t)GetSupportedVideoEncodeAV1FeatureFlags();
             av1Config.FeatureFlags = (D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAGS)(av1Caps.RequiredFeatureFlags | supportedFeatureFlags);
             m_AV1FeatureFlags = av1Config.FeatureFlags;
         }
@@ -425,13 +425,13 @@ Result VideoSessionD3D12::Create(const VideoSessionDesc& videoSessionDesc) {
             codecConfig.pAV1Config = &av1Config;
         }
 
-        m_RateControlModes = GetSupportedVideoEncodeRateControlModesD3D12(videoDevice, codec);
+        m_RateControlModes = GetSupportedVideoEncodeRateControlModes(videoDevice, codec);
         if ((m_RateControlModes & video::ENCODE_RATE_CONTROL_CQP) == 0)
             return Result::UNSUPPORTED;
 
         const VideoEncodeRateControlDesc defaultRateControl = {VideoEncodeRateControlMode::CQP, 26, 28, 30, 0, 51, 30, 1, 0, 0, 0, 0, 0};
         VideoEncodeRateControlStateD3D12 rateControlState;
-        FillVideoEncodeRateControlD3D12(defaultRateControl, rateControlState);
+        FillVideoEncodeRateControl(defaultRateControl, rateControlState);
 
         D3D12_VIDEO_ENCODER_SEQUENCE_GOP_STRUCTURE_H264 h264Gop = {};
         h264Gop.GOPLength = videoSessionDesc.maxReferenceNum ? 60 : 1;

@@ -1155,11 +1155,11 @@ Result DeviceVK::FillFunctionTable(RayTracingInterface& table) const {
 #pragma region[  Video  ]
 
 static Result NRI_CALL GetVideoCapabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
-    return GetVideoCapabilitiesVK((DeviceVK&)device, videoSessionDesc, videoCapabilities);
+    return GetVideoCapabilities((DeviceVK&)device, videoSessionDesc, videoCapabilities);
 }
 
 static Result NRI_CALL GetVideoAV1Capabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
-    return GetVideoAV1CapabilitiesVK((DeviceVK&)device, videoSessionDesc, videoAV1Capabilities);
+    return GetVideoAV1Capabilities((DeviceVK&)device, videoSessionDesc, videoAV1Capabilities);
 }
 
 static Result NRI_CALL CreateVideoSession(Device& device, const VideoSessionDesc& videoSessionDesc, VideoSession*& videoSession) {

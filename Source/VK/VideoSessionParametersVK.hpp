@@ -1,6 +1,6 @@
 // © 2026 NVIDIA Corporation
 
-static StdVideoH264LevelIdc GetVideoH264LevelIdcVK(uint8_t levelIdc) {
+static StdVideoH264LevelIdc GetVideoH264LevelIdc(uint8_t levelIdc) {
     switch (levelIdc) {
         case 10:
             return STD_VIDEO_H264_LEVEL_IDC_1_0;
@@ -45,7 +45,7 @@ static StdVideoH264LevelIdc GetVideoH264LevelIdcVK(uint8_t levelIdc) {
     return STD_VIDEO_H264_LEVEL_IDC_INVALID;
 }
 
-static StdVideoH264SequenceParameterSet GetVideoH264SequenceParameterSetVK(const VideoH264SequenceParameterSetDesc& desc) {
+static StdVideoH264SequenceParameterSet GetVideoH264SequenceParameterSet(const VideoH264SequenceParameterSetDesc& desc) {
     StdVideoH264SequenceParameterSet sps = {};
     sps.flags.constraint_set0_flag = !!(desc.flags & VideoH264SequenceParameterSetBits::CONSTRAINT_SET0);
     sps.flags.constraint_set1_flag = !!(desc.flags & VideoH264SequenceParameterSetBits::CONSTRAINT_SET1);
@@ -61,7 +61,7 @@ static StdVideoH264SequenceParameterSet GetVideoH264SequenceParameterSetVK(const
     sps.flags.gaps_in_frame_num_value_allowed_flag = !!(desc.flags & VideoH264SequenceParameterSetBits::GAPS_IN_FRAME_NUM_ALLOWED);
     sps.flags.qpprime_y_zero_transform_bypass_flag = !!(desc.flags & VideoH264SequenceParameterSetBits::QPPRIME_Y_ZERO_TRANSFORM_BYPASS);
     sps.profile_idc = (StdVideoH264ProfileIdc)desc.profileIdc;
-    sps.level_idc = GetVideoH264LevelIdcVK(desc.levelIdc);
+    sps.level_idc = GetVideoH264LevelIdc(desc.levelIdc);
     sps.chroma_format_idc = (StdVideoH264ChromaFormatIdc)desc.chromaFormatIdc;
     sps.seq_parameter_set_id = desc.sequenceParameterSetId;
     sps.bit_depth_luma_minus8 = desc.bitDepthLumaMinus8;
@@ -77,7 +77,7 @@ static StdVideoH264SequenceParameterSet GetVideoH264SequenceParameterSetVK(const
     return sps;
 }
 
-static StdVideoH264PictureParameterSet GetVideoH264PictureParameterSetVK(const VideoH264PictureParameterSetDesc& desc) {
+static StdVideoH264PictureParameterSet GetVideoH264PictureParameterSet(const VideoH264PictureParameterSetDesc& desc) {
     StdVideoH264PictureParameterSet pps = {};
     pps.flags.transform_8x8_mode_flag = !!(desc.flags & VideoH264PictureParameterSetBits::TRANSFORM_8X8_MODE);
     pps.flags.redundant_pic_cnt_present_flag = !!(desc.flags & VideoH264PictureParameterSetBits::REDUNDANT_PIC_CNT_PRESENT);
@@ -98,7 +98,7 @@ static StdVideoH264PictureParameterSet GetVideoH264PictureParameterSetVK(const V
     return pps;
 }
 
-static bool SkipVideoAV1TimingInfoVK(video::av1::BitReader& reader) {
+static bool SkipVideoAV1TimingInfo(video::av1::BitReader& reader) {
     uint32_t ignored = 0;
     uint8_t equalPictureInterval = 0;
     if (!reader.ReadBits(32, ignored) || !reader.ReadBits(32, ignored) || !reader.ReadFlag(equalPictureInterval))
@@ -115,7 +115,7 @@ static bool SkipVideoAV1TimingInfoVK(video::av1::BitReader& reader) {
     return true;
 }
 
-static bool SkipVideoAV1DecoderModelInfoVK(video::av1::BitReader& reader, uint32_t& bufferDelayLength) {
+static bool SkipVideoAV1DecoderModelInfo(video::av1::BitReader& reader, uint32_t& bufferDelayLength) {
     uint32_t ignored = 0;
     if (!reader.ReadBits(5, bufferDelayLength) || !reader.ReadBits(32, ignored) || !reader.ReadBits(5, ignored) || !reader.ReadBits(5, ignored))
         return false;
@@ -124,7 +124,7 @@ static bool SkipVideoAV1DecoderModelInfoVK(video::av1::BitReader& reader, uint32
     return true;
 }
 
-static bool ApplyVideoEncodeAV1SequenceHeaderOverrideVK(StdVideoAV1SequenceHeader& header, const uint8_t* data, size_t size) {
+static bool ApplyVideoEncodeAV1SequenceHeaderOverride(StdVideoAV1SequenceHeader& header, const uint8_t* data, size_t size) {
     size_t cursor = 0;
     while (cursor < size) {
         video::av1::ObuSpan span = {};
@@ -151,9 +151,9 @@ static bool ApplyVideoEncodeAV1SequenceHeaderOverrideVK(StdVideoAV1SequenceHeade
             if (!reader.ReadFlag(timingInfoPresent))
                 return false;
             if (timingInfoPresent) {
-                if (!SkipVideoAV1TimingInfoVK(reader) || !reader.ReadFlag(decoderModelInfoPresent))
+                if (!SkipVideoAV1TimingInfo(reader) || !reader.ReadFlag(decoderModelInfoPresent))
                     return false;
-                if (decoderModelInfoPresent && !SkipVideoAV1DecoderModelInfoVK(reader, bufferDelayLength))
+                if (decoderModelInfoPresent && !SkipVideoAV1DecoderModelInfo(reader, bufferDelayLength))
                     return false;
             }
             if (!reader.ReadFlag(initialDisplayDelayPresent) || !reader.ReadBits(5, ignored))
@@ -278,13 +278,13 @@ NRI_INLINE Result VideoSessionParametersVK::Create(const VideoSessionParametersD
 
     Scratch<StdVideoH264SequenceParameterSet> h264Sps = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoH264SequenceParameterSet, h264Parameters.sequenceParameterSetNum);
     for (uint32_t i = 0; i < h264Parameters.sequenceParameterSetNum; i++) {
-        h264Sps[i] = GetVideoH264SequenceParameterSetVK(h264Parameters.sequenceParameterSets[i]);
+        h264Sps[i] = GetVideoH264SequenceParameterSet(h264Parameters.sequenceParameterSets[i]);
         h264Sps[i].pScalingLists = &defaultScalingLists;
     }
 
     Scratch<StdVideoH264PictureParameterSet> h264Pps = NRI_ALLOCATE_SCRATCH(m_Device, StdVideoH264PictureParameterSet, h264Parameters.pictureParameterSetNum);
     for (uint32_t i = 0; i < h264Parameters.pictureParameterSetNum; i++) {
-        h264Pps[i] = GetVideoH264PictureParameterSetVK(h264Parameters.pictureParameterSets[i]);
+        h264Pps[i] = GetVideoH264PictureParameterSet(h264Parameters.pictureParameterSets[i]);
         h264Pps[i].pScalingLists = &defaultScalingLists;
     }
 
@@ -324,7 +324,7 @@ NRI_INLINE Result VideoSessionParametersVK::CreateH265(VideoSessionVK& session, 
         defaultVps.profileTierLevel.generalProfileIdc = (uint8_t)((session.GetDesc().format == Format::P010_UNORM || session.GetDesc().format == Format::P016_UNORM)
                 ? STD_VIDEO_H265_PROFILE_IDC_MAIN_10
                 : STD_VIDEO_H265_PROFILE_IDC_MAIN);
-        defaultVps.profileTierLevel.generalLevelIdc = (uint8_t)GetVideoH265LevelIdcVK(session.GetDesc().width, session.GetDesc().height);
+        defaultVps.profileTierLevel.generalLevelIdc = (uint8_t)GetVideoH265LevelIdc(session.GetDesc().width, session.GetDesc().height);
         defaultVps.decPicBufMgr.maxDecPicBufferingMinus1[0] = (uint8_t)std::min(session.GetDesc().maxReferenceNum ? session.GetDesc().maxReferenceNum : 1u, 15u);
         defaultVps.decPicBufMgr.maxNumReorderPics[0] = session.GetDesc().maxReferenceNum > 1 ? 1 : 0;
 
@@ -376,31 +376,31 @@ NRI_INLINE Result VideoSessionParametersVK::CreateH265(VideoSessionVK& session, 
 
     for (uint32_t i = 0; i < parameters->videoParameterSetNum; i++) {
         const VideoH265VideoParameterSetDesc& vps = parameters->videoParameterSets[i];
-        FillVideoH265ProfileTierLevelVK(vpsProfileTierLevels[i], vps.profileTierLevel);
-        FillVideoH265DecPicBufMgrVK(vpsDecPicBufMgrs[i], vps.decPicBufMgr);
-        videoParameterSets[i] = GetVideoH265VideoParameterSetVK(vps, vpsProfileTierLevels[i], vpsDecPicBufMgrs[i]);
+        FillVideoH265ProfileTierLevel(vpsProfileTierLevels[i], vps.profileTierLevel);
+        FillVideoH265DecPicBufMgr(vpsDecPicBufMgrs[i], vps.decPicBufMgr);
+        videoParameterSets[i] = GetVideoH265VideoParameterSet(vps, vpsProfileTierLevels[i], vpsDecPicBufMgrs[i]);
     }
 
     uint32_t firstShortTermRefPicSet = 0;
     for (uint32_t i = 0; i < parameters->sequenceParameterSetNum; i++) {
         const VideoH265SequenceParameterSetDesc& sps = parameters->sequenceParameterSets[i];
         for (uint32_t j = 0; j < sps.numShortTermRefPicSets; j++)
-            shortTermRefPicSets[firstShortTermRefPicSet + j] = GetVideoH265ShortTermRefPicSetVK(sps.shortTermRefPicSets[j]);
+            shortTermRefPicSets[firstShortTermRefPicSet + j] = GetVideoH265ShortTermRefPicSet(sps.shortTermRefPicSets[j]);
 
-        FillVideoH265ProfileTierLevelVK(spsProfileTierLevels[i], sps.profileTierLevel);
-        FillVideoH265DecPicBufMgrVK(spsDecPicBufMgrs[i], sps.decPicBufMgr);
+        FillVideoH265ProfileTierLevel(spsProfileTierLevels[i], sps.profileTierLevel);
+        FillVideoH265DecPicBufMgr(spsDecPicBufMgrs[i], sps.decPicBufMgr);
         const StdVideoH265ScalingLists* scalingLists = nullptr;
         if (sps.scalingLists) {
-            spsScalingLists[i] = GetVideoH265ScalingListsVK(*sps.scalingLists);
+            spsScalingLists[i] = GetVideoH265ScalingLists(*sps.scalingLists);
             scalingLists = &spsScalingLists[i];
         }
         const StdVideoH265ShortTermRefPicSet* spsShortTermRefPicSets = sps.numShortTermRefPicSets ? &shortTermRefPicSets[firstShortTermRefPicSet] : nullptr;
         const StdVideoH265LongTermRefPicsSps* spsLongTermRefPics = nullptr;
         if (sps.longTermRefPicsSps) {
-            longTermRefPicsSps[i] = GetVideoH265LongTermRefPicsSpsVK(*sps.longTermRefPicsSps);
+            longTermRefPicsSps[i] = GetVideoH265LongTermRefPicsSps(*sps.longTermRefPicsSps);
             spsLongTermRefPics = &longTermRefPicsSps[i];
         }
-        sequenceParameterSets[i] = GetVideoH265SequenceParameterSetVK(sps, spsProfileTierLevels[i], spsDecPicBufMgrs[i], scalingLists, spsShortTermRefPicSets,
+        sequenceParameterSets[i] = GetVideoH265SequenceParameterSet(sps, spsProfileTierLevels[i], spsDecPicBufMgrs[i], scalingLists, spsShortTermRefPicSets,
             spsLongTermRefPics);
         firstShortTermRefPicSet += sps.numShortTermRefPicSets;
     }
@@ -409,10 +409,10 @@ NRI_INLINE Result VideoSessionParametersVK::CreateH265(VideoSessionVK& session, 
         const VideoH265PictureParameterSetDesc& pps = parameters->pictureParameterSets[i];
         const StdVideoH265ScalingLists* scalingLists = nullptr;
         if (pps.scalingLists) {
-            ppsScalingLists[i] = GetVideoH265ScalingListsVK(*pps.scalingLists);
+            ppsScalingLists[i] = GetVideoH265ScalingLists(*pps.scalingLists);
             scalingLists = &ppsScalingLists[i];
         }
-        pictureParameterSets[i] = GetVideoH265PictureParameterSetVK(pps, scalingLists);
+        pictureParameterSets[i] = GetVideoH265PictureParameterSet(pps, scalingLists);
     }
 
     VkVideoDecodeH265SessionParametersAddInfoKHR decodeAddInfo = {VK_STRUCTURE_TYPE_VIDEO_DECODE_H265_SESSION_PARAMETERS_ADD_INFO_KHR};
@@ -452,7 +452,7 @@ NRI_INLINE Result VideoSessionParametersVK::CreateH265(VideoSessionVK& session, 
 
 NRI_INLINE Result VideoSessionParametersVK::CreateAV1(VideoSessionVK& session, const VideoAV1SessionParametersDesc* parameters) {
     if (parameters) {
-        FillVideoAV1ColorConfigVK(m_AV1ColorConfig, parameters->sequence);
+        FillVideoAV1ColorConfig(m_AV1ColorConfig, parameters->sequence);
         m_AV1TimingInfo = {};
         const StdVideoAV1TimingInfo* timingInfo = nullptr;
         if (parameters->sequence.numUnitsInDisplayTick && parameters->sequence.timeScale) {
@@ -466,7 +466,7 @@ NRI_INLINE Result VideoSessionParametersVK::CreateAV1(VideoSessionVK& session, c
             m_AV1ColorConfig.chroma_sample_position = {};
             timingInfo = &m_AV1TimingInfo;
         }
-        FillVideoAV1SequenceHeaderVK(m_AV1SequenceHeader, parameters->sequence, m_AV1ColorConfig, timingInfo);
+        FillVideoAV1SequenceHeader(m_AV1SequenceHeader, parameters->sequence, m_AV1ColorConfig, timingInfo);
         m_AV1OperatingPoint.seq_level_idx = video::av1::GetLevelIndex(parameters->sequence.level, session.GetDesc().width, session.GetDesc().height);
     } else {
         m_AV1ColorConfig.BitDepth = (session.GetDesc().format == Format::P010_UNORM || session.GetDesc().format == Format::P016_UNORM) ? 10 : 8;
@@ -479,8 +479,8 @@ NRI_INLINE Result VideoSessionParametersVK::CreateAV1(VideoSessionVK& session, c
         m_AV1ColorConfig.chroma_sample_position = STD_VIDEO_AV1_CHROMA_SAMPLE_POSITION_VERTICAL;
         m_AV1SequenceHeader.seq_profile = STD_VIDEO_AV1_PROFILE_MAIN;
         m_AV1SequenceHeader.flags.enable_order_hint = true;
-        m_AV1SequenceHeader.frame_width_bits_minus_1 = GetVideoAV1SizeBitsMinus1VK(session.GetDesc().width);
-        m_AV1SequenceHeader.frame_height_bits_minus_1 = GetVideoAV1SizeBitsMinus1VK(session.GetDesc().height);
+        m_AV1SequenceHeader.frame_width_bits_minus_1 = GetVideoAV1SizeBitsMinus1(session.GetDesc().width);
+        m_AV1SequenceHeader.frame_height_bits_minus_1 = GetVideoAV1SizeBitsMinus1(session.GetDesc().height);
         m_AV1SequenceHeader.max_frame_width_minus_1 = (uint16_t)(session.GetDesc().width - 1);
         m_AV1SequenceHeader.max_frame_height_minus_1 = (uint16_t)(session.GetDesc().height - 1);
         m_AV1SequenceHeader.order_hint_bits_minus_1 = 7;
@@ -530,7 +530,7 @@ NRI_INLINE Result VideoSessionParametersVK::CreateAV1(VideoSessionVK& session, c
 
     Scratch<uint8_t> data = NRI_ALLOCATE_SCRATCH(m_Device, uint8_t, dataSize);
     vkResult = vk.GetEncodedVideoSessionParametersKHR(m_Device, &getInfo, &feedbackInfo, &dataSize, data);
-    if (vkResult != VK_SUCCESS || !feedbackInfo.hasOverrides || !ApplyVideoEncodeAV1SequenceHeaderOverrideVK(m_AV1SequenceHeader, data, dataSize))
+    if (vkResult != VK_SUCCESS || !feedbackInfo.hasOverrides || !ApplyVideoEncodeAV1SequenceHeaderOverride(m_AV1SequenceHeader, data, dataSize))
         return Result::SUCCESS;
 
     vk.DestroyVideoSessionParametersKHR(m_Device, m_Handle, m_Device.GetVkAllocationCallbacks());

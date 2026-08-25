@@ -269,7 +269,7 @@ static VkBool32 VKAPI_PTR MessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT
     return VK_FALSE;
 }
 
-static uint32_t GetVideoCodecNumVK(VkVideoCodecOperationFlagsKHR videoCodecOperations, bool decode) {
+static uint32_t GetVideoCodecNum(VkVideoCodecOperationFlagsKHR videoCodecOperations, bool decode) {
     const VkVideoCodecOperationFlagsKHR mask = decode ? VIDEO_DECODE_CODEC_OPERATION_MASK : VIDEO_ENCODE_CODEC_OPERATION_MASK;
     videoCodecOperations &= mask;
 
@@ -282,7 +282,7 @@ static uint32_t GetVideoCodecNumVK(VkVideoCodecOperationFlagsKHR videoCodecOpera
     return num;
 }
 
-static uint32_t BuildQueueCreateInfosVK(const QueueFamilyDesc* queueFamilies, uint32_t queueFamilyNum, const std::array<uint32_t, (size_t)QueueType::MAX_NUM>& familyIndices,
+static uint32_t BuildQueueCreateInfos(const QueueFamilyDesc* queueFamilies, uint32_t queueFamilyNum, const std::array<uint32_t, (size_t)QueueType::MAX_NUM>& familyIndices,
     std::array<VkDeviceQueueCreateInfo, (size_t)QueueType::MAX_NUM>& queueCreateInfos, std::array<std::array<float, 256>, (size_t)QueueType::MAX_NUM>& queuePriorities) {
     uint32_t queueCreateInfoNum = 0;
 
@@ -318,7 +318,7 @@ static uint32_t BuildQueueCreateInfosVK(const QueueFamilyDesc* queueFamilies, ui
     return queueCreateInfoNum;
 }
 
-static inline Lock* FindQueueLockVK(const std::array<Vector<QueueVK*>, (size_t)QueueType::MAX_NUM>& queueFamilies, VkQueue handle) {
+static inline Lock* FindQueueLock(const std::array<Vector<QueueVK*>, (size_t)QueueType::MAX_NUM>& queueFamilies, VkQueue handle) {
     for (const auto& queueFamily : queueFamilies) {
         for (QueueVK* queue : queueFamily) {
             if ((VkQueue)*queue == handle)
@@ -802,8 +802,8 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
 
             QueueFamilyProps props = {};
             props.queueCount = familyProps.queueCount;
-            props.videoDecodeCodecNum = GetVideoCodecNumVK(videoCodecOperations, true);
-            props.videoEncodeCodecNum = GetVideoCodecNumVK(videoCodecOperations, false);
+            props.videoDecodeCodecNum = GetVideoCodecNum(videoCodecOperations, true);
+            props.videoEncodeCodecNum = GetVideoCodecNum(videoCodecOperations, false);
             props.graphics = familyProps.queueFlags & VK_QUEUE_GRAPHICS_BIT;
             props.compute = familyProps.queueFlags & VK_QUEUE_COMPUTE_BIT;
             props.copy = familyProps.queueFlags & VK_QUEUE_TRANSFER_BIT;
@@ -1038,7 +1038,7 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
             deviceCreateInfo.enabledExtensionCount = (uint32_t)desiredDeviceExts.size();
             deviceCreateInfo.ppEnabledExtensionNames = desiredDeviceExts.data();
 
-            deviceCreateInfo.queueCreateInfoCount = BuildQueueCreateInfosVK(desc.queueFamilies, desc.queueFamilyNum, queueFamilyIndices, queueCreateInfos, queuePriorities);
+            deviceCreateInfo.queueCreateInfoCount = BuildQueueCreateInfos(desc.queueFamilies, desc.queueFamilyNum, queueFamilyIndices, queueCreateInfos, queuePriorities);
 
             VkResult vkResult = m_VK.CreateDevice(m_PhysicalDevice, &deviceCreateInfo, m_AllocationCallbackPtr, &m_Device);
             NRI_RETURN_ON_BAD_VKRESULT(this, vkResult, "vkCreateDevice");
@@ -1067,7 +1067,7 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
                     m_VK.GetDeviceQueue2(m_Device, &queueInfo, &handle);
 
                     QueueVK* queue;
-                    Lock* sharedLock = FindQueueLockVK(m_QueueFamilies, handle);
+                    Lock* sharedLock = FindQueueLock(m_QueueFamilies, handle);
                     Result result = CreateImplementation<QueueVK>(queue, queueFamilyVKDesc.queueType, queueFamilyVKDesc.familyIndex, handle, sharedLock);
                     if (result == Result::SUCCESS)
                         queueFamily.push_back(queue);
@@ -1093,7 +1093,7 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
                     m_VK.GetDeviceQueue2(m_Device, &queueInfo, &handle);
 
                     QueueVK* queue;
-                    Lock* sharedLock = FindQueueLockVK(m_QueueFamilies, handle);
+                    Lock* sharedLock = FindQueueLock(m_QueueFamilies, handle);
                     Result result = CreateImplementation<QueueVK>(queue, queueFamilyDesc.queueType, queueInfo.queueFamilyIndex, handle, sharedLock);
                     if (result == Result::SUCCESS)
                         queueFamily.push_back(queue);

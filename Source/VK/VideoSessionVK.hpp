@@ -1,6 +1,6 @@
 // © 2026 NVIDIA Corporation
 
-static VkVideoCodecOperationFlagBitsKHR GetVideoCodecOperationVK(const VideoSessionDesc& videoSessionDesc) {
+static VkVideoCodecOperationFlagBitsKHR GetVideoCodecOperation(const VideoSessionDesc& videoSessionDesc) {
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
         switch (videoSessionDesc.codec) {
             case VideoCodec::H264:
@@ -28,14 +28,14 @@ static VkVideoCodecOperationFlagBitsKHR GetVideoCodecOperationVK(const VideoSess
     return (VkVideoCodecOperationFlagBitsKHR)0;
 }
 
-static inline bool IsVideoCodecOperationSupportedVK(const DeviceVK& device, const VideoSessionDesc& videoSessionDesc, VkVideoCodecOperationFlagBitsKHR operation) {
+static inline bool IsVideoCodecOperationSupported(const DeviceVK& device, const VideoSessionDesc& videoSessionDesc, VkVideoCodecOperationFlagBitsKHR operation) {
     const bool decode = videoSessionDesc.type == VideoSessionType::DECODE;
     const bool encode = videoSessionDesc.type == VideoSessionType::ENCODE;
 
     return (device.GetVideoCodecOperations(decode, encode) & operation) != 0;
 }
 
-static void* FillVideoProfileCodecInfoVK(const VideoSessionDesc& videoSessionDesc, void* storage) {
+static void* FillVideoProfileCodecInfo(const VideoSessionDesc& videoSessionDesc, void* storage) {
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
         switch (videoSessionDesc.codec) {
             case VideoCodec::H264: {
@@ -89,7 +89,7 @@ static void* FillVideoProfileCodecInfoVK(const VideoSessionDesc& videoSessionDes
     return nullptr;
 }
 
-static void SetVideoProfileCodecInfoNextVK(const VideoSessionDesc& videoSessionDesc, void* codecProfileInfo, const void* next) {
+static void SetVideoProfileCodecInfoNext(const VideoSessionDesc& videoSessionDesc, void* codecProfileInfo, const void* next) {
     switch (videoSessionDesc.codec) {
         case VideoCodec::H264:
             ((VkVideoEncodeH264ProfileInfoKHR*)codecProfileInfo)->pNext = next;
@@ -105,7 +105,7 @@ static void SetVideoProfileCodecInfoNextVK(const VideoSessionDesc& videoSessionD
     }
 }
 
-static bool FindVideoSessionMemoryTypeVK(const DeviceVK& device, uint32_t memoryTypeBits, uint32_t& memoryTypeIndex) {
+static bool FindVideoSessionMemoryType(const DeviceVK& device, uint32_t memoryTypeBits, uint32_t& memoryTypeIndex) {
     uint32_t compatibleIndex = uint32_t(-1);
     for (uint32_t i = 0; i < 32; i++) {
         if ((memoryTypeBits & (1u << i)) == 0)
@@ -132,11 +132,11 @@ static bool FindVideoSessionMemoryTypeVK(const DeviceVK& device, uint32_t memory
     return true;
 }
 
-static inline VkVideoComponentBitDepthFlagsKHR GetVideoBitDepthVK(Format format) {
+static inline VkVideoComponentBitDepthFlagsKHR GetVideoBitDepth(Format format) {
     return (format == Format::P010_UNORM || format == Format::P016_UNORM) ? VK_VIDEO_COMPONENT_BIT_DEPTH_10_BIT_KHR : VK_VIDEO_COMPONENT_BIT_DEPTH_8_BIT_KHR;
 }
 
-static Result IsVideoFormatSupportedVK(DeviceVK& device, const VideoSessionDesc& videoSessionDesc, const VkVideoProfileInfoKHR& profile, bool& isSupported) {
+static Result IsVideoFormatSupported(DeviceVK& device, const VideoSessionDesc& videoSessionDesc, const VkVideoProfileInfoKHR& profile, bool& isSupported) {
     isSupported = false;
 
     VkVideoProfileListInfoKHR profileList = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_LIST_INFO_KHR};
@@ -184,7 +184,7 @@ static Result IsVideoFormatSupportedVK(DeviceVK& device, const VideoSessionDesc&
     return Result::SUCCESS;
 }
 
-static inline void FillVideoEncodeFeedbackVK(VideoEncodeFeedback& feedback, const uint64_t* queryResult) {
+static inline void FillVideoEncodeFeedback(VideoEncodeFeedback& feedback, const uint64_t* queryResult) {
     feedback = {};
     feedback.encodedBitstreamOffset = queryResult[0];
     feedback.encodedBitstreamWrittenBytes = queryResult[1];
@@ -197,14 +197,14 @@ static inline void FillVideoEncodeFeedbackVK(VideoEncodeFeedback& feedback, cons
         feedback.errorFlags = (uint64_t)status;
 }
 
-static Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
-    const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
-    if (!operation || !IsVideoCodecOperationSupportedVK(deviceVK, videoSessionDesc, operation))
+static Result GetVideoCapabilities(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
+    const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperation(videoSessionDesc);
+    if (!operation || !IsVideoCodecOperationSupported(deviceVK, videoSessionDesc, operation))
         return Result::UNSUPPORTED;
 
     alignas(8) char codecProfileStorage[64] = {};
     VkVideoProfileInfoKHR profile = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_INFO_KHR};
-    void* codecProfileInfo = FillVideoProfileCodecInfoVK(videoSessionDesc, codecProfileStorage);
+    void* codecProfileInfo = FillVideoProfileCodecInfo(videoSessionDesc, codecProfileStorage);
     VkVideoDecodeUsageInfoKHR decodeUsage = {VK_STRUCTURE_TYPE_VIDEO_DECODE_USAGE_INFO_KHR};
     VkVideoEncodeUsageInfoKHR encodeUsage = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_USAGE_INFO_KHR};
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
@@ -213,13 +213,13 @@ static Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc&
         profile.pNext = &decodeUsage;
     } else {
         encodeUsage.videoUsageHints = VK_VIDEO_ENCODE_USAGE_DEFAULT_KHR;
-        SetVideoProfileCodecInfoNextVK(videoSessionDesc, codecProfileInfo, &encodeUsage);
+        SetVideoProfileCodecInfoNext(videoSessionDesc, codecProfileInfo, &encodeUsage);
         profile.pNext = codecProfileInfo;
     }
     profile.videoCodecOperation = operation;
     profile.chromaSubsampling = VK_VIDEO_CHROMA_SUBSAMPLING_420_BIT_KHR;
-    profile.lumaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
-    profile.chromaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
+    profile.lumaBitDepth = GetVideoBitDepth(videoSessionDesc.format);
+    profile.chromaBitDepth = GetVideoBitDepth(videoSessionDesc.format);
     if (!codecProfileInfo)
         return Result::UNSUPPORTED;
 
@@ -270,13 +270,13 @@ static Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc&
     NRI_RETURN_ON_BAD_VKRESULT(&deviceVK, vkResult, "vkGetPhysicalDeviceVideoCapabilitiesKHR");
 
     bool isVideoFormatSupported = false;
-    Result result = IsVideoFormatSupportedVK(deviceVK, videoSessionDesc, profile, isVideoFormatSupported);
+    Result result = IsVideoFormatSupported(deviceVK, videoSessionDesc, profile, isVideoFormatSupported);
     if (result != Result::SUCCESS)
         return result;
     if (!isVideoFormatSupported)
         return Result::UNSUPPORTED;
 
-    FillVideoCapabilitiesVK(videoCapabilities, videoSessionDesc, capabilities);
+    FillVideoCapabilities(videoCapabilities, videoSessionDesc, capabilities);
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
         videoCapabilities.decodeDpbAndOutputCoincide = (decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_COINCIDE_BIT_KHR) != 0;
         videoCapabilities.decodeDpbAndOutputDistinct = (decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_DISTINCT_BIT_KHR) != 0;
@@ -298,23 +298,23 @@ static Result GetVideoCapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc&
     return isExtentSupported ? Result::SUCCESS : Result::UNSUPPORTED;
 }
 
-static Result GetVideoAV1CapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
+static Result GetVideoAV1Capabilities(DeviceVK& deviceVK, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
     videoAV1Capabilities = {};
     if (videoSessionDesc.codec != VideoCodec::AV1)
         return Result::UNSUPPORTED;
 
     VideoCapabilities genericCapabilities = {};
-    Result genericResult = GetVideoCapabilitiesVK(deviceVK, videoSessionDesc, genericCapabilities);
+    Result genericResult = GetVideoCapabilities(deviceVK, videoSessionDesc, genericCapabilities);
     if (genericResult != Result::SUCCESS)
         return genericResult;
 
-    const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
+    const VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperation(videoSessionDesc);
     if (!operation)
         return Result::UNSUPPORTED;
 
     alignas(8) char codecProfileStorage[64] = {};
     VkVideoProfileInfoKHR profile = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_INFO_KHR};
-    void* codecProfileInfo = FillVideoProfileCodecInfoVK(videoSessionDesc, codecProfileStorage);
+    void* codecProfileInfo = FillVideoProfileCodecInfo(videoSessionDesc, codecProfileStorage);
     VkVideoDecodeUsageInfoKHR decodeUsage = {VK_STRUCTURE_TYPE_VIDEO_DECODE_USAGE_INFO_KHR};
     VkVideoEncodeUsageInfoKHR encodeUsage = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_USAGE_INFO_KHR};
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
@@ -323,13 +323,13 @@ static Result GetVideoAV1CapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDe
         profile.pNext = &decodeUsage;
     } else {
         encodeUsage.videoUsageHints = VK_VIDEO_ENCODE_USAGE_DEFAULT_KHR;
-        SetVideoProfileCodecInfoNextVK(videoSessionDesc, codecProfileInfo, &encodeUsage);
+        SetVideoProfileCodecInfoNext(videoSessionDesc, codecProfileInfo, &encodeUsage);
         profile.pNext = codecProfileInfo;
     }
     profile.videoCodecOperation = operation;
     profile.chromaSubsampling = VK_VIDEO_CHROMA_SUBSAMPLING_420_BIT_KHR;
-    profile.lumaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
-    profile.chromaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
+    profile.lumaBitDepth = GetVideoBitDepth(videoSessionDesc.format);
+    profile.chromaBitDepth = GetVideoBitDepth(videoSessionDesc.format);
     if (!codecProfileInfo)
         return Result::UNSUPPORTED;
 
@@ -352,9 +352,9 @@ static Result GetVideoAV1CapabilitiesVK(DeviceVK& deviceVK, const VideoSessionDe
         return Result::UNSUPPORTED;
 
     if (videoSessionDesc.type == VideoSessionType::DECODE)
-        FillVideoDecodeAV1CapabilitiesVK(videoAV1Capabilities, decodeAV1Capabilities);
+        FillVideoDecodeAV1Capabilities(videoAV1Capabilities, decodeAV1Capabilities);
     else
-        FillVideoEncodeAV1CapabilitiesVK(videoAV1Capabilities, encodeAV1Capabilities);
+        FillVideoEncodeAV1Capabilities(videoAV1Capabilities, encodeAV1Capabilities);
 
     return Result::SUCCESS;
 }
@@ -420,7 +420,7 @@ NRI_INLINE Result VideoSessionVK::GetEncodeFeedback(BufferVK& resolvedMetadataRe
     if (!payloadReadback.active || !payloadReadback.resolvedByCommand)
         return Result::FAILURE;
 
-    FillVideoEncodeFeedbackVK(feedback, queryResult);
+    FillVideoEncodeFeedback(feedback, queryResult);
     ClearEncodeFeedbackQuery(queryIndex);
 
     return Result::SUCCESS;
@@ -439,8 +439,8 @@ NRI_INLINE Result VideoSessionVK::GetEncodeAV1DecodeInfo(BufferVK& resolvedMetad
 }
 
 Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
-    VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperationVK(videoSessionDesc);
-    if (!operation || !IsVideoCodecOperationSupportedVK(m_Device, videoSessionDesc, operation)) {
+    VkVideoCodecOperationFlagBitsKHR operation = GetVideoCodecOperation(videoSessionDesc);
+    if (!operation || !IsVideoCodecOperationSupported(m_Device, videoSessionDesc, operation)) {
         NRI_REPORT_ERROR(&m_Device, "Unsupported Vulkan video codec operation");
         return Result::UNSUPPORTED;
     }
@@ -455,7 +455,7 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
 
     alignas(8) char codecProfileStorage[64] = {};
     VkVideoProfileInfoKHR profile = {VK_STRUCTURE_TYPE_VIDEO_PROFILE_INFO_KHR};
-    void* codecProfileInfo = FillVideoProfileCodecInfoVK(videoSessionDesc, codecProfileStorage);
+    void* codecProfileInfo = FillVideoProfileCodecInfo(videoSessionDesc, codecProfileStorage);
     VkVideoDecodeUsageInfoKHR decodeUsage = {VK_STRUCTURE_TYPE_VIDEO_DECODE_USAGE_INFO_KHR};
     VkVideoEncodeUsageInfoKHR encodeUsage = {VK_STRUCTURE_TYPE_VIDEO_ENCODE_USAGE_INFO_KHR};
     if (videoSessionDesc.type == VideoSessionType::DECODE) {
@@ -464,13 +464,13 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
         profile.pNext = &decodeUsage;
     } else {
         encodeUsage.videoUsageHints = VK_VIDEO_ENCODE_USAGE_DEFAULT_KHR;
-        SetVideoProfileCodecInfoNextVK(videoSessionDesc, codecProfileInfo, &encodeUsage);
+        SetVideoProfileCodecInfoNext(videoSessionDesc, codecProfileInfo, &encodeUsage);
         profile.pNext = codecProfileInfo;
     }
     profile.videoCodecOperation = operation;
     profile.chromaSubsampling = VK_VIDEO_CHROMA_SUBSAMPLING_420_BIT_KHR;
-    profile.lumaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
-    profile.chromaBitDepth = GetVideoBitDepthVK(videoSessionDesc.format);
+    profile.lumaBitDepth = GetVideoBitDepth(videoSessionDesc.format);
+    profile.chromaBitDepth = GetVideoBitDepth(videoSessionDesc.format);
     if (!codecProfileInfo) {
         NRI_REPORT_ERROR(&m_Device, "Unsupported Vulkan video profile");
         return Result::UNSUPPORTED;
@@ -525,7 +525,7 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
     }
     NRI_RETURN_ON_BAD_VKRESULT(&m_Device, vkResult, "vkGetPhysicalDeviceVideoCapabilitiesKHR");
     if (videoSessionDesc.type == VideoSessionType::ENCODE) {
-        m_RateControlModes = GetSupportedVideoEncodeRateControlModesVK(encodeCapabilities.rateControlModes);
+        m_RateControlModes = GetSupportedVideoEncodeRateControlModes(encodeCapabilities.rateControlModes);
         if (videoSessionDesc.codec == VideoCodec::H264) {
             m_H264MaxBPictureL0ReferenceCount = encodeH264Capabilities.maxBPictureL0ReferenceCount;
             m_H264MaxL1ReferenceCount = encodeH264Capabilities.maxL1ReferenceCount;
@@ -613,7 +613,7 @@ Result VideoSessionVK::Create(const VideoSessionDesc& videoSessionDesc) {
     Scratch<VkBindVideoSessionMemoryInfoKHR> bindInfos = NRI_ALLOCATE_SCRATCH(m_Device, VkBindVideoSessionMemoryInfoKHR, memoryRequirementNum);
     for (uint32_t i = 0; i < memoryRequirementNum; i++) {
         uint32_t memoryTypeIndex = 0;
-        if (!FindVideoSessionMemoryTypeVK(m_Device, memoryRequirements[i].memoryRequirements.memoryTypeBits, memoryTypeIndex))
+        if (!FindVideoSessionMemoryType(m_Device, memoryRequirements[i].memoryRequirements.memoryTypeBits, memoryTypeIndex))
             return Result::UNSUPPORTED;
 
         VkMemoryAllocateInfo allocateInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};

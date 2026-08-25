@@ -282,12 +282,12 @@ static void vmaFree(void* pMemory, void* pPrivateData) {
     return allocationCallbacks.Free(allocationCallbacks.userArg, pMemory);
 }
 
-static bool IsVideoDecodeCodecSupportedD3D12(ID3D12VideoDevice* videoDevice, VideoCodec codec) {
+static bool IsVideoDecodeCodecSupported(ID3D12VideoDevice* videoDevice, VideoCodec codec) {
     constexpr uint32_t width = 128;
     constexpr uint32_t height = 128;
 
     D3D12_VIDEO_DECODE_CONFIGURATION configuration = {};
-    configuration.DecodeProfile = GetVideoDecodeProfileD3D12(codec, Format::NV12_UNORM);
+    configuration.DecodeProfile = GetVideoDecodeProfile(codec, Format::NV12_UNORM);
     configuration.BitstreamEncryption = D3D12_BITSTREAM_ENCRYPTION_TYPE_NONE;
     configuration.InterlaceType = D3D12_VIDEO_FRAME_CODED_INTERLACE_TYPE_NONE;
     if (configuration.DecodeProfile == GUID{})
@@ -1198,14 +1198,14 @@ void DeviceD3D12::FillDesc(bool disableD3D12EnhancedBarrier) {
 
     ComPtr<ID3D12VideoDevice> videoDevice;
     if (SUCCEEDED(m_Device->QueryInterface(IID_PPV_ARGS(&videoDevice)))) {
-        m_Desc.videoFeatures.decode.H264 = IsVideoDecodeCodecSupportedD3D12(videoDevice, VideoCodec::H264);
-        m_Desc.videoFeatures.decode.H265 = IsVideoDecodeCodecSupportedD3D12(videoDevice, VideoCodec::H265);
-        m_Desc.videoFeatures.decode.AV1 = IsVideoDecodeCodecSupportedD3D12(videoDevice, VideoCodec::AV1);
+        m_Desc.videoFeatures.decode.H264 = IsVideoDecodeCodecSupported(videoDevice, VideoCodec::H264);
+        m_Desc.videoFeatures.decode.H265 = IsVideoDecodeCodecSupported(videoDevice, VideoCodec::H265);
+        m_Desc.videoFeatures.decode.AV1 = IsVideoDecodeCodecSupported(videoDevice, VideoCodec::AV1);
 
 #if NRI_ENABLE_AGILITY_SDK_SUPPORT
-        m_Desc.videoFeatures.encode.H264 = IsVideoEncodeCodecSupportedD3D12(videoDevice, VideoCodec::H264);
-        m_Desc.videoFeatures.encode.H265 = IsVideoEncodeCodecSupportedD3D12(videoDevice, VideoCodec::H265);
-        m_Desc.videoFeatures.encode.AV1 = IsVideoEncodeCodecSupportedD3D12(videoDevice, VideoCodec::AV1);
+        m_Desc.videoFeatures.encode.H264 = IsVideoEncodeCodecSupported(videoDevice, VideoCodec::H264);
+        m_Desc.videoFeatures.encode.H265 = IsVideoEncodeCodecSupported(videoDevice, VideoCodec::H265);
+        m_Desc.videoFeatures.encode.AV1 = IsVideoEncodeCodecSupported(videoDevice, VideoCodec::AV1);
 #endif
     }
 

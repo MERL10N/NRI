@@ -10,7 +10,7 @@ constexpr uint32_t VIDEO_AV1_LEVEL_4_1 = 41;
 constexpr uint32_t VIDEO_D3D12_ENCODE_AV1_MIN_Q_INDEX = 1;
 constexpr uint32_t VIDEO_D3D12_ENCODE_AV1_MAX_Q_INDEX = 255;
 
-static inline GUID GetVideoDecodeProfileD3D12(VideoCodec codec, Format format) {
+static inline GUID GetVideoDecodeProfile(VideoCodec codec, Format format) {
     switch (codec) {
         case VideoCodec::H264:
             return format == Format::NV12_UNORM ? D3D12_VIDEO_DECODE_PROFILE_H264 : GUID{};
@@ -23,7 +23,7 @@ static inline GUID GetVideoDecodeProfileD3D12(VideoCodec codec, Format format) {
     }
 }
 
-static inline void FillVideoCapabilitiesD3D12(VideoCapabilities& videoCapabilities, const VideoSessionDesc& videoSessionDesc) {
+static inline void FillVideoCapabilities(VideoCapabilities& videoCapabilities, const VideoSessionDesc& videoSessionDesc) {
     videoCapabilities = {};
     videoCapabilities.widthMin = videoSessionDesc.width;
     videoCapabilities.heightMin = videoSessionDesc.height;
@@ -44,12 +44,12 @@ static inline void FillVideoCapabilitiesD3D12(VideoCapabilities& videoCapabiliti
     videoCapabilities.encodeBitstreamRangeSizeSupported = false;
 }
 
-static inline void FillVideoDecodeAV1CapabilitiesD3D12(VideoAV1Capabilities& videoAV1Capabilities) {
+static inline void FillVideoDecodeAV1Capabilities(VideoAV1Capabilities& videoAV1Capabilities) {
     videoAV1Capabilities = {};
     videoAV1Capabilities.av1MaxLevel = VIDEO_AV1_LEVEL_4_1;
 }
 
-static inline VideoAV1SequenceDesc GetDefaultVideoAV1SequenceDescD3D12(uint32_t width, uint32_t height, Format format) {
+static inline VideoAV1SequenceDesc GetDefaultVideoAV1SequenceDesc(uint32_t width, uint32_t height, Format format) {
     VideoAV1SequenceDesc desc = {};
     desc.flags = VideoAV1SequenceBits::ENABLE_ORDER_HINT | VideoAV1SequenceBits::ENABLE_CDEF | VideoAV1SequenceBits::ENABLE_RESTORATION | VideoAV1SequenceBits::COLOR_DESCRIPTION_PRESENT;
     desc.bitDepth = (format == Format::P010_UNORM || format == Format::P016_UNORM) ? 10 : 8;
@@ -75,17 +75,17 @@ static inline VideoAV1SequenceDesc GetDefaultVideoAV1SequenceDescD3D12(uint32_t 
 using VideoEncodeAV1TilesLayoutD3D12 = D3D12_VIDEO_ENCODER_AV1_PICTURE_CONTROL_SUBREGIONS_LAYOUT_DATA_TILES;
 using VideoEncodeAV1PostEncodeValuesD3D12 = D3D12_VIDEO_ENCODER_AV1_POST_ENCODE_VALUES;
 
-static constexpr D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAGS GetSupportedVideoEncodeAV1FeatureFlagsD3D12() {
+static constexpr D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAGS GetSupportedVideoEncodeAV1FeatureFlags() {
     return D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_ORDER_HINT_TOOLS | D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_LOOP_RESTORATION_FILTER | D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_FORCED_INTEGER_MOTION_VECTORS | D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_AUTO_SEGMENTATION | D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_CDEF_FILTERING | D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_QUANTIZATION_DELTAS | D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_LOOP_FILTER_DELTAS;
 }
 
-static inline bool IsVideoEncodeAV1FeatureSetSupportedD3D12(uint32_t featureFlags) {
-    constexpr uint32_t supportedFeatureFlags = (uint32_t)GetSupportedVideoEncodeAV1FeatureFlagsD3D12();
+static inline bool IsVideoEncodeAV1FeatureSetSupported(uint32_t featureFlags) {
+    constexpr uint32_t supportedFeatureFlags = (uint32_t)GetSupportedVideoEncodeAV1FeatureFlags();
 
     return (featureFlags & ~supportedFeatureFlags) == 0;
 }
 
-static inline VideoAV1EncodeFeatureBits GetVideoEncodeAV1FeatureFlagsD3D12(uint32_t d3d12FeatureFlags) {
+static inline VideoAV1EncodeFeatureBits GetVideoEncodeAV1FeatureFlags(uint32_t d3d12FeatureFlags) {
     VideoAV1EncodeFeatureBits featureFlags = VideoAV1EncodeFeatureBits::NONE;
     if (d3d12FeatureFlags & D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAG_ORDER_HINT_TOOLS)
         featureFlags |= VideoAV1EncodeFeatureBits::ORDER_HINT_TOOLS;
@@ -105,7 +105,7 @@ static inline VideoAV1EncodeFeatureBits GetVideoEncodeAV1FeatureFlagsD3D12(uint3
     return featureFlags;
 }
 
-static inline void FillVideoEncodeAV1CapabilitiesD3D12(VideoAV1Capabilities& videoAV1Capabilities, const VideoSessionDesc& videoSessionDesc, uint32_t requiredFeatureFlags, uint32_t supportedFeatureFlags) {
+static inline void FillVideoEncodeAV1Capabilities(VideoAV1Capabilities& videoAV1Capabilities, const VideoSessionDesc& videoSessionDesc, uint32_t requiredFeatureFlags, uint32_t supportedFeatureFlags) {
     videoAV1Capabilities = {};
     videoAV1Capabilities.av1MaxLevel = VIDEO_AV1_LEVEL_4_1;
     videoAV1Capabilities.av1MaxTileColumnNum = 1;
@@ -126,8 +126,8 @@ static inline void FillVideoEncodeAV1CapabilitiesD3D12(VideoAV1Capabilities& vid
     videoAV1Capabilities.av1MaxOperatingPointNum = 1;
     videoAV1Capabilities.av1MinQIndex = VIDEO_D3D12_ENCODE_AV1_MIN_Q_INDEX;
     videoAV1Capabilities.av1MaxQIndex = VIDEO_D3D12_ENCODE_AV1_MAX_Q_INDEX;
-    videoAV1Capabilities.av1EncodeRequiredFeatureFlags = GetVideoEncodeAV1FeatureFlagsD3D12(requiredFeatureFlags);
-    videoAV1Capabilities.av1EncodeSupportedFeatureFlags = GetVideoEncodeAV1FeatureFlagsD3D12(supportedFeatureFlags);
+    videoAV1Capabilities.av1EncodeRequiredFeatureFlags = GetVideoEncodeAV1FeatureFlags(requiredFeatureFlags);
+    videoAV1Capabilities.av1EncodeSupportedFeatureFlags = GetVideoEncodeAV1FeatureFlags(supportedFeatureFlags);
 }
 
 struct VideoEncodeRateControlStateD3D12 {
@@ -137,7 +137,7 @@ struct VideoEncodeRateControlStateD3D12 {
     D3D12_VIDEO_ENCODER_RATE_CONTROL rateControl = {};
 };
 
-static inline D3D12_VIDEO_ENCODER_RATE_CONTROL_MODE GetVideoEncodeRateControlModeD3D12(VideoEncodeRateControlMode mode) {
+static inline D3D12_VIDEO_ENCODER_RATE_CONTROL_MODE GetVideoEncodeRateControlMode(VideoEncodeRateControlMode mode) {
     switch (mode) {
         case VideoEncodeRateControlMode::CQP:
             return D3D12_VIDEO_ENCODER_RATE_CONTROL_MODE_CQP;
@@ -150,14 +150,14 @@ static inline D3D12_VIDEO_ENCODER_RATE_CONTROL_MODE GetVideoEncodeRateControlMod
     }
 }
 
-static inline uint32_t GetSupportedVideoEncodeRateControlModesD3D12(ID3D12VideoDevice* videoDevice, D3D12_VIDEO_ENCODER_CODEC codec) {
+static inline uint32_t GetSupportedVideoEncodeRateControlModes(ID3D12VideoDevice* videoDevice, D3D12_VIDEO_ENCODER_CODEC codec) {
     uint32_t modes = 0;
     constexpr std::array<VideoEncodeRateControlMode, 3> rateControlModes = {VideoEncodeRateControlMode::CQP, VideoEncodeRateControlMode::CBR, VideoEncodeRateControlMode::VBR};
 
     for (VideoEncodeRateControlMode mode : rateControlModes) {
         D3D12_FEATURE_DATA_VIDEO_ENCODER_RATE_CONTROL_MODE support = {};
         support.Codec = codec;
-        support.RateControlMode = GetVideoEncodeRateControlModeD3D12(mode);
+        support.RateControlMode = GetVideoEncodeRateControlMode(mode);
         HRESULT hr = videoDevice->CheckFeatureSupport(D3D12_FEATURE_VIDEO_ENCODER_RATE_CONTROL_MODE, &support, sizeof(support));
         if (SUCCEEDED(hr) && support.IsSupported)
             modes |= video::GetEncodeRateControlModeMask(mode);
@@ -166,7 +166,7 @@ static inline uint32_t GetSupportedVideoEncodeRateControlModesD3D12(ID3D12VideoD
     return modes;
 }
 
-static inline void FillVideoEncodeRateControlD3D12(const VideoEncodeRateControlDesc& desc, VideoEncodeRateControlStateD3D12& state) {
+static inline void FillVideoEncodeRateControl(const VideoEncodeRateControlDesc& desc, VideoEncodeRateControlStateD3D12& state) {
     state = {};
 
     const uint32_t frameRateNumerator = desc.frameRateNumerator ? desc.frameRateNumerator : 30;
@@ -180,7 +180,7 @@ static inline void FillVideoEncodeRateControlD3D12(const VideoEncodeRateControlD
     const uint64_t vbvCapacity = desc.targetBitrate * virtualBufferSizeMs / 1000;
     const uint64_t initialVbvFullness = desc.targetBitrate * initialVirtualBufferSizeMs / 1000;
 
-    state.rateControl.Mode = GetVideoEncodeRateControlModeD3D12(desc.mode);
+    state.rateControl.Mode = GetVideoEncodeRateControlMode(desc.mode);
     state.rateControl.TargetFrameRate = {frameRateNumerator, frameRateDenominator};
 
     switch (desc.mode) {
@@ -204,7 +204,7 @@ static inline void FillVideoEncodeRateControlD3D12(const VideoEncodeRateControlD
     }
 }
 
-static inline D3D12_VIDEO_ENCODER_CODEC GetVideoEncodeCodecD3D12(VideoCodec codec) {
+static inline D3D12_VIDEO_ENCODER_CODEC GetVideoEncodeCodec(VideoCodec codec) {
     switch (codec) {
         case VideoCodec::H264:
             return D3D12_VIDEO_ENCODER_CODEC_H264;
@@ -217,7 +217,7 @@ static inline D3D12_VIDEO_ENCODER_CODEC GetVideoEncodeCodecD3D12(VideoCodec code
     }
 }
 
-static inline bool FillVideoEncodeResourceCapabilitiesD3D12(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, D3D12_VIDEO_ENCODER_CODEC codec, const D3D12_VIDEO_ENCODER_PROFILE_DESC& profile, VideoCapabilities& videoCapabilities) {
+static inline bool FillVideoEncodeResourceCapabilities(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, D3D12_VIDEO_ENCODER_CODEC codec, const D3D12_VIDEO_ENCODER_PROFILE_DESC& profile, VideoCapabilities& videoCapabilities) {
     D3D12_FEATURE_DATA_VIDEO_ENCODER_RESOURCE_REQUIREMENTS requirements = {};
     requirements.Codec = codec;
     requirements.Profile = profile;
@@ -245,7 +245,7 @@ static inline bool FillVideoEncodeResourceCapabilitiesD3D12(ID3D12VideoDevice* v
     return true;
 }
 
-static bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, VideoCapabilities* videoCapabilities = nullptr, VideoAV1Capabilities* videoAV1Capabilities = nullptr) {
+static bool IsVideoEncodeSessionSupported(ID3D12VideoDevice* videoDevice, const VideoSessionDesc& videoSessionDesc, VideoCapabilities* videoCapabilities = nullptr, VideoAV1Capabilities* videoAV1Capabilities = nullptr) {
     if (videoSessionDesc.type != VideoSessionType::ENCODE || videoSessionDesc.width == 0 || videoSessionDesc.height == 0 || videoSessionDesc.format == Format::UNKNOWN)
         return false;
 
@@ -253,7 +253,7 @@ static bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, c
     if (codec == VideoCodec::H264 && videoSessionDesc.format != Format::NV12_UNORM)
         return false;
 
-    D3D12_VIDEO_ENCODER_CODEC d3d12Codec = GetVideoEncodeCodecD3D12(codec);
+    D3D12_VIDEO_ENCODER_CODEC d3d12Codec = GetVideoEncodeCodec(codec);
     if (d3d12Codec == (D3D12_VIDEO_ENCODER_CODEC)-1)
         return false;
 
@@ -328,11 +328,11 @@ static bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, c
         av1ConfigSupport.CodecSupportLimits.pAV1Support = &av1Caps;
 
         HRESULT hr = videoDevice->CheckFeatureSupport(D3D12_FEATURE_VIDEO_ENCODER_CODEC_CONFIGURATION_SUPPORT, &av1ConfigSupport, sizeof(av1ConfigSupport));
-        if (FAILED(hr) || !av1ConfigSupport.IsSupported || !IsVideoEncodeAV1FeatureSetSupportedD3D12(av1Caps.RequiredFeatureFlags))
+        if (FAILED(hr) || !av1ConfigSupport.IsSupported || !IsVideoEncodeAV1FeatureSetSupported(av1Caps.RequiredFeatureFlags))
             return false;
 
         av1RequiredFeatureFlags = av1Caps.RequiredFeatureFlags;
-        av1SupportedFeatureFlags = (av1Caps.RequiredFeatureFlags | av1Caps.SupportedFeatureFlags) & (uint32_t)GetSupportedVideoEncodeAV1FeatureFlagsD3D12();
+        av1SupportedFeatureFlags = (av1Caps.RequiredFeatureFlags | av1Caps.SupportedFeatureFlags) & (uint32_t)GetSupportedVideoEncodeAV1FeatureFlags();
         av1Config.FeatureFlags = (D3D12_VIDEO_ENCODER_AV1_FEATURE_FLAGS)(av1Caps.RequiredFeatureFlags | av1SupportedFeatureFlags);
     }
 
@@ -348,13 +348,13 @@ static bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, c
         codecConfig.pAV1Config = &av1Config;
     }
 
-    const uint32_t rateControlModes = GetSupportedVideoEncodeRateControlModesD3D12(videoDevice, d3d12Codec);
+    const uint32_t rateControlModes = GetSupportedVideoEncodeRateControlModes(videoDevice, d3d12Codec);
     if ((rateControlModes & video::ENCODE_RATE_CONTROL_CQP) == 0)
         return false;
 
     const VideoEncodeRateControlDesc defaultRateControl = {VideoEncodeRateControlMode::CQP, 26, 28, 30, 0, 51, 30, 1, 0, 0, 0, 0, 0};
     VideoEncodeRateControlStateD3D12 rateControlState;
-    FillVideoEncodeRateControlD3D12(defaultRateControl, rateControlState);
+    FillVideoEncodeRateControl(defaultRateControl, rateControlState);
 
     D3D12_VIDEO_ENCODER_SEQUENCE_GOP_STRUCTURE_H264 h264Gop = {};
     h264Gop.GOPLength = videoSessionDesc.maxReferenceNum ? 60 : 1;
@@ -461,15 +461,15 @@ static bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, c
             return false;
 
         if (videoCapabilities) {
-            FillVideoCapabilitiesD3D12(*videoCapabilities, videoSessionDesc);
-            if (!FillVideoEncodeResourceCapabilitiesD3D12(videoDevice, videoSessionDesc, d3d12Codec, profile, *videoCapabilities))
+            FillVideoCapabilities(*videoCapabilities, videoSessionDesc);
+            if (!FillVideoEncodeResourceCapabilities(videoDevice, videoSessionDesc, d3d12Codec, profile, *videoCapabilities))
                 return false;
         }
         if (videoAV1Capabilities) {
             if (codec != VideoCodec::AV1)
                 return false;
 
-            FillVideoEncodeAV1CapabilitiesD3D12(*videoAV1Capabilities, videoSessionDesc, av1RequiredFeatureFlags, av1SupportedFeatureFlags);
+            FillVideoEncodeAV1Capabilities(*videoAV1Capabilities, videoSessionDesc, av1RequiredFeatureFlags, av1SupportedFeatureFlags);
         }
 
         return true;
@@ -501,15 +501,15 @@ static bool IsVideoEncodeSessionSupportedD3D12(ID3D12VideoDevice* videoDevice, c
         return false;
 
     if (videoCapabilities) {
-        FillVideoCapabilitiesD3D12(*videoCapabilities, videoSessionDesc);
-        if (!FillVideoEncodeResourceCapabilitiesD3D12(videoDevice, videoSessionDesc, d3d12Codec, profile, *videoCapabilities))
+        FillVideoCapabilities(*videoCapabilities, videoSessionDesc);
+        if (!FillVideoEncodeResourceCapabilities(videoDevice, videoSessionDesc, d3d12Codec, profile, *videoCapabilities))
             return false;
     }
 
     return true;
 }
 
-static inline bool IsVideoEncodeCodecSupportedD3D12(ID3D12VideoDevice* videoDevice, VideoCodec codec) {
+static inline bool IsVideoEncodeCodecSupported(ID3D12VideoDevice* videoDevice, VideoCodec codec) {
     VideoSessionDesc videoSessionDesc = {};
     videoSessionDesc.type = VideoSessionType::ENCODE;
     videoSessionDesc.codec = codec;
@@ -517,7 +517,7 @@ static inline bool IsVideoEncodeCodecSupportedD3D12(ID3D12VideoDevice* videoDevi
     videoSessionDesc.width = VIDEO_D3D12_ENCODE_SUPPORT_PROBE_SIZE;
     videoSessionDesc.height = VIDEO_D3D12_ENCODE_SUPPORT_PROBE_SIZE;
 
-    return IsVideoEncodeSessionSupportedD3D12(videoDevice, videoSessionDesc);
+    return IsVideoEncodeSessionSupported(videoDevice, videoSessionDesc);
 }
 
 #endif

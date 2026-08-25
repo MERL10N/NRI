@@ -1166,11 +1166,11 @@ Result DeviceD3D12::FillFunctionTable(RayTracingInterface& table) const {
 #pragma region[  Video  ]
 
 static Result NRI_CALL GetVideoCapabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoCapabilities& videoCapabilities) {
-    return GetVideoCapabilitiesD3D12((DeviceD3D12&)device, videoSessionDesc, videoCapabilities);
+    return GetVideoCapabilities((DeviceD3D12&)device, videoSessionDesc, videoCapabilities);
 }
 
 static Result NRI_CALL GetVideoAV1Capabilities(const Device& device, const VideoSessionDesc& videoSessionDesc, VideoAV1Capabilities& videoAV1Capabilities) {
-    return GetVideoAV1CapabilitiesD3D12((DeviceD3D12&)device, videoSessionDesc, videoAV1Capabilities);
+    return GetVideoAV1Capabilities((DeviceD3D12&)device, videoSessionDesc, videoAV1Capabilities);
 }
 
 static Result NRI_CALL CreateVideoSession(Device& device, const VideoSessionDesc& videoSessionDesc, VideoSession*& videoSession) {
@@ -1244,11 +1244,11 @@ static void NRI_CALL CmdResolveVideoEncodeFeedback(CommandBuffer&, VideoSession&
 }
 
 static Result NRI_CALL GetVideoEncodeFeedback(VideoSession&, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, VideoEncodeFeedback& feedback) {
-    return GetVideoEncodeFeedbackD3D12((BufferD3D12&)resolvedMetadataReadback, resolvedMetadataOffset, feedback);
+    return GetVideoEncodeFeedback((BufferD3D12&)resolvedMetadataReadback, resolvedMetadataOffset, feedback);
 }
 
 static Result NRI_CALL GetVideoAV1EncodeDecodeInfo(VideoSession&, Buffer& resolvedMetadataReadback, uint64_t resolvedMetadataOffset, const VideoAV1EncodeDecodeInfoDesc& desc, VideoAV1EncodeDecodeInfo& info) {
-    return GetVideoAV1EncodeDecodeInfoD3D12((BufferD3D12&)resolvedMetadataReadback, resolvedMetadataOffset, desc, info);
+    return GetVideoAV1EncodeDecodeInfo((BufferD3D12&)resolvedMetadataReadback, resolvedMetadataOffset, desc, info);
 }
 
 Result DeviceD3D12::FillFunctionTable(VideoInterface& table) const {
