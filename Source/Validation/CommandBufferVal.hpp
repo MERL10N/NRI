@@ -751,8 +751,17 @@ NRI_INLINE void CommandBufferVal::SetRootConstants(const SetRootConstantsDesc& s
 
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
     NRI_RETURN_ON_FAILURE(&m_Device, m_PipelineLayout, ReturnVoid(), "'SetPipelineLayout' has not been called");
+    NRI_RETURN_ON_FAILURE(&m_Device, setRootConstantsDesc.data, ReturnVoid(), "'data' is NULL");
+    NRI_RETURN_ON_FAILURE(&m_Device, setRootConstantsDesc.size != 0, ReturnVoid(), "'size' is 0");
     NRI_RETURN_ON_FAILURE(&m_Device, setRootConstantsDesc.offset == 0 || deviceDesc.features.rootConstantsOffset, ReturnVoid(), "Non-zero 'setRootConstantsDesc.offset' is not supported");
     NRI_RETURN_ON_FAILURE(&m_Device, setRootConstantsDesc.bindPoint < BindPoint::MAX_NUM, ReturnVoid(), "'bindPoint' is invalid");
+
+    const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetPipelineLayoutDesc();
+    NRI_RETURN_ON_FAILURE(&m_Device, setRootConstantsDesc.rootConstantIndex < pipelineLayoutDesc.rootConstantNum, ReturnVoid(), "'rootConstantIndex=%u' is out of bounds", setRootConstantsDesc.rootConstantIndex);
+
+    const RootConstantDesc& rootConstantDesc = pipelineLayoutDesc.rootConstants[setRootConstantsDesc.rootConstantIndex];
+    NRI_RETURN_ON_FAILURE(&m_Device, setRootConstantsDesc.offset <= rootConstantDesc.size && setRootConstantsDesc.size <= rootConstantDesc.size - setRootConstantsDesc.offset, ReturnVoid(), "'offset=%u' + 'size=%u' must be <= root constant 'size=%u'", setRootConstantsDesc.offset, setRootConstantsDesc.size, rootConstantDesc.size);
+    NRI_RETURN_ON_FAILURE(&m_Device, IsAligned(setRootConstantsDesc.offset, 4) && IsAligned(setRootConstantsDesc.size, 4), ReturnVoid(), "'offset=%u' and 'size=%u' must be 4-byte aligned", setRootConstantsDesc.offset, setRootConstantsDesc.size);
 
     GetCoreInterfaceImpl().CmdSetRootConstants(*GetImpl(), setRootConstantsDesc);
 }
@@ -763,13 +772,22 @@ NRI_INLINE void CommandBufferVal::SetRootDescriptor(const SetRootDescriptorDesc&
     NRI_RETURN_ON_FAILURE(&m_Device, setRootDescriptorDesc.descriptor, ReturnVoid(), "'descriptor' is NULL");
     NRI_RETURN_ON_FAILURE(&m_Device, setRootDescriptorDesc.bindPoint < BindPoint::MAX_NUM, ReturnVoid(), "'bindPoint' is invalid");
 
+    const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetPipelineLayoutDesc();
+    NRI_RETURN_ON_FAILURE(&m_Device, setRootDescriptorDesc.rootDescriptorIndex < pipelineLayoutDesc.rootDescriptorNum, ReturnVoid(), "'rootDescriptorIndex=%u' is out of bounds", setRootDescriptorDesc.rootDescriptorIndex);
+
     const DescriptorVal& descriptorVal = *(DescriptorVal*)setRootDescriptorDesc.descriptor;
     const DeviceDesc& deviceDesc = m_Device.GetDesc();
+    const RootDescriptorDesc& rootDescriptorDesc = pipelineLayoutDesc.rootDescriptors[setRootDescriptorDesc.rootDescriptorIndex];
 
+    NRI_RETURN_ON_FAILURE(&m_Device, &descriptorVal.GetDevice() == &m_Device, ReturnVoid(), "'descriptor' belongs to another device");
     NRI_RETURN_ON_FAILURE(&m_Device, descriptorVal.CanBeRoot(), ReturnVoid(), "'descriptor' must be a non-typed buffer or an acceleration structure");
+    NRI_RETURN_ON_FAILURE(&m_Device, descriptorVal.GetType() == rootDescriptorDesc.descriptorType, ReturnVoid(), "'descriptor' type doesn't match 'rootDescriptors[%u].descriptorType'", setRootDescriptorDesc.rootDescriptorIndex);
 
     if (!descriptorVal.IsConstantBuffer())
         NRI_RETURN_ON_FAILURE(&m_Device, setRootDescriptorDesc.offset == 0 || deviceDesc.features.nonConstantBufferRootDescriptorOffset, ReturnVoid(), "Non-zero 'setRootDescriptorDesc.offset' for non-'CONSTANT_BUFFER' descriptors requires 'features.nonConstantBufferRootDescriptorOffset'");
+
+    if (rootDescriptorDesc.descriptorType != DescriptorType::ACCELERATION_STRUCTURE)
+        NRI_RETURN_ON_FAILURE(&m_Device, setRootDescriptorDesc.offset <= descriptorVal.GetRootDescriptorOffsetMax(), ReturnVoid(), "'offset=%u' must be <= maximum root descriptor 'offset=%" PRIu64 "'", setRootDescriptorDesc.offset, descriptorVal.GetRootDescriptorOffsetMax());
 
     auto rootDescriptorBindingDescImpl = setRootDescriptorDesc;
     rootDescriptorBindingDescImpl.descriptor = NRI_GET_IMPL(Descriptor, setRootDescriptorDesc.descriptor);
@@ -1192,6 +1210,10 @@ NRI_INLINE void CommandBufferVal::WriteMicromapsSizes(const Micromap* const* mic
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
     NRI_RETURN_ON_FAILURE(&m_Device, !m_IsRenderPass, ReturnVoid(), "must be called outside of 'CmdBeginRendering/CmdEndRendering'");
     NRI_RETURN_ON_FAILURE(&m_Device, isTypeValid, ReturnVoid(), "'queryPool' query type must be 'MICROMAP_COMPACTED_SIZE'");
+    NRI_RETURN_ON_FAILURE(&m_Device, micromapNum == 0 || micromaps, ReturnVoid(), "'micromaps' is NULL");
+
+    if (!queryPoolVal.IsImported())
+        NRI_RETURN_ON_FAILURE(&m_Device, queryPoolOffset <= queryPoolVal.GetQueryNum() && micromapNum <= queryPoolVal.GetQueryNum() - queryPoolOffset, ReturnVoid(), "'queryPoolOffset=%u' + 'micromapNum=%u' must be <= query pool 'queryNum=%u'", queryPoolOffset, micromapNum, queryPoolVal.GetQueryNum());
 
     Scratch<Micromap*> micromapsImpl = NRI_ALLOCATE_SCRATCH(m_Device, Micromap*, micromapNum);
     for (uint32_t i = 0; i < micromapNum; i++) {
@@ -1212,6 +1234,10 @@ NRI_INLINE void CommandBufferVal::WriteAccelerationStructuresSizes(const Acceler
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
     NRI_RETURN_ON_FAILURE(&m_Device, !m_IsRenderPass, ReturnVoid(), "must be called outside of 'CmdBeginRendering/CmdEndRendering'");
     NRI_RETURN_ON_FAILURE(&m_Device, isTypeValid, ReturnVoid(), "'queryPool' query type must be 'ACCELERATION_STRUCTURE_SIZE' or 'ACCELERATION_STRUCTURE_COMPACTED_SIZE'");
+    NRI_RETURN_ON_FAILURE(&m_Device, accelerationStructureNum == 0 || accelerationStructures, ReturnVoid(), "'accelerationStructures' is NULL");
+
+    if (!queryPoolVal.IsImported())
+        NRI_RETURN_ON_FAILURE(&m_Device, queryPoolOffset <= queryPoolVal.GetQueryNum() && accelerationStructureNum <= queryPoolVal.GetQueryNum() - queryPoolOffset, ReturnVoid(), "'queryPoolOffset=%u' + 'accelerationStructureNum=%u' must be <= query pool 'queryNum=%u'", queryPoolOffset, accelerationStructureNum, queryPoolVal.GetQueryNum());
 
     Scratch<AccelerationStructure*> accelerationStructuresImpl = NRI_ALLOCATE_SCRATCH(m_Device, AccelerationStructure*, accelerationStructureNum);
     for (uint32_t i = 0; i < accelerationStructureNum; i++) {
