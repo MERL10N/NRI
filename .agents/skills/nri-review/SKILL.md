@@ -9,6 +9,8 @@ Read `../nri-coding-standard/SKILL.md` completely before reviewing. Treat it as 
 
 Review exactly the target and comparison basis specified by the user. Clarify only when genuine ambiguity could change the findings.
 
+Record the exact baseline ref and commit. Include committed and uncommitted changes. If the verdict is against current `main`, verify that the local ref matches the remote before comparing.
+
 ## Map the Feature
 
 Trace each changed public concept through:
@@ -17,12 +19,17 @@ Trace each changed public concept through:
 
 Find all declarations and call sites. Check function-table wiring, supported and unsupported backends, neutral and native paths, and the resources, indices, offsets, states, queues, ownership, and lifetimes represented by the API.
 
+For public pointers or binary blobs, check ownership, lifetime, size/null invariants, valid call timing, repeated-call behavior, allocation, caching, and destruction.
+
 Review the whole feature neighborhood, not only the last commit or added lines.
 
 ## Correctness and Backend Parity
 
 - Every valid advertised path must execute safely with the documented meaning.
 - Capabilities, Validation, and implementation behavior must agree.
+- For optional native features, check extension selection, feature chaining, dispatch resolution, stored support, and the unsupported result as one path.
+- Apply scratch initialization requirements to native input and input/output structures. Pure output arrays without `sType`/`pNext` do not need redundant initialization.
+- Keep direct native API mirrors in native terminology even when the NRI-facing concept uses different terminology.
 - Compare D3D12 and Vulkan resource states, access/stages, queues, ownership, synchronization, setup/reference/reconstructed pictures, offsets, feedback, and object lifetimes.
 - Different native requirements are valid only when the NRI contract lets callers discover and satisfy them.
 - Check zero and maximum counts, sparse or duplicate slots, aliasing, optional pointers, nonzero offsets, narrowing, partial construction, rollback, and destruction.
@@ -52,6 +59,7 @@ One reachable blocker controls the verdict.
 
 - Run `git diff --check`, check for accidental edits, and verify CRLF.
 - Build every affected backend and feature gate. For Windows video merge readiness, normally cover Agility and non-Agility D3D12, Vulkan, Debug, and Release; include shared consumers such as WGPU when public/shared headers changed.
+- For non-Agility D3D12 verification, confirm that the build selected the Windows SDK 10.0.20348 headers; a downlevel target alone may still compile against newer installed headers.
 - Distinguish compilation from runtime coverage and list important untested paths.
 - Review the exact final tree, not an earlier iteration.
 
