@@ -85,6 +85,10 @@ struct DescriptorVal final : public ObjectVal {
         return m_Format;
     }
 
+    inline uint64_t GetBufferViewSize() const {
+        return m_BufferViewSize;
+    }
+
     inline bool IsDepthReadonly() const {
         return m_IsDepthReadonly;
     }
@@ -96,6 +100,7 @@ struct DescriptorVal final : public ObjectVal {
 private:
     DescriptorTypeExt m_Type = DescriptorTypeExt::MAX_NUM;
     Format m_Format = Format::UNKNOWN;
+    uint64_t m_BufferViewSize = 0;
     bool m_IsDepthReadonly = false;
     bool m_IsStencilReadonly = false;
 };

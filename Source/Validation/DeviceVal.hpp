@@ -326,8 +326,11 @@ NRI_INLINE Result DeviceVal::CreateDescriptor(const BufferViewDesc& bufferViewDe
     Result result = m_iCoreImpl.CreateBufferView(bufferViewDescImpl, descriptorImpl);
 
     bufferView = nullptr;
-    if (result == Result::SUCCESS)
-        bufferView = (Descriptor*)Allocate<DescriptorVal>(GetAllocationCallbacks(), *this, descriptorImpl, bufferViewDesc);
+    if (result == Result::SUCCESS) {
+        auto bufferViewDescVal = bufferViewDesc;
+        bufferViewDescVal.size = size;
+        bufferView = (Descriptor*)Allocate<DescriptorVal>(GetAllocationCallbacks(), *this, descriptorImpl, bufferViewDescVal);
+    }
 
     return result;
 }
