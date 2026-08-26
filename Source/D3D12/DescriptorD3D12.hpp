@@ -336,7 +336,7 @@ Result DescriptorD3D12::Create(const BufferViewDesc& bufferViewDesc) {
     const DxgiFormat& format = GetDxgiFormat(patchedFormat);
     const FormatProps& formatProps = GetFormatProps(patchedFormat);
     uint32_t elementSize = structureStride ? structureStride : formatProps.stride;
-    uint64_t elementOffset = (uint32_t)(bufferViewDesc.offset / elementSize);
+    uint64_t elementOffset = bufferViewDesc.offset / elementSize;
     uint32_t elementNum = (uint32_t)(size / elementSize);
 
     m_ViewDesc.bufferGPUVA = bufferD3D12.GetDeviceAddress() + bufferViewDesc.offset;
