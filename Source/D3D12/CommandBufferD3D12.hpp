@@ -2827,7 +2827,7 @@ NRI_INLINE void CommandBufferD3D12::WriteAccelerationStructuresSizes(const Accel
     ID3D12Resource* buffer = queryPoolD3D12.GetBufferForAccelerationStructuresSizes();
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC postbuildInfo = {};
-    postbuildInfo.DestBuffer = buffer->GetGPUVirtualAddress() + queryPoolOffset;
+    postbuildInfo.DestBuffer = buffer->GetGPUVirtualAddress() + (uint64_t)queryPoolOffset * queryPoolD3D12.GetQuerySize();
 
     if (queryPoolD3D12.GetType() == QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE)
         postbuildInfo.InfoType = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE;
@@ -2846,7 +2846,7 @@ NRI_INLINE void CommandBufferD3D12::WriteMicromapsSizes(const Micromap* const* m
     ID3D12Resource* buffer = queryPoolD3D12.GetBufferForAccelerationStructuresSizes();
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC postbuildInfo = {};
-    postbuildInfo.DestBuffer = buffer->GetGPUVirtualAddress() + queryPoolOffset;
+    postbuildInfo.DestBuffer = buffer->GetGPUVirtualAddress() + (uint64_t)queryPoolOffset * queryPoolD3D12.GetQuerySize();
 
     if (queryPoolD3D12.GetType() == QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE)
         postbuildInfo.InfoType = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_CURRENT_SIZE;
