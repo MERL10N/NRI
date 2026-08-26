@@ -1146,7 +1146,7 @@ WGPUBindGroup CommandBufferWGPU::CreateRootBindGroup(BindPoint bindPoint) {
         entry.offset = descriptor.GetOffset();
         if (rootDescriptor.dynamicOffsetIndex == uint32_t(-1))
             entry.offset += rootBinding.offset;
-        entry.size = descriptor.GetSize() - rootBinding.offset;
+        entry.size = descriptor.GetSize();
     }
 
     WGPUBindGroupDescriptor desc = WGPU_BIND_GROUP_DESCRIPTOR_INIT;
@@ -1260,10 +1260,13 @@ void CommandBufferWGPU::SetRootDescriptor(const SetRootDescriptorDesc& setRootDe
     if (setRootDescriptorDesc.rootDescriptorIndex >= m_RootDescriptorBindings.size())
         return;
 
+    BindPoint bindPoint = setRootDescriptorDesc.bindPoint == BindPoint::INHERIT ? m_BindPoint : setRootDescriptorDesc.bindPoint;
     RootDescriptorBindingWGPU& rootBinding = m_RootDescriptorBindings[setRootDescriptorDesc.rootDescriptorIndex];
     const RootDescriptorMappingWGPU& rootDescriptor = m_PipelineLayout->GetRootDescriptorMapping(setRootDescriptorDesc.rootDescriptorIndex);
     DescriptorWGPU* descriptor = (DescriptorWGPU*)setRootDescriptorDesc.descriptor;
-    if (rootBinding.descriptor == descriptor && rootBinding.offset == setRootDescriptorDesc.offset)
+    bool recreateBindGroup = rootBinding.descriptor != descriptor || (rootDescriptor.dynamicOffsetIndex == uint32_t(-1) && rootBinding.offset != setRootDescriptorDesc.offset);
+    bool dynamicOffsetChanged = rootDescriptor.dynamicOffsetIndex != uint32_t(-1) && m_RootDynamicOffsets[rootDescriptor.dynamicOffsetIndex] != (uint32_t)setRootDescriptorDesc.offset;
+    if (!recreateBindGroup && !dynamicOffsetChanged)
         return;
 
     rootBinding = {descriptor, setRootDescriptorDesc.offset};
@@ -1271,9 +1274,14 @@ void CommandBufferWGPU::SetRootDescriptor(const SetRootDescriptorDesc& setRootDe
     if (rootDescriptor.dynamicOffsetIndex != uint32_t(-1))
         m_RootDynamicOffsets[rootDescriptor.dynamicOffsetIndex] = (uint32_t)setRootDescriptorDesc.offset;
 
-    ReleaseRootBindGroups();
-    m_GraphicsRootGroupDirty = true;
-    m_ComputeRootGroupDirty = true;
+    if (recreateBindGroup) {
+        ReleaseRootBindGroups();
+        m_GraphicsRootGroupDirty = true;
+        m_ComputeRootGroupDirty = true;
+    } else if (bindPoint == BindPoint::COMPUTE)
+        m_ComputeRootGroupDirty = true;
+    else
+        m_GraphicsRootGroupDirty = true;
 }
 
 void CommandBufferWGPU::SetVertexBuffers(uint32_t baseSlot, const VertexBufferDesc* vertexBufferDescs, uint32_t vertexBufferNum) {

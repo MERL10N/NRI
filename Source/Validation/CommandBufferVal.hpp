@@ -787,7 +787,7 @@ NRI_INLINE void CommandBufferVal::SetRootDescriptor(const SetRootDescriptorDesc&
         NRI_RETURN_ON_FAILURE(&m_Device, setRootDescriptorDesc.offset == 0 || deviceDesc.features.nonConstantBufferRootDescriptorOffset, ReturnVoid(), "Non-zero 'setRootDescriptorDesc.offset' for non-'CONSTANT_BUFFER' descriptors requires 'features.nonConstantBufferRootDescriptorOffset'");
 
     if (rootDescriptorDesc.descriptorType != DescriptorType::ACCELERATION_STRUCTURE)
-        NRI_RETURN_ON_FAILURE(&m_Device, setRootDescriptorDesc.offset < descriptorVal.GetBufferViewSize(), ReturnVoid(), "'offset=%u' must be < descriptor 'size=%" PRIu64 "'", setRootDescriptorDesc.offset, descriptorVal.GetBufferViewSize());
+        NRI_RETURN_ON_FAILURE(&m_Device, setRootDescriptorDesc.offset <= descriptorVal.GetRootDescriptorOffsetMax(), ReturnVoid(), "'offset=%u' must be <= maximum root descriptor 'offset=%" PRIu64 "'", setRootDescriptorDesc.offset, descriptorVal.GetRootDescriptorOffsetMax());
 
     auto rootDescriptorBindingDescImpl = setRootDescriptorDesc;
     rootDescriptorBindingDescImpl.descriptor = NRI_GET_IMPL(Descriptor, setRootDescriptorDesc.descriptor);

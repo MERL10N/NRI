@@ -7,7 +7,8 @@ DescriptorVal::DescriptorVal(DeviceVal& device, Descriptor* descriptor, Descript
 
 DescriptorVal::DescriptorVal(DeviceVal& device, Descriptor* descriptor, const BufferViewDesc& bufferViewDesc)
     : ObjectVal(device, descriptor) {
-    m_BufferViewSize = bufferViewDesc.size;
+    const BufferVal& bufferVal = *(BufferVal*)bufferViewDesc.buffer;
+    m_RootDescriptorOffsetMax = bufferVal.GetDesc().size - bufferViewDesc.offset - bufferViewDesc.size;
 
     switch (bufferViewDesc.type) {
         case BufferView::BUFFER:

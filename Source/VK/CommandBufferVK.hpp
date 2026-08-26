@@ -2028,7 +2028,6 @@ NRI_INLINE void CommandBufferVK::SetRootDescriptor(const SetRootDescriptorDesc& 
 
     VkDescriptorBufferInfo bufferInfo = descriptorVK.GetBufferInfo();
     bufferInfo.offset += setRootDescriptorDesc.offset;
-    bufferInfo.range -= setRootDescriptorDesc.offset;
 
     VkWriteDescriptorSetAccelerationStructureKHR accelerationStructureWrite = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
     accelerationStructureWrite.accelerationStructureCount = 1;
