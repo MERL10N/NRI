@@ -1210,6 +1210,10 @@ NRI_INLINE void CommandBufferVal::WriteMicromapsSizes(const Micromap* const* mic
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
     NRI_RETURN_ON_FAILURE(&m_Device, !m_IsRenderPass, ReturnVoid(), "must be called outside of 'CmdBeginRendering/CmdEndRendering'");
     NRI_RETURN_ON_FAILURE(&m_Device, isTypeValid, ReturnVoid(), "'queryPool' query type must be 'MICROMAP_COMPACTED_SIZE'");
+    NRI_RETURN_ON_FAILURE(&m_Device, micromapNum == 0 || micromaps, ReturnVoid(), "'micromaps' is NULL");
+
+    if (!queryPoolVal.IsImported())
+        NRI_RETURN_ON_FAILURE(&m_Device, queryPoolOffset <= queryPoolVal.GetQueryNum() && micromapNum <= queryPoolVal.GetQueryNum() - queryPoolOffset, ReturnVoid(), "'queryPoolOffset=%u' + 'micromapNum=%u' must be <= query pool 'queryNum=%u'", queryPoolOffset, micromapNum, queryPoolVal.GetQueryNum());
 
     Scratch<Micromap*> micromapsImpl = NRI_ALLOCATE_SCRATCH(m_Device, Micromap*, micromapNum);
     for (uint32_t i = 0; i < micromapNum; i++) {
@@ -1230,6 +1234,10 @@ NRI_INLINE void CommandBufferVal::WriteAccelerationStructuresSizes(const Acceler
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
     NRI_RETURN_ON_FAILURE(&m_Device, !m_IsRenderPass, ReturnVoid(), "must be called outside of 'CmdBeginRendering/CmdEndRendering'");
     NRI_RETURN_ON_FAILURE(&m_Device, isTypeValid, ReturnVoid(), "'queryPool' query type must be 'ACCELERATION_STRUCTURE_SIZE' or 'ACCELERATION_STRUCTURE_COMPACTED_SIZE'");
+    NRI_RETURN_ON_FAILURE(&m_Device, accelerationStructureNum == 0 || accelerationStructures, ReturnVoid(), "'accelerationStructures' is NULL");
+
+    if (!queryPoolVal.IsImported())
+        NRI_RETURN_ON_FAILURE(&m_Device, queryPoolOffset <= queryPoolVal.GetQueryNum() && accelerationStructureNum <= queryPoolVal.GetQueryNum() - queryPoolOffset, ReturnVoid(), "'queryPoolOffset=%u' + 'accelerationStructureNum=%u' must be <= query pool 'queryNum=%u'", queryPoolOffset, accelerationStructureNum, queryPoolVal.GetQueryNum());
 
     Scratch<AccelerationStructure*> accelerationStructuresImpl = NRI_ALLOCATE_SCRATCH(m_Device, AccelerationStructure*, accelerationStructureNum);
     for (uint32_t i = 0; i < accelerationStructureNum; i++) {
