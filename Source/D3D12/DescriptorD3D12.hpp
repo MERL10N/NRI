@@ -317,7 +317,7 @@ Result DescriptorD3D12::Create(const TextureViewDesc& textureViewDesc) {
 Result DescriptorD3D12::Create(const BufferViewDesc& bufferViewDesc) {
     const BufferD3D12& bufferD3D12 = *((BufferD3D12*)bufferViewDesc.buffer);
     const BufferDesc& bufferDesc = bufferD3D12.GetDesc();
-    uint64_t size = bufferViewDesc.size == WHOLE_SIZE ? bufferDesc.size - bufferViewDesc.offset : bufferViewDesc.size;
+    uint64_t size = bufferViewDesc.size == WHOLE_SIZE ? (bufferDesc.size - bufferViewDesc.offset) : bufferViewDesc.size;
 
     Format patchedFormat = Format::UNKNOWN;
     uint32_t structureStride = 0;

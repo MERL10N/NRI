@@ -180,7 +180,7 @@ Result DescriptorVK::Create(const BufferViewDesc& bufferViewDesc) {
     m_ViewDesc.buffer = {};
     m_ViewDesc.buffer.buffer = bufferVK.GetHandle();
     m_ViewDesc.buffer.offset = bufferViewDesc.offset;
-    m_ViewDesc.buffer.range = (bufferViewDesc.size == WHOLE_SIZE) ? bufferDesc.size - bufferViewDesc.offset : bufferViewDesc.size;
+    m_ViewDesc.buffer.range = (bufferViewDesc.size == WHOLE_SIZE) ? (bufferDesc.size - bufferViewDesc.offset) : bufferViewDesc.size;
 
     if (m_Format != Format::UNKNOWN) {
         VkBufferViewCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO};
