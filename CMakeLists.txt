@@ -69,6 +69,7 @@ option(NRI_STREAMER_THREAD_SAFE "'NRIStreamer' thread safety (OFF is faster)" ON
 
 cmake_dependent_option(NRI_ENABLE_D3D11_SUPPORT "Enable D3D11 backend" ON "WIN32" OFF)
 cmake_dependent_option(NRI_ENABLE_D3D12_SUPPORT "Enable D3D12 backend" ON "WIN32" OFF)
+cmake_dependent_option(NRI_ENABLE_MTL_SUPPORT "Enable Metal backend" ON "APPLE" OFF)
 cmake_dependent_option(NRI_ENABLE_WGPU_SUPPORT "Enable WebGPU backend" ${GITHUB_CI} "WGPU_BIN_ARCHITECTURE" OFF)
 cmake_dependent_option(NRI_ENABLE_AMDAGS "Enable AMD AGS library for D3D" ON "(NRI_ENABLE_D3D11_SUPPORT OR NRI_ENABLE_D3D12_SUPPORT); NOT IS_ARM64" OFF)
 cmake_dependent_option(NRI_ENABLE_NVAPI "Enable NVAPI library for D3D" ON "(NRI_ENABLE_D3D11_SUPPORT OR NRI_ENABLE_D3D12_SUPPORT); NOT IS_ARM64" OFF)
@@ -110,6 +111,7 @@ foreach(opt IN ITEMS
     NRI_ENABLE_NONE_SUPPORT
     NRI_ENABLE_VK_SUPPORT
     NRI_ENABLE_WGPU_SUPPORT
+    NRI_ENABLE_MTL_SUPPORT
     NRI_ENABLE_VALIDATION_SUPPORT
     NRI_ENABLE_NIS_SDK
     NRI_ENABLE_IMGUI_EXTENSION
@@ -232,6 +234,18 @@ if(NRI_ENABLE_D3D12_SUPPORT)
         URL "https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator/archive/1d86c1130f61453634b1df85782e1fecfd59a525.zip"
     )
     list(APPEND DEPS d3d12ma)
+endif()
+
+if (NRI_ENABLE_MTL_SUPPORT)
+    # Metal
+    fetchcontent_declare(
+            metalcpp
+            DOWNLOAD_EXTRACT_TIMESTAMP 1
+            DOWNLOAD_NO_PROGRESS 1
+            SOURCE_SUBDIR "ignore CMakeLists.txt"
+            URL "https://github.com/apple/metal-cpp/archive/refs/tags/release/metal-cpp_macOS26.4_iOS26.4.zip"
+    )
+    list(APPEND DEPS metalcpp)
 endif()
 
 if(NRI_ENABLE_WGPU_SUPPORT)
@@ -799,6 +813,36 @@ if(NRI_ENABLE_VK_SUPPORT)
     )
 endif()
 
+if(NRI_ENABLE_MTL_SUPPORT)
+    set(MTL_SOURCE
+    )
+    add_library(NRI_MTL STATIC
+            Source/MTL/DeviceMTL.h
+            Source/MTL/MTLImpl.cpp
+            Source/MTL/DeviceMTL.hpp
+    )
+    target_sources(NRI_MTL
+            PRIVATE
+            ${MTL_SOURCE}
+    )
+    target_include_directories(NRI_MTL
+            PRIVATE
+            "${metalcpp_SOURCE_DIR}"
+    )
+    target_link_libraries(NRI_MTL
+            PRIVATE
+            NRI_Shared
+            "-framework Metal"
+            "-framework QuartzCore"
+            "-framework Foundation"
+    )
+    set_target_properties(NRI_MTL
+            PROPERTIES
+            FOLDER "NRI"
+    )
+
+endif()
+
 # WGPU
 if(NRI_ENABLE_WGPU_SUPPORT)
     set(WGPU_SOURCE
@@ -1011,6 +1055,9 @@ target_include_directories(NRI
         $<$<BOOL:${NRI_ENABLE_WGPU_SUPPORT}>:
             "${wgpu_native_SOURCE_DIR}/include"
         >
+        $<$<BOOL:${NRI_ENABLE_MTL_SUPPORT}>:
+        "${metalcpp_SOURCE_DIR}"
+        >
     PUBLIC
         "Include"
 )
@@ -1049,6 +1096,11 @@ target_link_libraries(NRI
         >
         $<$<BOOL:${NRI_ENABLE_WGPU_SUPPORT}>:
             NRI_WGPU
+        >
+        $<$<BOOL:${NRI_ENABLE_MTL_SUPPORT}>:
+            NRI_MTL
+            "-framework Metal"
+            "-framework Foundation"
         >
         $<$<BOOL:${NRI_ENABLE_VALIDATION_SUPPORT}>:
             NRI_Validation

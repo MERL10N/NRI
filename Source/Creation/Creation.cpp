@@ -30,6 +30,10 @@
 #    include <webgpu/wgpu.h>
 #endif
 
+#if NRI_ENABLE_MTL_SUPPORT
+#   include <Metal/Metal.hpp>
+#endif
+
 #include "SharedExternal.h"
 
 #define ADAPTER_MAX_NUM 32u
@@ -41,6 +45,7 @@ Result CreateDeviceD3D11(const DeviceCreationDesc& deviceCreationDesc, const Dev
 Result CreateDeviceD3D12(const DeviceCreationDesc& deviceCreationDesc, const DeviceCreationD3D12Desc& deviceCreationDescD3D12, DeviceBase*& device);
 Result CreateDeviceVK(const DeviceCreationDesc& deviceCreationDesc, const DeviceCreationVKDesc& deviceCreationDescVK, DeviceBase*& device);
 Result CreateDeviceWGPU(const DeviceCreationDesc& deviceCreationDesc, DeviceBase*& device);
+Result CreateDeviceMTL(const DeviceCreationDesc& deviceCreationDesc, DeviceBase*& device);
 DeviceBase* CreateDeviceValidation(const DeviceCreationDesc& deviceCreationDesc, DeviceBase& device);
 
 static constexpr uint64_t Hash(const char* name) {
@@ -652,6 +657,29 @@ static void UpdateAdaptersWGPU(AdapterDesc* adapterDescs, uint32_t& adapterDescN
 
 #endif
 
+#if NRI_ENABLE_MTL_SUPPORT
+static void UpdateAdaptersMTL(AdapterDesc* adapterDescs, uint32_t& adapterDescNum) {
+    NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+
+    NS::Array* devices = MTL::CopyAllDevices();
+
+    for (int i = 0; i < devices->count() && adapterDescNum < ADAPTER_MAX_NUM; i++) {
+        MTL::Device* metalDevice = static_cast<MTL::Device*>(devices->object(i));
+        if (!metalDevice->supportsFamily(MTL::GPUFamilyMetal4)){
+                continue;
+        }
+
+        AdapterDesc& adapterDesc = adapterDescs[adapterDescNum++];
+        adapterDesc.vendor = Vendor::UNKNOWN;
+        adapterDesc.architecture = Architecture::INTEGRATED;
+        adapterDesc.supportedGraphicsAPIs |= GraphicsAPI::MTL;
+
+    }
+
+    pool->release();
+}
+#endif
+
 static Result FinalizeDeviceCreation(const DeviceCreationDesc& deviceCreationDesc, DeviceBase& deviceImpl, Device*& device) {
     MaybeUnused(deviceCreationDesc);
 #if NRI_ENABLE_VALIDATION_SUPPORT
@@ -929,6 +957,12 @@ NRI_API Result NRI_CALL nriCreateDevice(const DeviceCreationDesc& deviceCreation
         result = CreateDeviceWGPU(modifiedDeviceCreationDesc, deviceImpl);
 #endif
 
+#if NRI_ENABLE_MTL_SUPPORT
+    if (modifiedDeviceCreationDesc.graphicsAPI == GraphicsAPI::MTL)
+        result = CreateDeviceMTL(modifiedDeviceCreationDesc, deviceImpl);
+#endif
+
+
     if (result != Result::SUCCESS)
         return result;
 
@@ -1146,6 +1180,8 @@ NRI_API const char* NRI_CALL nriGetGraphicsAPIString(GraphicsAPI graphicsAPI) {
             return "VK";
         case GraphicsAPI::WGPU:
             return "WGPU";
+        case GraphicsAPI::MTL:
+            return "MTL";
         default:
             return "UNKNOWN";
     }
@@ -1166,7 +1202,9 @@ NRI_API Result NRI_CALL nriEnumerateAdapters(AdapterDesc* outAdapterDescs, uint3
 #if NRI_ENABLE_WGPU_SUPPORT
     UpdateAdaptersWGPU(adapterDescs.data(), adapterDescNum);
 #endif
-
+#if NRI_ENABLE_MTL_SUPPORT
+    UpdateAdaptersMTL(adapterDescs.data(), adapterDescNum);
+#endif
 #if NRI_ENABLE_NONE_SUPPORT
     if (!adapterDescNum) {
         AdapterDesc& adapterDesc = adapterDescs[adapterDescNum++];
