@@ -229,19 +229,11 @@ static void NRI_CALL GetTextureMemoryDesc(const Texture& texture, MemoryLocation
 }
 
 static Result NRI_CALL BindBufferMemory(const BindBufferMemoryDesc* bindBufferMemoryDescs, uint32_t bindBufferMemoryDescNum) {
-    if (!bindBufferMemoryDescNum)
-        return Result::SUCCESS;
-
-    DeviceD3D12& deviceD3D12 = ((BufferD3D12*)bindBufferMemoryDescs->buffer)->GetDevice();
-    return deviceD3D12.BindBufferMemory(bindBufferMemoryDescs, bindBufferMemoryDescNum);
+    return BindBufferMemoryD3D12(bindBufferMemoryDescs, bindBufferMemoryDescNum);
 }
 
 static Result NRI_CALL BindTextureMemory(const BindTextureMemoryDesc* bindTextureMemoryDescs, uint32_t bindTextureMemoryDescNum) {
-    if (!bindTextureMemoryDescNum)
-        return Result::SUCCESS;
-
-    DeviceD3D12& deviceD3D12 = ((TextureD3D12*)bindTextureMemoryDescs->texture)->GetDevice();
-    return deviceD3D12.BindTextureMemory(bindTextureMemoryDescs, bindTextureMemoryDescNum);
+    return BindTextureMemoryD3D12(bindTextureMemoryDescs, bindTextureMemoryDescNum);
 }
 
 static void NRI_CALL GetBufferMemoryDesc2(const Device& device, const BufferDesc& bufferDesc, MemoryLocation memoryLocation, MemoryDesc& memoryDesc) {
@@ -969,19 +961,11 @@ static void NRI_CALL GetMicromapMemoryDesc(const Micromap& micromap, MemoryLocat
 }
 
 static Result NRI_CALL BindAccelerationStructureMemory(const BindAccelerationStructureMemoryDesc* bindAccelerationStructureMemoryDescs, uint32_t bindAccelerationStructureMemoryDescNum) {
-    if (!bindAccelerationStructureMemoryDescNum)
-        return Result::SUCCESS;
-
-    DeviceD3D12& deviceD3D12 = ((AccelerationStructureD3D12*)bindAccelerationStructureMemoryDescs->accelerationStructure)->GetDevice();
-    return deviceD3D12.BindAccelerationStructureMemory(bindAccelerationStructureMemoryDescs, bindAccelerationStructureMemoryDescNum);
+    return BindAccelerationStructureMemoryD3D12(bindAccelerationStructureMemoryDescs, bindAccelerationStructureMemoryDescNum);
 }
 
 static Result NRI_CALL BindMicromapMemory(const BindMicromapMemoryDesc* bindMicromapMemoryDescs, uint32_t bindMicromapMemoryDescNum) {
-    if (!bindMicromapMemoryDescNum)
-        return Result::SUCCESS;
-
-    DeviceD3D12& deviceD3D12 = ((MicromapD3D12*)bindMicromapMemoryDescs->micromap)->GetDevice();
-    return deviceD3D12.BindMicromapMemory(bindMicromapMemoryDescs, bindMicromapMemoryDescNum);
+    return BindMicromapMemoryD3D12(bindMicromapMemoryDescs, bindMicromapMemoryDescNum);
 }
 
 static void NRI_CALL GetAccelerationStructureMemoryDesc2(const Device& device, const AccelerationStructureDesc& accelerationStructureDesc, MemoryLocation memoryLocation, MemoryDesc& memoryDesc) {

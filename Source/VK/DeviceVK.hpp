@@ -694,6 +694,7 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
     }
 
     { // Create instance
+        // Temporary Vectors are acceptable during one-time device initialization
         Vector<const char*> desiredInstanceExts(GetStdAllocator());
         for (uint32_t i = 0; i < desc.vkExtensions.instanceExtensionNum; i++)
             desiredInstanceExts.push_back(desc.vkExtensions.instanceExtensions[i]);
