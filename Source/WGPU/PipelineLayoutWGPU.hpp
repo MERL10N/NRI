@@ -828,6 +828,7 @@ Result PipelineLayoutWGPU::Create(const PipelineLayoutDesc& pipelineLayoutDesc) 
             samplerDesc.mipmapFilter = GetMipmapFilterMode(rootSampler.desc.filters.mip);
             samplerDesc.lodMinClamp = rootSampler.desc.mipMin;
             samplerDesc.lodMaxClamp = rootSampler.desc.mipMax == 0.0f ? 1000.0f : rootSampler.desc.mipMax;
+            samplerDesc.compare = GetCompareFunction(rootSampler.desc.compareOp);
             samplerDesc.maxAnisotropy = std::max<uint16_t>(rootSampler.desc.anisotropy, 1);
             WGPUSampler sampler = wgpuDeviceCreateSampler(m_Device, &samplerDesc);
             if (!sampler)
