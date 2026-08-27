@@ -23,6 +23,7 @@ Apply these rules to changes under `Include`, `Source`, CMake, and build scripts
 - Keep declarations and entity layout in `.h`, non-trivial method bodies in the corresponding `.hpp`, and `Impl*.cpp` focused on interface wiring, dispatch, and short entry points.
 - Functions that do not use class state are file-local `static inline` helpers in the helper section near the top of the file.
 - Backend interface implementations called by wrappers in `Impl*.cpp` are not ordinary helpers: keep their GAPI suffixes and define them with `NRI_INLINE`.
+- Wrapper-interface entry points defined directly in `Impl*.cpp` also keep GAPI suffixes to match the corresponding wrapper API function-table members; keep them file-local with `static` and `NRI_CALL`.
 - Omit redundant GAPI suffixes from ordinary file-local helpers in single-GAPI files.
 - Keep GAPI suffixes in `Creation.cpp` and other multi-GAPI files where they disambiguate backend-specific helpers.
 - Keep one-off helpers local. Put genuinely reused backend-independent logic in the relevant Shared header or codec namespace.
