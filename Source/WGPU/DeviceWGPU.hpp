@@ -447,6 +447,8 @@ void DeviceWGPU::FillDesc(const AdapterDesc& adapterDesc) {
     m_Desc.features.shaderBytecodeSPIRV = true;
     m_Desc.features.shaderBytecodeWGSL = true;
     m_Desc.features.timestamp = m_IsTimestampQueryInsidePassesSupported;
+    m_Desc.features.rectColorClears = true;
+    m_Desc.features.rectDepthStencilClears = true;
     m_Desc.features.getMemoryDesc2 = true;
     m_Desc.features.componentSwizzle = wgpuDeviceHasFeature(m_Device, WGPUFeatureName_TextureComponentSwizzle) == WGPU_TRUE;
     m_Desc.features.rootConstantsOffset = true;

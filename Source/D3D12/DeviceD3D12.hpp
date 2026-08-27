@@ -1174,6 +1174,8 @@ void DeviceD3D12::FillDesc(bool disableD3D12EnhancedBarrier) {
     m_Desc.features.timestampCopyQueue = options3.CopyQueueTimestampQueriesSupported;
     m_Desc.features.calibratedTimestamps = true;
     m_Desc.features.additionalShadingRates = options6.AdditionalShadingRatesSupported;
+    m_Desc.features.rectColorClears = true;
+    m_Desc.features.rectDepthStencilClears = true;
     m_Desc.features.regionResolve = true;
     m_Desc.features.resolveOpMinMax = true;
     m_Desc.features.pipelineCache = isPipelineLibrarySupported;

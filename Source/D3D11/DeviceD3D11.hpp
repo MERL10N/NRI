@@ -528,6 +528,8 @@ void DeviceD3D11::FillDesc() {
     m_Desc.features.shaderBytecodeDXBC = true;
     m_Desc.features.occlusion = true;
     m_Desc.features.timestamp = true;
+    m_Desc.features.rectColorClears = m_ImmediateContextVersion >= 1;
+    m_Desc.features.rectDepthStencilClears = false; // "ClearView" supports only depth-only resources, not combined depth-stencil formats
     m_Desc.features.getMemoryDesc2 = true;
     m_Desc.features.enhancedBarriers = true; // don't care, but advertise support
     m_Desc.features.tessellationShader = true;

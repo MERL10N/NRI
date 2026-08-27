@@ -184,7 +184,7 @@ NriStruct(CoreInterface) {
         // Graphics
         void                (NRI_CALL *CmdBeginRendering)           (NriRef(CommandBuffer) commandBuffer, const NriRef(RenderingDesc) renderingDesc);
         // {                {
-            // Clear
+            // Clear ("rects" require the corresponding "features.rectColorClears" or "features.rectDepthStencilClears")
             void                (NRI_CALL *CmdClearAttachments)     (NriRef(CommandBuffer) commandBuffer, const NriPtr(ClearAttachmentDesc) clearAttachmentDescs, uint32_t clearAttachmentDescNum, const NriPtr(Rect) rects, uint32_t rectNum);
 
             // Draw

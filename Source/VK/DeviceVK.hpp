@@ -1486,6 +1486,8 @@ Result DeviceVK::Create(const DeviceCreationDesc& desc, const DeviceCreationVKDe
         m_Desc.features.calibratedTimestamps = IsExtensionSupported(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME, desiredDeviceExts);
         m_Desc.features.additionalShadingRates = FragmentShadingRateProps.maxFragmentSize.height > 2 || FragmentShadingRateProps.maxFragmentSize.width > 2;
         m_Desc.features.sumShadingRateCombiner = m_Desc.tiers.shadingRate != 0;
+        m_Desc.features.rectColorClears = true;
+        m_Desc.features.rectDepthStencilClears = true;
         m_Desc.features.regionResolve = true;
         m_Desc.features.resolveOpMinMax = m_IsSupported.maintenance10 && m_IsSupported.copyCommands2; // TODO: it's "all or nothing", without it "min/max" resolve is supported only in a render pass
         m_Desc.features.pipelineCache = true;

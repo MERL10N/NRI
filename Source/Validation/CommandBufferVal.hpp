@@ -540,6 +540,8 @@ NRI_INLINE void CommandBufferVal::ClearAttachments(const ClearAttachmentDesc* cl
         bool isColor = clearAttachmentDesc.planes & PlaneBits::COLOR;
         bool isDepthStencil = clearAttachmentDesc.planes & (PlaneBits::DEPTH | PlaneBits::STENCIL);
         NRI_RETURN_ON_FAILURE(&m_Device, isColor != isDepthStencil, ReturnVoid(), "'[%u].planes' must represent a color or a depth-stencil", i);
+        NRI_RETURN_ON_FAILURE(&m_Device, !rectNum || !isColor || deviceDesc.features.rectColorClears, ReturnVoid(), "'features.rectColorClears' is false");
+        NRI_RETURN_ON_FAILURE(&m_Device, !rectNum || !isDepthStencil || deviceDesc.features.rectDepthStencilClears, ReturnVoid(), "'features.rectDepthStencilClears' is false");
 
         if (clearAttachmentDesc.planes & PlaneBits::COLOR) {
             NRI_RETURN_ON_FAILURE(&m_Device, clearAttachmentDesc.colorAttachmentIndex < deviceDesc.shaderStage.fragment.attachmentMaxNum, ReturnVoid(), "'[%u].colorAttachmentIndex=%u' is out of bounds", i, clearAttachmentDesc.colorAttachmentIndex);

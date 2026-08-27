@@ -2183,6 +2183,10 @@ NriStruct(DeviceDesc) {
         bool additionalShadingRates;                              // see "ShadingRate"
         bool sumShadingRateCombiner;                              // see "ShadingRateCombiner::SUM"
 
+        // Clear
+        bool rectColorClears;                                     // see "CmdClearAttachments"
+        bool rectDepthStencilClears;                              // see "CmdClearAttachments"
+
         // Resolve
         bool regionResolve;                                       // see "CmdResolveTexture"
         bool resolveOpMinMax;                                     // see "ResolveOp"

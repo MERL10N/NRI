@@ -260,20 +260,16 @@ NRI_INLINE void CommandBufferD3D11::ClearAttachments(const ClearAttachmentDesc* 
 
         if (m_Version >= 1) {
             // https://learn.microsoft.com/en-us/windows/win32/api/d3d11_1/nf-d3d11_1-id3d11devicecontext1-clearview
-            FLOAT color[4] = {};
             for (uint32_t i = 0; i < clearAttachmentDescNum; i++) {
                 const ClearAttachmentDesc& clearAttachmentDesc = clearAttachmentDescs[i];
 
                 if (clearAttachmentDesc.planes & PlaneBits::COLOR)
                     m_DeferredContext->ClearView(*m_RenderTargets[clearAttachmentDesc.colorAttachmentIndex].attachment, &clearAttachmentDesc.value.color.f.x, rectsD3D, rectNum);
-                else if (clearAttachmentDesc.planes & PlaneBits::DEPTH) {
-                    color[0] = clearAttachmentDesc.value.depthStencil.depth;
-                    m_DeferredContext->ClearView(m_DepthStencil, color, rectsD3D, rectNum);
-                } else
-                    NRI_CHECK(false, "Unexpected 'clearAttachmentDesc.planes'");
+                else
+                    NRI_CHECK(false, "Rectangular depth-stencil attachment clears are unsupported");
             }
         } else
-            NRI_CHECK(false, "'ClearView' emulation for 11.0 is not implemented!");
+            NRI_CHECK(false, "Rectangular attachment clears are unsupported");
     }
 }
 
