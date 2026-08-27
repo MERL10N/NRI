@@ -1,22 +1,29 @@
 // © 2026 NVIDIA Corporation
 
-struct RequestAdapterContext {
-    WGPUAdapter adapter = nullptr;
-    WGPURequestAdapterStatus status = WGPURequestAdapterStatus_Error;
-    bool done = false;
-};
-
 struct RequestDeviceContext {
     WGPUDevice device = nullptr;
     WGPURequestDeviceStatus status = WGPURequestDeviceStatus_Error;
     bool done = false;
 };
 
-static void OnAdapterRequested(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView, void* userdata1, void*) {
-    RequestAdapterContext& context = *(RequestAdapterContext*)userdata1;
-    context.status = status;
-    context.adapter = adapter;
-    context.done = true;
+static inline bool IsSameAdapter(const AdapterDesc& adapterDesc, const WGPUAdapterInfo& adapterInfo) {
+
+    if (adapterDesc.vendor != Vendor::UNKNOWN && adapterDesc.deviceId && adapterInfo.vendorID && adapterInfo.deviceID)
+        return adapterDesc.vendor == GetVendorFromID(adapterInfo.vendorID) && adapterDesc.deviceId == adapterInfo.deviceID;
+
+    size_t nameLength = strlen(adapterDesc.name);
+
+    return adapterInfo.device.data && adapterInfo.device.length == nameLength && memcmp(adapterInfo.device.data, adapterDesc.name, nameLength) == 0;
+}
+
+static inline bool IsAdapterSupported(WGPUAdapter adapter) {
+
+    if (wgpuAdapterHasFeature(adapter, (WGPUFeatureName)WGPUNativeFeature_Immediates) != WGPU_TRUE)
+        return false;
+
+    WGPULimits limits = WGPU_LIMITS_INIT;
+
+    return wgpuAdapterGetLimits(adapter, &limits) == WGPUStatus_Success && limits.maxImmediateSize >= 256;
 }
 
 static void OnDeviceRequested(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView, void* userdata1, void*) {
@@ -210,22 +217,32 @@ Result DeviceWGPU::CreateInstanceAndDevice(const DeviceCreationDesc& desc) {
     if (!m_Instance)
         return Result::FAILURE;
 
-    WGPURequestAdapterOptions adapterOptions = WGPU_REQUEST_ADAPTER_OPTIONS_INIT;
-    adapterOptions.powerPreference = WGPUPowerPreference_HighPerformance;
+    WGPUInstanceEnumerateAdapterOptions adapterOptions = {};
+    adapterOptions.backends = WGPUInstanceBackend_Primary;
 
-    RequestAdapterContext adapterContext = {};
-    WGPURequestAdapterCallbackInfo adapterCallbackInfo = WGPU_REQUEST_ADAPTER_CALLBACK_INFO_INIT;
-    adapterCallbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
-    adapterCallbackInfo.callback = OnAdapterRequested;
-    adapterCallbackInfo.userdata1 = &adapterContext;
+    size_t adapterNum = wgpuInstanceEnumerateAdapters(m_Instance, &adapterOptions, nullptr);
+    Scratch<WGPUAdapter> adapters = NRI_ALLOCATE_SCRATCH(*this, WGPUAdapter, adapterNum);
+    adapterNum = wgpuInstanceEnumerateAdapters(m_Instance, &adapterOptions, adapters);
 
-    wgpuInstanceRequestAdapter(m_Instance, &adapterOptions, adapterCallbackInfo);
-    WaitForAsyncRequest(m_Instance, adapterContext.done);
+    for (size_t i = 0; i < adapterNum; i++) {
+        WGPUAdapterInfo adapterInfo = WGPU_ADAPTER_INFO_INIT;
+        bool isSameAdapter = wgpuAdapterGetInfo(adapters[i], &adapterInfo) == WGPUStatus_Success && IsSameAdapter(*desc.adapterDesc, adapterInfo);
+        wgpuAdapterInfoFreeMembers(adapterInfo);
 
-    if (adapterContext.status != WGPURequestAdapterStatus_Success || !adapterContext.adapter)
+        if (isSameAdapter && IsAdapterSupported(adapters[i])) {
+            m_Adapter = adapters[i];
+            adapters[i] = nullptr;
+            break;
+        }
+    }
+
+    for (size_t i = 0; i < adapterNum; i++) {
+        if (adapters[i])
+            wgpuAdapterRelease(adapters[i]);
+    }
+
+    if (!m_Adapter)
         return Result::FAILURE;
-
-    m_Adapter = adapterContext.adapter;
 
     std::array<WGPUFeatureName, 48> requiredFeatures = {};
     size_t requiredFeatureNum = 0;
