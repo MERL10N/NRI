@@ -12,7 +12,8 @@ Apply these rules to changes under `Include`, `Source`, CMake, and build scripts
 - Preserve CRLF and C++17 compatibility.
 - Use the repository `.clang-format`: 4 spaces, no tabs, attached braces, left pointer/reference alignment, unlimited columns, preserved include blocks, and case-sensitive include sorting.
 - Leave an empty line before `return`, `if`, `for`, `while`, and `switch` in touched code.
-- Parenthesize compound conditions used by the conditional (`?:`) operator.
+- Parenthesize compound conditions used by the conditional (`?:`) operator, for example: `(isEnabled && value != 0) ? enabled : disabled`.
+- Parenthesize arithmetic subexpressions used as comparison operands in compound conditions, for example: `offsetA < (offsetB + numB) && offsetB < (offsetA + numA)`.
 - Use existing NRI macros and patterns.
 - Preserve the public C/C++ facade: `NriStruct`, `NriEnum`, `NriBits`, `NriRef`, `NriPtr`, `NriNamespaceBegin/End`, `NriOptional`, `NriOut`, and `NRI_CALL`.
 - Avoid unrelated churn and preserve user changes. Mark an unavoidable unrelated fix with `FIXED BY AI`.
