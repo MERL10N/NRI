@@ -7,6 +7,8 @@ description: Review NRI changes or the current tree for graphics-API correctness
 
 Read `../nri-coding-standard/SKILL.md` completely before reviewing. Treat it as the coding-policy checklist; this skill defines the review method.
 
+When the review touches WGPU, read `../../todo-wgpu.md` completely. When it touches video, read `../../todo-video.md` completely. Treat these files as maintained investigation context, not as pre-established findings; verify every relevant item against the review target.
+
 Review exactly the target and comparison basis specified by the user. Clarify only when genuine ambiguity could change the findings.
 
 Record the exact target and comparison basis, including refs and commits when applicable. Include committed and uncommitted changes when reviewing a diff. If the review is against current `main`, verify that the local ref matches the remote before comparing.
