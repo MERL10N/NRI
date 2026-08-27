@@ -31,10 +31,10 @@ Review the whole feature neighborhood, not only the last commit or added lines.
 - Apply scratch initialization requirements to native input and input/output structures. Pure output arrays without `sType`/`pNext` do not need redundant initialization.
 - Keep direct native API mirrors in native terminology even when the NRI-facing concept uses different terminology.
 - Compare D3D12 and Vulkan resource states, access/stages, queues, ownership, synchronization, setup/reference/reconstructed pictures, offsets, feedback, and object lifetimes.
-- Different native requirements are valid only when the NRI contract lets callers discover and satisfy them.
+- Different native requirements are valid only when the NRI contract lets callers discover and satisfy them. Treat cross-backend differences as investigation leads, not proof of a defect; confirm the contract and units of each native API before deciding that one backend is wrong.
 - Check zero and maximum counts, sparse or duplicate slots, aliasing, optional pointers, nonzero offsets, narrowing, partial construction, rollback, and destruction.
 - Check relevant combinations of codec, encode/decode, frame type, neutral/native arguments, host/buffer sources, coincident/distinct pictures, Validation/direct use, and Agility/non-Agility.
-- Verify uncertain GAPI rules with primary documentation or primary implementation sources; identify inferences.
+- Verify uncertain GAPI rules with primary documentation or primary implementation sources; identify inferences. Distinguish quantities such as logical and physical or block-rounded extents, texels and blocks, row size and row pitch, and resources and subresources. Include relevant padding, edge, feature, and version rules before declaring a native violation.
 
 ## Duplication and Simplification
 
@@ -60,6 +60,7 @@ One reachable blocker controls the verdict.
 - Run `git diff --check`, check for accidental edits, and verify CRLF.
 - Build every affected backend and feature gate. For generic verification, cover every backend available through CMake: D3D12 (both Agility and non-Agility), Vulkan, D3D11, and WGPU, in both Debug and Release configurations.
 - For non-Agility D3D12 verification, confirm that the build selected the Windows SDK 10.0.20348 headers; a downlevel target alone may still compile against newer installed headers.
+- For findings that predict a native validation failure or incorrect output, run the smallest relevant existing test on the unchanged reviewed tree when practical and record whether it reproduces. A test that passes only after a proposed fix does not establish that the baseline fails; if both pass, reconcile the behavior with the exact native rule before retaining the finding.
 - Distinguish compilation from runtime coverage and list important untested paths.
 - Review the exact final tree, not an earlier iteration.
 
