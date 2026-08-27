@@ -1447,8 +1447,8 @@ NriEnum(BlendFactor, uint8_t,   // RGB                               ALPHA
     ONE_MINUS_DST_ALPHA,        // 1 - D.a                           1 - D.a
     CONSTANT_COLOR,             // C.r, C.g, C.b                     C.a
     ONE_MINUS_CONSTANT_COLOR,   // 1 - C.r, 1 - C.g, 1 - C.b         1 - C.a
-    CONSTANT_ALPHA,             // C.a                               C.a
-    ONE_MINUS_CONSTANT_ALPHA,   // 1 - C.a                           1 - C.a
+    CONSTANT_ALPHA,             // C.a                               C.a (for RGB requires "features.constantAlphaBlendFactors")
+    ONE_MINUS_CONSTANT_ALPHA,   // 1 - C.a                           1 - C.a (for RGB requires "features.constantAlphaBlendFactors")
     SRC_ALPHA_SATURATE,         // min(S0.a, 1 - D.a)                1
     SRC1_COLOR,                 // S1.r, S1.g, S1.b                  S1.a
     ONE_MINUS_SRC1_COLOR,       // 1 - S1.r, 1 - S1.g, 1 - S1.b      1 - S1.a
@@ -2205,6 +2205,7 @@ NriStruct(DeviceDesc) {
         bool componentSwizzle;                                    // see "ComponentSwizzle" (unsupported only in D3D11)
         bool independentFrontAndBackStencilReferenceAndMasks;     // see "StencilAttachmentDesc::back"
         bool filterOpMinMax;                                      // see "FilterOp"
+        bool constantAlphaBlendFactors;                           // see "BlendFactor::CONSTANT_ALPHA" and "BlendFactor::ONE_MINUS_CONSTANT_ALPHA"
         bool logicOp;                                             // see "LogicOp"
         bool depthBoundsTest;                                     // see "DepthAttachmentDesc::boundsTest"
         bool drawIndirectCount;                                   // see "countBuffer" and "countBufferOffset"

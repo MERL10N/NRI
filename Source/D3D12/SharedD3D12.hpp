@@ -192,7 +192,16 @@ constexpr std::array<D3D12_BLEND, (size_t)BlendFactor::MAX_NUM> g_BlendFactors =
 };
 NRI_VALIDATE_ARRAY(g_BlendFactors);
 
-D3D12_BLEND nri::GetBlend(BlendFactor blendFactor) {
+D3D12_BLEND nri::GetBlend(BlendFactor blendFactor, bool isAlphaBlend) {
+#if NRI_ENABLE_AGILITY_SDK_SUPPORT
+    if (isAlphaBlend && blendFactor == BlendFactor::CONSTANT_ALPHA)
+        return D3D12_BLEND_BLEND_FACTOR;
+    if (isAlphaBlend && blendFactor == BlendFactor::ONE_MINUS_CONSTANT_ALPHA)
+        return D3D12_BLEND_INV_BLEND_FACTOR;
+#else
+    MaybeUnused(isAlphaBlend);
+#endif
+
     return g_BlendFactors[(size_t)blendFactor];
 }
 

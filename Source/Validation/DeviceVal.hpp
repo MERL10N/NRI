@@ -56,6 +56,10 @@ static inline bool IsShaderStageSupported(const DeviceDesc& deviceDesc, StageBit
     return true;
 }
 
+static inline bool IsConstantAlphaBlendFactor(BlendFactor blendFactor) {
+    return blendFactor == BlendFactor::CONSTANT_ALPHA || blendFactor == BlendFactor::ONE_MINUS_CONSTANT_ALPHA;
+}
+
 static inline Dim_t GetMaxMipNum(uint16_t w, uint16_t h, uint16_t d) {
     Dim_t mipNum = 1;
 
@@ -560,6 +564,11 @@ NRI_INLINE Result DeviceVal::CreatePipeline(const GraphicsPipelineDesc& graphics
         NRI_RETURN_ON_FAILURE(this, color->alphaBlend.srcFactor < BlendFactor::MAX_NUM, Result::INVALID_ARGUMENT, "'outputMerger->color[%u].alphaBlend.srcFactor' is invalid", i);
         NRI_RETURN_ON_FAILURE(this, color->alphaBlend.dstFactor < BlendFactor::MAX_NUM, Result::INVALID_ARGUMENT, "'outputMerger->color[%u].alphaBlend.dstFactor' is invalid", i);
         NRI_RETURN_ON_FAILURE(this, color->alphaBlend.op < BlendOp::MAX_NUM, Result::INVALID_ARGUMENT, "'outputMerger->color[%u].alphaBlend.op' is invalid", i);
+
+        if (color->blendEnabled && !GetDesc().features.constantAlphaBlendFactors) {
+            NRI_RETURN_ON_FAILURE(this, !IsConstantAlphaBlendFactor(color->colorBlend.srcFactor), Result::INVALID_ARGUMENT, "'outputMerger->color[%u].colorBlend.srcFactor' requires 'features.constantAlphaBlendFactors'", i);
+            NRI_RETURN_ON_FAILURE(this, !IsConstantAlphaBlendFactor(color->colorBlend.dstFactor), Result::INVALID_ARGUMENT, "'outputMerger->color[%u].colorBlend.dstFactor' requires 'features.constantAlphaBlendFactors'", i);
+        }
     }
 
     NRI_RETURN_ON_FAILURE(this, graphicsPipelineDesc.outputMerger.depth.compareOp < CompareOp::MAX_NUM, Result::INVALID_ARGUMENT, "'outputMerger.depth.compareOp' is invalid");
