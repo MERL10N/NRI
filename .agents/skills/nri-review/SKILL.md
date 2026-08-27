@@ -1,6 +1,6 @@
 ---
 name: nri-review
-description: Review NRI changes for merge readiness, graphics-API correctness, backend parity, validation coverage, duplication, simplification, and build risk.
+description: Review NRI changes or the current tree for graphics-API correctness, backend parity, validation coverage, duplication, simplification, and build risk.
 ---
 
 # NRI Review
@@ -9,7 +9,7 @@ Read `../nri-coding-standard/SKILL.md` completely before reviewing. Treat it as 
 
 Review exactly the target and comparison basis specified by the user. Clarify only when genuine ambiguity could change the findings.
 
-Record the exact baseline ref and commit. Include committed and uncommitted changes. If the verdict is against current `main`, verify that the local ref matches the remote before comparing.
+Record the exact target and comparison basis, including refs and commits when applicable. Include committed and uncommitted changes when reviewing a diff. If the review is against current `main`, verify that the local ref matches the remote before comparing.
 
 ## Map the Feature
 
@@ -38,7 +38,7 @@ Review the whole feature neighborhood, not only the last commit or added lines.
 
 ## Duplication and Simplification
 
-Use this pass for substantial implementation changes or when maintainability is in scope. Correctness and merge risk come first.
+Use this pass for substantial implementation changes or when maintainability is in scope. Correctness and regression risk come first.
 
 - Compare file-local helpers and substantial workflows across backends.
 - Look for equivalent bodies with the same or different names, terminology, capitalization, or backend suffixes.
@@ -47,9 +47,9 @@ Use this pass for substantial implementation changes or when maintainability is 
 - Share only genuinely backend-independent reused logic. Keep one-off and native-specific helpers local.
 - Retain duplication when abstraction would worsen pointer lifetime, diagnostics, performance, or native clarity; state that reason.
 
-## Merge Verdict
+## Review Verdict
 
-A blocker is a supported valid path that can fail, crash, access missing storage, use invalid native data, violate an undiscoverable resource-state contract, advertise unsupported behavior, break Validation or interface wiring, leak or misuse lifetime, fail a required build, or prevent a clean merge.
+A blocker is a supported valid path that can fail, crash, access missing storage, use invalid native data, violate an undiscoverable resource-state contract, advertise unsupported behavior, break Validation or interface wiring, leak or misuse lifetime, fail a required build, or otherwise make the reviewed state unacceptable.
 
 Incomplete functionality is non-blocking when explicitly unsupported, accurately reported, and harmless to existing NRI. ABI changes alone are not findings for v181 when recompilation is accepted.
 
@@ -58,11 +58,11 @@ One reachable blocker controls the verdict.
 ## Verification and Report
 
 - Run `git diff --check`, check for accidental edits, and verify CRLF.
-- Build every affected backend and feature gate. For Windows video merge readiness, normally cover Agility and non-Agility D3D12, Vulkan, Debug, and Release; include shared consumers such as WGPU when public/shared headers changed.
+- Build every affected backend and feature gate. For generic verification, cover every backend available through CMake: D3D12 (both Agility and non-Agility), Vulkan, D3D11, and WGPU, in both Debug and Release configurations.
 - For non-Agility D3D12 verification, confirm that the build selected the Windows SDK 10.0.20348 headers; a downlevel target alone may still compile against newer installed headers.
 - Distinguish compilation from runtime coverage and list important untested paths.
 - Review the exact final tree, not an earlier iteration.
 
 Report findings first by severity. Give exact file/line, reachable path, violated NRI or native rule, affected backend/mode, why Validation or capabilities do not prevent it, and a concrete fix.
 
-End with blocker and useful non-blocker counts, verification performed and omitted, and an explicit `MERGEABLE` or `NOT MERGEABLE` verdict.
+End with blocker and useful non-blocker counts, verification performed and omitted, and an explicit `PASS` or `FAIL` verdict.
