@@ -304,7 +304,10 @@ NRI_INLINE Result DeviceVal::CreateDescriptor(const BufferViewDesc& bufferViewDe
     const BufferDesc& bufferDesc = bufferVal.GetDesc();
 
     NRI_RETURN_ON_FAILURE(this, bufferVal.IsBoundToMemory(), Result::INVALID_ARGUMENT, "'bufferViewDesc.buffer' is not bound to memory");
-    NRI_RETURN_ON_FAILURE(this, bufferViewDesc.offset + bufferViewDesc.size <= bufferDesc.size, Result::INVALID_ARGUMENT, "'offset=%" PRIu64 "' + 'size=%" PRIu64 "' must be <= buffer 'size=%" PRIu64 "'", bufferViewDesc.offset, bufferViewDesc.size, bufferDesc.size);
+    NRI_RETURN_ON_FAILURE(this, bufferViewDesc.offset < bufferDesc.size, Result::INVALID_ARGUMENT, "'offset=%" PRIu64 "' must be < buffer 'size=%" PRIu64 "'", bufferViewDesc.offset, bufferDesc.size);
+
+    const uint64_t size = bufferViewDesc.size == WHOLE_SIZE ? (bufferDesc.size - bufferViewDesc.offset) : bufferViewDesc.size;
+    NRI_RETURN_ON_FAILURE(this, size <= bufferDesc.size - bufferViewDesc.offset, Result::INVALID_ARGUMENT, "'offset=%" PRIu64 "' + 'size=%" PRIu64 "' must be <= buffer 'size=%" PRIu64 "'", bufferViewDesc.offset, size, bufferDesc.size);
 
     if (bufferViewDesc.type != BufferView::STRUCTURED_BUFFER && bufferViewDesc.type != BufferView::STORAGE_STRUCTURED_BUFFER)
         NRI_RETURN_ON_FAILURE(this, bufferViewDesc.structureStride == 0, Result::INVALID_ARGUMENT, "'structureStride' must be 0 for non-structured views");
@@ -317,13 +320,17 @@ NRI_INLINE Result DeviceVal::CreateDescriptor(const BufferViewDesc& bufferViewDe
 
     auto bufferViewDescImpl = bufferViewDesc;
     bufferViewDescImpl.buffer = NRI_GET_IMPL(Buffer, bufferViewDesc.buffer);
+    bufferViewDescImpl.size = size;
 
     Descriptor* descriptorImpl = nullptr;
     Result result = m_iCoreImpl.CreateBufferView(bufferViewDescImpl, descriptorImpl);
 
     bufferView = nullptr;
-    if (result == Result::SUCCESS)
-        bufferView = (Descriptor*)Allocate<DescriptorVal>(GetAllocationCallbacks(), *this, descriptorImpl, bufferViewDesc);
+    if (result == Result::SUCCESS) {
+        auto bufferViewDescVal = bufferViewDesc;
+        bufferViewDescVal.size = size;
+        bufferView = (Descriptor*)Allocate<DescriptorVal>(GetAllocationCallbacks(), *this, descriptorImpl, bufferViewDescVal);
+    }
 
     return result;
 }
