@@ -432,7 +432,10 @@ static Result NRI_CALL CreatePlacedTexture(Device&, Memory*, uint64_t, const Tex
     return Result::SUCCESS;
 }
 
-static Result NRI_CALL AllocateDescriptorSets(DescriptorPool&, const PipelineLayout&, uint32_t, DescriptorSet**, uint32_t, uint32_t) {
+static Result NRI_CALL AllocateDescriptorSets(DescriptorPool&, const PipelineLayout&, uint32_t, DescriptorSet** descriptorSets, uint32_t instanceNum, uint32_t) {
+    for (uint32_t i = 0; i < instanceNum; i++)
+        descriptorSets[i] = DummyObject<DescriptorSet>();
+
     return Result::SUCCESS;
 }
 
@@ -1099,7 +1102,7 @@ static void NRI_CALL DestroyStreamer(Streamer*) {
 }
 
 static Buffer* NRI_CALL GetStreamerConstantBuffer(Streamer&) {
-    return nullptr;
+    return DummyObject<Buffer>();
 }
 
 static uint32_t NRI_CALL StreamConstantData(Streamer&, const void*, uint32_t) {
@@ -1148,10 +1151,10 @@ static void NRI_CALL DestroySwapChain(SwapChain*) {
 }
 
 static Texture* const* NRI_CALL GetSwapChainTextures(const SwapChain&, uint32_t& textureNum) {
-    static const void* textures[1] = {};
+    static Texture* const textures[1] = {DummyObject<Texture>()};
     textureNum = 1;
 
-    return (Texture**)textures;
+    return textures;
 }
 
 static Result NRI_CALL GetDisplayDesc(SwapChain&, DisplayDesc& displayDesc) {
