@@ -1,7 +1,4 @@
-//
-// Created by Kian Marvi on 8/26/26.
-//
-
+// © 2026 NVIDIA Corporation
 #ifndef NRI_DEVICEMTL_H
 #define NRI_DEVICEMTL_H
 namespace nri {

@@ -1,6 +1,4 @@
-//
-// Created by Kian Marvi on 8/26/26.
-//
+// © 2026  NVIDIA Corporation
 
 #define NS_PRIVATE_IMPLEMENTATION
 #define CA_PRIVATE_IMPLEMENTATION
