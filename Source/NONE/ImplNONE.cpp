@@ -175,6 +175,7 @@ struct DeviceNONE final : public DeviceBase {
         memset(&m_Desc.tiers, 0xFF, sizeof(m_Desc.tiers));
         memset(&m_Desc.features, 1, sizeof(m_Desc.features));
         memset(&m_Desc.shaderFeatures, 1, sizeof(m_Desc.shaderFeatures));
+        memset(&m_Desc.videoFeatures, 1, sizeof(m_Desc.videoFeatures));
     }
 
     inline ~DeviceNONE() {
@@ -197,6 +198,7 @@ struct DeviceNONE final : public DeviceBase {
     Result FillFunctionTable(LowLatencyInterface& table) const override;
     Result FillFunctionTable(MeshShaderInterface& table) const override;
     Result FillFunctionTable(RayTracingInterface& table) const override;
+    Result FillFunctionTable(VideoInterface& table) const override;
     Result FillFunctionTable(StreamerInterface& table) const override;
     Result FillFunctionTable(SwapChainInterface& table) const override;
     Result FillFunctionTable(UpscalerInterface& table) const override;
@@ -1083,6 +1085,155 @@ Result DeviceNONE::FillFunctionTable(RayTracingInterface& table) const {
     table.CmdCopyMicromap = ::CmdCopyMicromap;
     table.GetAccelerationStructureNativeObject = ::GetAccelerationStructureNativeObject;
     table.GetMicromapNativeObject = ::GetMicromapNativeObject;
+
+    return Result::SUCCESS;
+}
+
+#pragma endregion
+
+//============================================================================================================================================================================================
+#pragma region[  Video  ]
+
+static Result NRI_CALL GetVideoCapabilities(const Device&, const VideoSessionDesc&, VideoCapabilities& videoCapabilities) {
+    videoCapabilities = {};
+    videoCapabilities.widthMin = 1;
+    videoCapabilities.heightMin = 1;
+    videoCapabilities.widthMax = uint32_t(-1);
+    videoCapabilities.heightMax = uint32_t(-1);
+    videoCapabilities.pictureAccessGranularityWidth = 1;
+    videoCapabilities.pictureAccessGranularityHeight = 1;
+    videoCapabilities.maxReferenceNum = uint32_t(-1);
+    videoCapabilities.bitstreamOffsetAlignment = 1;
+    videoCapabilities.bitstreamSizeAlignment = 1;
+    videoCapabilities.bitstreamSizeMax = uint64_t(-1);
+    videoCapabilities.metadataOffsetAlignment = 1;
+    videoCapabilities.resolvedMetadataOffsetAlignment = 1;
+    videoCapabilities.encodeFeedbackMaxPendingNum = uint32_t(-1);
+    videoCapabilities.decodeBitstreamSourceMask = VideoDecodeBitstreamSourceBits::BUFFER | VideoDecodeBitstreamSourceBits::HOST;
+    videoCapabilities.resolvedMetadataQueueType = QueueType::VIDEO_ENCODE;
+    videoCapabilities.dpbTextureArrayMinLayerNum = 1;
+    videoCapabilities.decodeDpbAndOutputCoincide = true;
+    videoCapabilities.decodeDpbAndOutputDistinct = true;
+    videoCapabilities.decodeNativeArgumentsSupported = true;
+    videoCapabilities.encodeBitstreamRangeSizeSupported = true;
+    videoCapabilities.encodeFeedbackSupported = true;
+
+    return Result::SUCCESS;
+}
+
+static Result NRI_CALL GetVideoAV1Capabilities(const Device&, const VideoSessionDesc&, VideoAV1Capabilities& videoAV1Capabilities) {
+    videoAV1Capabilities = {};
+    videoAV1Capabilities.av1MaxLevel = uint32_t(-1);
+    videoAV1Capabilities.av1MaxTileColumnNum = 64;
+    videoAV1Capabilities.av1MaxTileRowNum = 64;
+    videoAV1Capabilities.av1MinTileWidth = 1;
+    videoAV1Capabilities.av1MinTileHeight = 1;
+    videoAV1Capabilities.av1MaxTileWidth = uint32_t(-1);
+    videoAV1Capabilities.av1MaxTileHeight = uint32_t(-1);
+    videoAV1Capabilities.av1SuperblockSizeMask = 3;
+    videoAV1Capabilities.av1MaxSingleReferenceNum = 1;
+    videoAV1Capabilities.av1SingleReferenceNameMask = 0x7F;
+    videoAV1Capabilities.av1MaxUnidirectionalCompoundReferenceNum = 2;
+    videoAV1Capabilities.av1UnidirectionalCompoundReferenceNameMask = 0x7F;
+    videoAV1Capabilities.av1MaxBidirectionalCompoundReferenceNum = 2;
+    videoAV1Capabilities.av1BidirectionalCompoundReferenceNameMask = 0x7F;
+    videoAV1Capabilities.av1MaxTemporalLayerNum = uint32_t(-1);
+    videoAV1Capabilities.av1MaxSpatialLayerNum = uint32_t(-1);
+    videoAV1Capabilities.av1MaxOperatingPointNum = uint32_t(-1);
+    videoAV1Capabilities.av1MaxQIndex = 255;
+    videoAV1Capabilities.av1EncodeSupportedFeatureFlags = (VideoAV1EncodeFeatureBits)uint32_t(-1);
+
+    return Result::SUCCESS;
+}
+
+static Result NRI_CALL CreateVideoSession(Device&, const VideoSessionDesc&, VideoSession*& videoSession) {
+    videoSession = DummyObject<VideoSession>();
+
+    return Result::SUCCESS;
+}
+
+static void NRI_CALL DestroyVideoSession(VideoSession*) {
+}
+
+static void NRI_CALL ResetVideoSession(VideoSession&) {
+}
+
+static Result NRI_CALL CreateVideoSessionParameters(Device&, const VideoSessionParametersDesc&, VideoSessionParameters*& videoSessionParameters) {
+    videoSessionParameters = DummyObject<VideoSessionParameters>();
+
+    return Result::SUCCESS;
+}
+
+static void NRI_CALL DestroyVideoSessionParameters(VideoSessionParameters*) {
+}
+
+static Result NRI_CALL CreateVideoPicture(Device&, const VideoPictureDesc&, VideoPicture*& videoPicture) {
+    videoPicture = DummyObject<VideoPicture>();
+
+    return Result::SUCCESS;
+}
+
+static void NRI_CALL DestroyVideoPicture(VideoPicture*) {
+}
+
+static Result NRI_CALL GetVideoPictureState(const VideoPicture&, VideoPictureRole, VideoPictureState& state) {
+    state = {};
+
+    return Result::SUCCESS;
+}
+
+static Result NRI_CALL WriteVideoAnnexBParameterSets(VideoAnnexBParameterSetsDesc& annexBParameterSetsDesc) {
+    return video::WriteAnnexBParameterSets(annexBParameterSetsDesc);
+}
+
+static Result NRI_CALL WriteVideoAnnexBEndOfStream(VideoAnnexBEndOfStreamDesc& annexBEndOfStreamDesc) {
+    return video::WriteAnnexBEndOfStream(annexBEndOfStreamDesc);
+}
+
+static Result NRI_CALL WriteVideoAV1ObuHeaders(VideoAV1ObuHeadersDesc& av1ObuHeadersDesc) {
+    return video::WriteAV1ObuHeaders(av1ObuHeadersDesc);
+}
+
+static void NRI_CALL CmdDecodeVideo(CommandBuffer&, const VideoDecodeDesc&) {
+}
+
+static void NRI_CALL CmdEncodeVideo(CommandBuffer&, const VideoEncodeDesc&) {
+}
+
+static void NRI_CALL CmdResolveVideoEncodeFeedback(CommandBuffer&, VideoSession&, Buffer&, uint64_t) {
+}
+
+static Result NRI_CALL GetVideoEncodeFeedback(VideoSession&, Buffer&, uint64_t, VideoEncodeFeedback& feedback) {
+    feedback = {};
+
+    return Result::SUCCESS;
+}
+
+static Result NRI_CALL GetVideoAV1EncodeDecodeInfo(VideoSession&, Buffer&, uint64_t, const VideoAV1EncodeDecodeInfoDesc&, VideoAV1EncodeDecodeInfo& info) {
+    info = {};
+
+    return Result::SUCCESS;
+}
+
+Result DeviceNONE::FillFunctionTable(VideoInterface& table) const {
+    table.GetVideoCapabilities = ::GetVideoCapabilities;
+    table.GetVideoAV1Capabilities = ::GetVideoAV1Capabilities;
+    table.CreateVideoSession = ::CreateVideoSession;
+    table.DestroyVideoSession = ::DestroyVideoSession;
+    table.ResetVideoSession = ::ResetVideoSession;
+    table.CreateVideoSessionParameters = ::CreateVideoSessionParameters;
+    table.DestroyVideoSessionParameters = ::DestroyVideoSessionParameters;
+    table.CreateVideoPicture = ::CreateVideoPicture;
+    table.DestroyVideoPicture = ::DestroyVideoPicture;
+    table.GetVideoPictureState = ::GetVideoPictureState;
+    table.WriteVideoAnnexBParameterSets = ::WriteVideoAnnexBParameterSets;
+    table.WriteVideoAnnexBEndOfStream = ::WriteVideoAnnexBEndOfStream;
+    table.WriteVideoAV1ObuHeaders = ::WriteVideoAV1ObuHeaders;
+    table.CmdDecodeVideo = ::CmdDecodeVideo;
+    table.CmdEncodeVideo = ::CmdEncodeVideo;
+    table.CmdResolveVideoEncodeFeedback = ::CmdResolveVideoEncodeFeedback;
+    table.GetVideoEncodeFeedback = ::GetVideoEncodeFeedback;
+    table.GetVideoAV1EncodeDecodeInfo = ::GetVideoAV1EncodeDecodeInfo;
 
     return Result::SUCCESS;
 }
