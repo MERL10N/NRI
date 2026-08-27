@@ -2142,7 +2142,7 @@ NRI_INLINE void CommandBufferVK::CopyTexture(Texture& dstTexture, const TextureR
             regions[i].srcOffset = {};
             regions[i].dstSubresource = {GetImageAspectFlags(PlaneBits::ALL, dstDesc.format), i, 0, dstDesc.layerNum};
             regions[i].dstOffset = {};
-            regions[i].extent = dst.GetExtent();
+            regions[i].extent = {dst.GetSize(0, i), dst.GetSize(1, i), dst.GetSize(2, i)};
         }
     } else {
         TextureRegionDesc wholeResource = {};
