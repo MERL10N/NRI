@@ -1630,13 +1630,22 @@ void CommandBufferWGPU::CopyTexture(Texture& dstTexture, const TextureRegionDesc
     const TextureRegionDesc& dst = dstRegion ? *dstRegion : dstWholeRegion;
     const TextureRegionDesc& src = srcRegion ? *srcRegion : srcWholeRegion;
 
-    WGPUTexelCopyTextureInfo srcInfo = {};
-    WGPUTexelCopyTextureInfo dstInfo = {};
-    FillTexelCopyTexture(srcInfo, srcTextureWGPU, src);
-    FillTexelCopyTexture(dstInfo, dstTextureWGPU, dst);
+    bool isWholeResource = !dstRegion && !srcRegion;
+    Dim_t mipNum = isWholeResource ? dstTextureDesc.mipNum : 1;
+    for (Dim_t mip = 0; mip < mipNum; mip++) {
+        if (isWholeResource) {
+            srcWholeRegion.mipOffset = mip;
+            dstWholeRegion.mipOffset = mip;
+        }
 
-    WGPUExtent3D size = GetCopySize(srcTextureDesc, src);
-    wgpuCommandEncoderCopyTextureToTexture(m_CommandEncoder, &srcInfo, &dstInfo, &size);
+        WGPUTexelCopyTextureInfo srcInfo = {};
+        WGPUTexelCopyTextureInfo dstInfo = {};
+        FillTexelCopyTexture(srcInfo, srcTextureWGPU, src);
+        FillTexelCopyTexture(dstInfo, dstTextureWGPU, dst);
+
+        WGPUExtent3D size = GetCopySize(srcTextureDesc, src);
+        wgpuCommandEncoderCopyTextureToTexture(m_CommandEncoder, &srcInfo, &dstInfo, &size);
+    }
 }
 
 void CommandBufferWGPU::UploadBufferToTexture(Texture& dstTexture, const TextureRegionDesc& dstRegion, const Buffer& srcBuffer, const TextureDataLayoutDesc& srcDataLayout) {
