@@ -20,15 +20,45 @@ uint8_t QueryLatestDeviceContext(ComPtr<ID3D11DeviceContextBest>& in, ComPtr<ID3
     return n - i - 1;
 }
 
+static inline Result CreateTextureReadback(DeviceD3D11& device, const TextureD3D11& srcTexture, const TextureRegionDesc& srcRegion, TextureReadbackD3D11& textureReadback) {
+    const TextureDesc& srcTextureDesc = srcTexture.GetDesc();
+
+    TextureDesc textureDesc = {};
+    textureDesc.type = srcTextureDesc.type;
+    textureDesc.format = srcTextureDesc.format;
+    textureDesc.width = srcRegion.width;
+    textureDesc.height = srcRegion.height;
+    textureDesc.depth = srcRegion.depth;
+    textureDesc.mipNum = 1;
+    textureDesc.layerNum = 1;
+    textureDesc.sampleNum = 1;
+
+    Result result = device.CreateImplementation<TextureD3D11>(textureReadback.texture, textureDesc);
+    if (result == Result::SUCCESS) {
+        result = textureReadback.texture->Allocate(MemoryLocation::HOST_READBACK, 0.0f);
+        if (result != Result::SUCCESS)
+            Destroy(textureReadback.texture);
+    }
+
+    const FormatProps& formatProps = GetFormatProps(textureDesc.format);
+    textureReadback.rowSize = ((textureDesc.width + formatProps.blockWidth - 1) / formatProps.blockWidth) * formatProps.stride;
+    textureReadback.rowNum = (textureDesc.height + formatProps.blockHeight - 1) / formatProps.blockHeight;
+
+    return result;
+}
+
 CommandBufferD3D11::CommandBufferD3D11(DeviceD3D11& device)
     : m_Device(device)
     , m_DeferredContext(device.GetImmediateContext())
     , m_BindingState(device.GetStdAllocator())
+    , m_PendingTextureReadbacks(device.GetStdAllocator())
     , m_Version(device.GetImmediateContextVersion()) {
     m_DeferredContext->QueryInterface(IID_PPV_ARGS(&m_Annotation));
 }
 
 CommandBufferD3D11::~CommandBufferD3D11() {
+    DiscardTextureReadbacks();
+
     if (m_DeferredContext && m_DeferredContext->GetType() == D3D11_DEVICE_CONTEXT_DEFERRED) {
 #if NRI_ENABLE_NVAPI
         if (m_Device.HasNvExt()) {
@@ -46,6 +76,12 @@ CommandBufferD3D11::~CommandBufferD3D11() {
         }
 #endif
     }
+}
+
+void CommandBufferD3D11::DiscardTextureReadbacks() {
+    for (const PendingTextureReadbackD3D11& pendingTextureReadback : m_PendingTextureReadbacks)
+        Destroy(pendingTextureReadback.textureReadback.texture);
+    m_PendingTextureReadbacks.clear();
 }
 
 Result CommandBufferD3D11::Create(ID3D11DeviceContext* precreatedContext) {
@@ -88,6 +124,10 @@ Result CommandBufferD3D11::Create(ID3D11DeviceContext* precreatedContext) {
 void CommandBufferD3D11::Submit() {
     m_Device.GetImmediateContext()->ExecuteCommandList(m_CommandList, FALSE);
     m_CommandList = nullptr;
+
+    for (PendingTextureReadbackD3D11& pendingTextureReadback : m_PendingTextureReadbacks)
+        pendingTextureReadback.dstBuffer->AddTextureReadback(pendingTextureReadback.textureReadback);
+    m_PendingTextureReadbacks.clear();
 }
 
 NRI_INLINE Result CommandBufferD3D11::Begin(const DescriptorPool* descriptorPool) {
@@ -96,6 +136,7 @@ NRI_INLINE Result CommandBufferD3D11::Begin(const DescriptorPool* descriptorPool
     m_PipelineLayout = nullptr;
     m_PipelineBindPoint = BindPoint::INHERIT;
 
+    DiscardTextureReadbacks();
     ResetAttachments();
 
     // Dynamic state
@@ -584,8 +625,6 @@ NRI_INLINE void CommandBufferD3D11::UploadBufferToTexture(Texture& dstTexture, c
 }
 
 NRI_INLINE void CommandBufferD3D11::ReadbackTextureToBuffer(Buffer& dstBuffer, const TextureDataLayoutDesc& dstDataLayout, const Texture& srcTexture, const TextureRegionDesc& srcRegion) {
-    NRI_CHECK(dstDataLayout.offset == 0, "D3D11 implementation currently supports copying a texture region to a buffer only with offset = 0!");
-
     BufferD3D11& dst = (BufferD3D11&)dstBuffer;
     const TextureD3D11& src = (TextureD3D11&)srcTexture;
 
@@ -594,16 +633,36 @@ NRI_INLINE void CommandBufferD3D11::ReadbackTextureToBuffer(Buffer& dstBuffer, c
     srcRegionFixed.height = srcRegion.height == WHOLE_SIZE ? src.GetSize(1, srcRegion.mipOffset) : srcRegion.height;
     srcRegionFixed.depth = srcRegion.depth == WHOLE_SIZE ? src.GetSize(2, srcRegion.mipOffset) : srcRegion.depth;
 
-    TextureD3D11& dstTemp = dst.RecreateReadbackTexture(src, srcRegionFixed, dstDataLayout);
+    PendingTextureReadbackD3D11 localPendingTextureReadback = {};
+    PendingTextureReadbackD3D11* pendingTextureReadback = &localPendingTextureReadback;
+    bool isDeferred = m_DeferredContext->GetType() == D3D11_DEVICE_CONTEXT_DEFERRED;
+    if (isDeferred) {
+        m_PendingTextureReadbacks.push_back({});
+        pendingTextureReadback = &m_PendingTextureReadbacks.back();
+    }
 
-    TextureRegionDesc dstRegion = {};
-    dstRegion.mipOffset = srcRegionFixed.mipOffset;
-    dstRegion.layerOffset = srcRegionFixed.layerOffset;
-    dstRegion.width = srcRegionFixed.width;
-    dstRegion.height = srcRegionFixed.height;
-    dstRegion.depth = srcRegionFixed.depth;
+    pendingTextureReadback->dstBuffer = &dst;
+    pendingTextureReadback->textureReadback.dataLayout = dstDataLayout;
+    Result result = CreateTextureReadback(m_Device, src, srcRegionFixed, pendingTextureReadback->textureReadback);
+    if (result != Result::SUCCESS) {
+        if (isDeferred)
+            m_PendingTextureReadbacks.pop_back();
+        return;
+    }
 
-    CopyTexture((Texture&)dstTemp, &dstRegion, srcTexture, &srcRegion);
+    D3D11_BOX srcBox = {};
+    srcBox.left = srcRegion.x;
+    srcBox.top = srcRegion.y;
+    srcBox.front = srcRegion.z;
+    srcBox.right = srcRegion.x + srcRegionFixed.width;
+    srcBox.bottom = srcRegion.y + srcRegionFixed.height;
+    srcBox.back = srcRegion.z + srcRegionFixed.depth;
+
+    uint32_t srcSubresource = src.GetSubresourceIndex(srcRegion.layerOffset, srcRegion.mipOffset);
+    m_DeferredContext->CopySubresourceRegion(*pendingTextureReadback->textureReadback.texture, 0, 0, 0, 0, src, srcSubresource, &srcBox);
+
+    if (!isDeferred)
+        dst.AddTextureReadback(pendingTextureReadback->textureReadback);
 }
 
 NRI_INLINE void CommandBufferD3D11::ZeroBuffer(Buffer& buffer, uint64_t offset, uint64_t size) {
