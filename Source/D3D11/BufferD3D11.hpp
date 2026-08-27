@@ -1,18 +1,5 @@
 // © 2021 NVIDIA Corporation
 
-struct MultiThreadProtection {
-    MultiThreadProtection(DeviceD3D11& device)
-        : device(device) {
-        device.EnterCriticalSection();
-    }
-
-    ~MultiThreadProtection() {
-        device.LeaveCriticalSection();
-    }
-
-    DeviceD3D11& device;
-};
-
 BufferD3D11::~BufferD3D11() {
     for (const TextureReadbackD3D11& textureReadback : m_TextureReadbacks)
         Destroy(textureReadback.texture);

@@ -224,6 +224,13 @@ struct SamplePositionsState {
     }
 };
 
+struct MultiThreadProtection {
+    MultiThreadProtection(DeviceD3D11& device);
+    ~MultiThreadProtection();
+
+    DeviceD3D11& device;
+};
+
 } // namespace nri
 
 #if NRI_ENABLE_AMDAGS
