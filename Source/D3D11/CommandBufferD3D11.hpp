@@ -669,9 +669,6 @@ NRI_INLINE void CommandBufferD3D11::DispatchIndirect(const Buffer& buffer, uint6
 }
 
 NRI_INLINE void CommandBufferD3D11::Barrier(const BarrierDesc& barrierDesc) {
-    if (barrierDesc.textureNum == 0 && barrierDesc.bufferNum == 0)
-        return;
-
     uint32_t flags = 0;
 
     for (uint32_t i = 0; i < barrierDesc.globalNum; i++) {
