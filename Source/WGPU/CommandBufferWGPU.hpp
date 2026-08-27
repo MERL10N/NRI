@@ -361,7 +361,7 @@ WGPUBuffer CreateTemporaryUploadBuffer(DeviceWGPU& device, uint64_t size, const 
 
     WGPUBuffer buffer = wgpuDeviceCreateBuffer(device, &desc);
     if (buffer && data)
-        wgpuQueueWriteBuffer(device.GetQueue(), buffer, 0, data, (size_t)size);
+        device.WriteBuffer(buffer, 0, data, (size_t)size);
 
     return buffer;
 }

@@ -501,10 +501,18 @@ Result DeviceWGPU::GetQueue(QueueType queueType, uint32_t queueIndex, Queue*& qu
 }
 
 Result DeviceWGPU::WaitIdle() {
+    ExclusiveScope lock(m_QueueLock);
+
     if (m_Device)
         wgpuDevicePoll(m_Device, WGPU_TRUE, nullptr);
 
     return Result::SUCCESS;
+}
+
+void DeviceWGPU::WriteBuffer(WGPUBuffer buffer, uint64_t offset, const void* data, size_t size) {
+    ExclusiveScope lock(m_QueueLock);
+
+    wgpuQueueWriteBuffer(m_Queue, buffer, offset, data, size);
 }
 
 HostCopyLayoutWGPU DeviceWGPU::GetHostCopyLayout(const TextureWGPU& texture, const TextureRegionDesc& region, uint64_t& offset, bool alignForBufferCopy) const {
@@ -533,6 +541,8 @@ HostCopyLayoutWGPU DeviceWGPU::GetHostCopyLayout(const TextureWGPU& texture, con
 Result DeviceWGPU::UploadHostMemoryToTexture(const UploadHostMemoryToTextureDesc* copyDescs, uint32_t copyDescNum) {
     if (!copyDescNum)
         return Result::SUCCESS;
+
+    ExclusiveScope lock(m_QueueLock);
 
     for (uint32_t i = 0; i < copyDescNum; i++) {
         const UploadHostMemoryToTextureDesc& copyDesc = copyDescs[i];
@@ -621,8 +631,10 @@ Result DeviceWGPU::ReadbackTextureToHostMemory(const ReadbackTextureToHostMemory
             result = Result::FAILURE;
     }
 
-    if (result == Result::SUCCESS)
+    if (result == Result::SUCCESS) {
+        ExclusiveScope lock(m_QueueLock);
         wgpuQueueSubmitForIndex(m_Queue, 1, &commandBuffer);
+    }
 
     if (commandBuffer)
         wgpuCommandBufferRelease(commandBuffer);
