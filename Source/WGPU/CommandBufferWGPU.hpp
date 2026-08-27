@@ -64,6 +64,11 @@ static PlaneBits NormalizeClearPlanesWGPU(PlaneBits planes, Format format) {
     return planes == PlaneBits::ALL ? GetFormatPlanesWGPU(format) : planes;
 }
 
+static inline bool IsDepthStencilPlaneReadOnlyWGPU(const DescriptorWGPU& descriptor, PlaneBits plane) {
+    PlaneBits planes = descriptor.GetTextureViewDesc().planes;
+    return planes != PlaneBits::ALL && (planes & plane) == 0;
+}
+
 static WGPUTextureView CreateDepthStencilViewWGPU(const DescriptorWGPU& descriptor) {
     const TextureWGPU* texture = descriptor.GetTexture();
     if (!texture)
@@ -1367,8 +1372,10 @@ void CommandBufferWGPU::BeginRendering(const RenderingDesc& renderingDesc) {
         const TextureDesc* textureDesc = descriptor.GetTextureDesc();
         m_RenderDepthStencilFormat = descriptor.GetFormat();
 
-        if (renderingDesc.depth.descriptor && renderingDesc.stencil.descriptor) {
-            // TODO: WGPU needs a single depth-stencil view for the render pass. NRI can provide separate plane descriptors.
+        bool hasSeparateDepthStencilDescriptors = renderingDesc.depth.descriptor && renderingDesc.stencil.descriptor;
+        bool hasReadOnlyDepthStencilPlane = formatProps.isDepth && formatProps.isStencil && descriptor.GetTextureViewDesc().planes != PlaneBits::ALL;
+        if (hasSeparateDepthStencilDescriptors || hasReadOnlyDepthStencilPlane) {
+            // WGPU expresses read-only planes in the render pass, which requires an all-aspect view for a combined format.
             m_RenderDepthStencilView = CreateDepthStencilViewWGPU(descriptor);
             depthStencilAttachment.view = m_RenderDepthStencilView;
         } else
@@ -1384,16 +1391,24 @@ void CommandBufferWGPU::BeginRendering(const RenderingDesc& renderingDesc) {
 
         if (formatProps.isDepth) {
             const AttachmentDesc& depth = renderingDesc.depth.descriptor ? renderingDesc.depth : *depthOrStencil;
-            depthStencilAttachment.depthLoadOp = GetLoadOp(depth.loadOp);
-            depthStencilAttachment.depthStoreOp = GetStoreOp(depth.storeOp);
-            depthStencilAttachment.depthClearValue = depth.clearValue.depthStencil.depth;
+            bool isReadOnly = IsDepthStencilPlaneReadOnlyWGPU(*(DescriptorWGPU*)depth.descriptor, PlaneBits::DEPTH);
+            depthStencilAttachment.depthReadOnly = isReadOnly ? WGPU_TRUE : WGPU_FALSE;
+            if (!isReadOnly) {
+                depthStencilAttachment.depthLoadOp = GetLoadOp(depth.loadOp);
+                depthStencilAttachment.depthStoreOp = GetStoreOp(depth.storeOp);
+                depthStencilAttachment.depthClearValue = depth.clearValue.depthStencil.depth;
+            }
         }
 
         if (formatProps.isStencil) {
             const AttachmentDesc& stencil = renderingDesc.stencil.descriptor ? renderingDesc.stencil : *depthOrStencil;
-            depthStencilAttachment.stencilLoadOp = GetLoadOp(stencil.loadOp);
-            depthStencilAttachment.stencilStoreOp = GetStoreOp(stencil.storeOp);
-            depthStencilAttachment.stencilClearValue = stencil.clearValue.depthStencil.stencil;
+            bool isReadOnly = IsDepthStencilPlaneReadOnlyWGPU(*(DescriptorWGPU*)stencil.descriptor, PlaneBits::STENCIL);
+            depthStencilAttachment.stencilReadOnly = isReadOnly ? WGPU_TRUE : WGPU_FALSE;
+            if (!isReadOnly) {
+                depthStencilAttachment.stencilLoadOp = GetLoadOp(stencil.loadOp);
+                depthStencilAttachment.stencilStoreOp = GetStoreOp(stencil.storeOp);
+                depthStencilAttachment.stencilClearValue = stencil.clearValue.depthStencil.stencil;
+            }
         }
 
         depthStencilAttachmentPtr = &depthStencilAttachment;
