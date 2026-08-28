@@ -8,7 +8,8 @@
 
 /*
 Requirements:
-- ImGui 1.92+ with "ImGuiBackendFlags_RendererHasTextures" flag ("IMGUI_DISABLE_OBSOLETE_FUNCTIONS" is recommended)
+- ImGui 1.92.9+ with "ImGuiBackendFlags_RendererHasTextures" flag ("IMGUI_DISABLE_OBSOLETE_FUNCTIONS" is recommended),
+  ("QueueUserData" field was added to "ImTextureData" in 1.92.9)
 - unmodified "ImDrawVert" (20 bytes) and "ImDrawIdx" (2 bytes)
 - "ImTextureID_Invalid" = 0
 
