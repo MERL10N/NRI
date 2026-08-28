@@ -673,9 +673,9 @@ NriStruct(BarrierDesc) {
 // https://docs.vulkan.org/refpages/latest/refpages/source/VkImageType.html
 // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_dimension
 NriEnum(TextureType, uint8_t,
-    TEXTURE_1D,
+    TEXTURE_1D, // WGPU: arrays and mipmaps are unsupported
     TEXTURE_2D,
-    TEXTURE_3D
+    TEXTURE_3D  // arrays are unsupported
 );
 
 // NRI tries to ease your life and avoid using "queue ownership transfers" (see "TextureBarrierDesc").
