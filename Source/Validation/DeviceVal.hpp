@@ -1016,23 +1016,6 @@ NRI_INLINE Result DeviceVal::CreatePlacedAccelerationStructure(Memory* memory, u
     if (accelerationStructureDesc.type == AccelerationStructureType::BOTTOM_LEVEL && accelerationStructureDesc.geometryOrInstanceNum != 0)
         NRI_RETURN_ON_FAILURE(this, accelerationStructureDesc.geometries != nullptr, Result::INVALID_ARGUMENT, "'geometries' is NULL");
 
-    if (memory) {
-        MemoryVal& memoryVal = *(MemoryVal*)memory;
-        if (!memoryVal.IsWrapped() && GetDesc().features.getMemoryDesc2) {
-            MemoryDesc memoryDesc = {};
-            m_iRayTracingImpl.GetAccelerationStructureMemoryDesc2(m_Impl, accelerationStructureDesc, memoryVal.GetMemoryLocation(), memoryDesc);
-
-            const uint64_t rangeMax = offset + memoryDesc.size;
-            const bool memorySizeIsUnknown = memoryVal.GetSize() == 0;
-
-            NRI_RETURN_ON_FAILURE(this, !memoryDesc.mustBeDedicated || offset == 0, Result::INVALID_ARGUMENT, "'offset' must be 0 for dedicated allocation");
-            NRI_RETURN_ON_FAILURE(this, memoryDesc.alignment != 0, Result::INVALID_ARGUMENT, "'alignment' is 0");
-            NRI_RETURN_ON_FAILURE(this, offset % memoryDesc.alignment == 0, Result::INVALID_ARGUMENT, "'offset' is misaligned");
-            NRI_RETURN_ON_FAILURE(this, memorySizeIsUnknown || rangeMax <= memoryVal.GetSize(), Result::INVALID_ARGUMENT, "'offset' is invalid");
-        }
-    } else
-        NRI_RETURN_ON_FAILURE(this, offset < (uint64_t)MemoryLocation::MAX_NUM, Result::INVALID_ARGUMENT, "'offset' is not a valid 'MemoryLocation'");
-
     // Convert desc
     uint32_t geometryNum = 0;
     uint32_t micromapNum = 0;
@@ -1066,6 +1049,23 @@ NRI_INLINE Result DeviceVal::CreatePlacedAccelerationStructure(Memory* memory, u
         accelerationStructureDescImpl.geometries = geometriesImplScratch;
         ConvertBotomLevelGeometries(accelerationStructureDesc.geometries, geometryNum, geometriesImpl, micromapsImpl);
     }
+
+    if (memory) {
+        MemoryVal& memoryVal = *(MemoryVal*)memory;
+        if (!memoryVal.IsWrapped() && GetDesc().features.getMemoryDesc2) {
+            MemoryDesc memoryDesc = {};
+            m_iRayTracingImpl.GetAccelerationStructureMemoryDesc2(m_Impl, accelerationStructureDescImpl, memoryVal.GetMemoryLocation(), memoryDesc);
+
+            const uint64_t rangeMax = offset + memoryDesc.size;
+            const bool memorySizeIsUnknown = memoryVal.GetSize() == 0;
+
+            NRI_RETURN_ON_FAILURE(this, !memoryDesc.mustBeDedicated || offset == 0, Result::INVALID_ARGUMENT, "'offset' must be 0 for dedicated allocation");
+            NRI_RETURN_ON_FAILURE(this, memoryDesc.alignment != 0, Result::INVALID_ARGUMENT, "'alignment' is 0");
+            NRI_RETURN_ON_FAILURE(this, offset % memoryDesc.alignment == 0, Result::INVALID_ARGUMENT, "'offset' is misaligned");
+            NRI_RETURN_ON_FAILURE(this, memorySizeIsUnknown || rangeMax <= memoryVal.GetSize(), Result::INVALID_ARGUMENT, "'offset' is invalid");
+        }
+    } else
+        NRI_RETURN_ON_FAILURE(this, offset < (uint64_t)MemoryLocation::MAX_NUM, Result::INVALID_ARGUMENT, "'offset' is not a valid 'MemoryLocation'");
 
     // Create
     Memory* memoryImpl = NRI_GET_IMPL(Memory, memory);
