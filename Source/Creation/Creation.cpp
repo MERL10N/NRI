@@ -911,17 +911,22 @@ NRI_API Result NRI_CALL nriCreateDevice(const DeviceCreationDesc& deviceCreation
         return Result::UNSUPPORTED;
 
     // Valid queue families expected
-    QueueFamilyDesc qraphicsQueue = {};
-    qraphicsQueue.queueNum = 1;
-    qraphicsQueue.queueType = QueueType::GRAPHICS;
+    Vector<QueueFamilyDesc> queueFamilies(modifiedDeviceCreationDesc.allocationCallbacks);
 
     if (!modifiedDeviceCreationDesc.queueFamilyNum) {
+        QueueFamilyDesc graphicsQueue = {};
+        graphicsQueue.queueNum = 1;
+        graphicsQueue.queueType = QueueType::GRAPHICS;
+        queueFamilies.push_back(graphicsQueue);
+
         modifiedDeviceCreationDesc.queueFamilyNum = 1;
-        modifiedDeviceCreationDesc.queueFamilies = &qraphicsQueue;
-    }
+    } else
+        queueFamilies.assign(modifiedDeviceCreationDesc.queueFamilies, modifiedDeviceCreationDesc.queueFamilies + modifiedDeviceCreationDesc.queueFamilyNum);
+
+    modifiedDeviceCreationDesc.queueFamilies = queueFamilies.data();
 
     for (uint32_t i = 0; i < modifiedDeviceCreationDesc.queueFamilyNum; i++) {
-        QueueFamilyDesc& queueFamily = (QueueFamilyDesc&)modifiedDeviceCreationDesc.queueFamilies[i];
+        QueueFamilyDesc& queueFamily = queueFamilies[i];
 
         uint32_t queueType = (uint32_t)queueFamily.queueType;
         if (queueType >= (uint32_t)QueueType::MAX_NUM)
@@ -1030,6 +1035,8 @@ NRI_API Result NRI_CALL nriCreateDeviceFromD3D11Device(const DeviceCreationD3D11
 }
 
 NRI_API Result NRI_CALL nriCreateDeviceFromD3D12Device(const DeviceCreationD3D12Desc& deviceCreationD3D12Desc, Device*& device) {
+    DeviceCreationD3D12Desc modifiedDeviceCreationD3D12Desc = deviceCreationD3D12Desc;
+
     DeviceCreationDesc deviceCreationDesc = {};
     deviceCreationDesc.graphicsAPI = GraphicsAPI::D3D12;
 
@@ -1060,8 +1067,14 @@ NRI_API Result NRI_CALL nriCreateDeviceFromD3D12Device(const DeviceCreationD3D12
     UpdateAdaptersD3D(&adapterDesc, unused, &luid);
 
     // Valid queue families expected
-    for (uint32_t i = 0; i < deviceCreationD3D12Desc.queueFamilyNum; i++) {
-        QueueFamilyD3D12Desc& queueFamilyD3D12Desc = (QueueFamilyD3D12Desc&)deviceCreationD3D12Desc.queueFamilies[i];
+    Vector<QueueFamilyD3D12Desc> queueFamilies(deviceCreationDesc.allocationCallbacks);
+    if (modifiedDeviceCreationD3D12Desc.queueFamilyNum)
+        queueFamilies.assign(modifiedDeviceCreationD3D12Desc.queueFamilies, modifiedDeviceCreationD3D12Desc.queueFamilies + modifiedDeviceCreationD3D12Desc.queueFamilyNum);
+
+    modifiedDeviceCreationD3D12Desc.queueFamilies = queueFamilies.data();
+
+    for (uint32_t i = 0; i < modifiedDeviceCreationD3D12Desc.queueFamilyNum; i++) {
+        QueueFamilyD3D12Desc& queueFamilyD3D12Desc = queueFamilies[i];
 
         uint32_t queueType = (uint32_t)queueFamilyD3D12Desc.queueType;
         if (queueType >= (uint32_t)QueueType::MAX_NUM)
@@ -1072,7 +1085,7 @@ NRI_API Result NRI_CALL nriCreateDeviceFromD3D12Device(const DeviceCreationD3D12
             queueFamilyD3D12Desc.queueNum = supportedQueueNum;
     }
 
-    result = CreateDeviceD3D12(deviceCreationDesc, deviceCreationD3D12Desc, deviceImpl);
+    result = CreateDeviceD3D12(deviceCreationDesc, modifiedDeviceCreationD3D12Desc, deviceImpl);
 #endif
 
     if (result != Result::SUCCESS)
@@ -1082,6 +1095,8 @@ NRI_API Result NRI_CALL nriCreateDeviceFromD3D12Device(const DeviceCreationD3D12
 }
 
 NRI_API Result NRI_CALL nriCreateDeviceFromVKDevice(const DeviceCreationVKDesc& deviceCreationVKDesc, Device*& device) {
+    DeviceCreationVKDesc modifiedDeviceCreationVKDesc = deviceCreationVKDesc;
+
     DeviceCreationDesc deviceCreationDesc = {};
     deviceCreationDesc.graphicsAPI = GraphicsAPI::VK;
 
@@ -1110,8 +1125,14 @@ NRI_API Result NRI_CALL nriCreateDeviceFromVKDevice(const DeviceCreationVKDesc& 
     UpdateAdaptersVK(&adapterDesc, unused, (VkPhysicalDevice)deviceCreationVKDesc.vkPhysicalDevice);
 
     // Valid queue families expected
-    for (uint32_t i = 0; i < deviceCreationVKDesc.queueFamilyNum; i++) {
-        QueueFamilyVKDesc& queueFamilyVKDesc = (QueueFamilyVKDesc&)deviceCreationVKDesc.queueFamilies[i];
+    Vector<QueueFamilyVKDesc> queueFamilies(deviceCreationDesc.allocationCallbacks);
+    if (modifiedDeviceCreationVKDesc.queueFamilyNum)
+        queueFamilies.assign(modifiedDeviceCreationVKDesc.queueFamilies, modifiedDeviceCreationVKDesc.queueFamilies + modifiedDeviceCreationVKDesc.queueFamilyNum);
+
+    modifiedDeviceCreationVKDesc.queueFamilies = queueFamilies.data();
+
+    for (uint32_t i = 0; i < modifiedDeviceCreationVKDesc.queueFamilyNum; i++) {
+        QueueFamilyVKDesc& queueFamilyVKDesc = queueFamilies[i];
 
         uint32_t queueType = (uint32_t)queueFamilyVKDesc.queueType;
         if (queueType >= (uint32_t)QueueType::MAX_NUM)
@@ -1122,7 +1143,7 @@ NRI_API Result NRI_CALL nriCreateDeviceFromVKDevice(const DeviceCreationVKDesc& 
             queueFamilyVKDesc.queueNum = supportedQueueNum;
     }
 
-    result = CreateDeviceVK(deviceCreationDesc, deviceCreationVKDesc, deviceImpl);
+    result = CreateDeviceVK(deviceCreationDesc, modifiedDeviceCreationVKDesc, deviceImpl);
 #endif
 
     if (result != Result::SUCCESS)

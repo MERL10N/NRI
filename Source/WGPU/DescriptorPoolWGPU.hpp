@@ -15,9 +15,10 @@ Result DescriptorPoolWGPU::AllocateDescriptorSets(const PipelineLayout& pipeline
     MaybeUnused(variableDescriptorNum);
 
     const DescriptorSetMappingWGPU& mapping = ((PipelineLayoutWGPU&)pipelineLayout).GetDescriptorSetMapping(setIndex);
+    const bool isCopySource = (m_Desc.flags & DescriptorPoolBits::COPY_SOURCE) != 0;
 
     for (uint32_t i = 0; i < instanceNum; i++) {
-        DescriptorSetWGPU* descriptorSet = Allocate<DescriptorSetWGPU>(m_Device.GetAllocationCallbacks(), m_Device, mapping);
+        DescriptorSetWGPU* descriptorSet = Allocate<DescriptorSetWGPU>(m_Device.GetAllocationCallbacks(), m_Device, mapping, isCopySource);
         if (!descriptorSet)
             return Result::FAILURE;
 

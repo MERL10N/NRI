@@ -164,7 +164,7 @@ D3D12_CULL_MODE GetCullMode(CullMode cullMode);
 D3D12_STENCIL_OP GetStencilOp(StencilOp stencilFunc);
 UINT8 GetRenderTargetWriteMask(ColorWriteBits colorWriteMask);
 D3D12_LOGIC_OP GetLogicOp(LogicOp logicOp);
-D3D12_BLEND GetBlend(BlendFactor blendFactor);
+D3D12_BLEND GetBlend(BlendFactor blendFactor, bool isAlphaBlend);
 D3D12_BLEND_OP GetBlendOp(BlendOp blendFunc);
 D3D12_DESCRIPTOR_RANGE_TYPE GetDescriptorRangesType(DescriptorType descriptorType);
 D3D12_RESOURCE_DIMENSION GetResourceDimension(TextureType textureType);

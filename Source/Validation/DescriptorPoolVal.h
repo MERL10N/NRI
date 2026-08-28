@@ -31,6 +31,10 @@ struct DescriptorPoolVal final : public ObjectVal {
         return (DescriptorPool*)m_Impl;
     }
 
+    inline bool IsCopySource() const {
+        return m_Desc.flags & DescriptorPoolBits::COPY_SOURCE;
+    }
+
     //================================================================================================================
     // NRI
     //================================================================================================================

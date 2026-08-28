@@ -289,6 +289,7 @@ struct ImTextureData {
     int UniqueID;
     ImTextureStatus Status;
     void* BackendUserData;
+    void* QueueUserData;
     ImTextureID TexID;
     ImTextureFormat Format;
     int Width;

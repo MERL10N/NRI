@@ -12,7 +12,8 @@ Apply these rules to changes under `Include`, `Source`, CMake, and build scripts
 - Preserve CRLF and C++17 compatibility.
 - Use the repository `.clang-format`: 4 spaces, no tabs, attached braces, left pointer/reference alignment, unlimited columns, preserved include blocks, and case-sensitive include sorting.
 - Leave an empty line before `return`, `if`, `for`, `while`, and `switch` in touched code.
-- Parenthesize compound conditions used by the conditional (`?:`) operator.
+- Parenthesize compound conditions used by the conditional (`?:`) operator, for example: `(isEnabled && value != 0) ? enabled : disabled`.
+- Parenthesize arithmetic subexpressions used as comparison operands in compound conditions, for example: `offsetA < (offsetB + numB) && offsetB < (offsetA + numA)`.
 - Use existing NRI macros and patterns.
 - Preserve the public C/C++ facade: `NriStruct`, `NriEnum`, `NriBits`, `NriRef`, `NriPtr`, `NriNamespaceBegin/End`, `NriOptional`, `NriOut`, and `NRI_CALL`.
 - Avoid unrelated churn and preserve user changes. Mark an unavoidable unrelated fix with `FIXED BY AI`.
@@ -21,6 +22,10 @@ Apply these rules to changes under `Include`, `Source`, CMake, and build scripts
 
 - Keep declarations and entity layout in `.h`, non-trivial method bodies in the corresponding `.hpp`, and `Impl*.cpp` focused on interface wiring, dispatch, and short entry points.
 - Functions that do not use class state are file-local `static inline` helpers in the helper section near the top of the file.
+- Backend interface implementations called by wrappers in `Impl*.cpp` are not ordinary helpers: keep their GAPI suffixes and define them with `NRI_INLINE`.
+- Wrapper-interface entry points defined directly in `Impl*.cpp` also keep GAPI suffixes to match the corresponding wrapper API function-table members; keep them file-local with `static` and `NRI_CALL`.
+- Omit redundant GAPI suffixes from ordinary file-local helpers in single-GAPI files.
+- Keep GAPI suffixes in `Creation.cpp` and other multi-GAPI files where they disambiguate backend-specific helpers.
 - Keep one-off helpers local. Put genuinely reused backend-independent logic in the relevant Shared header or codec namespace.
 - Put backend-wide constants and declarations in the corresponding `Shared*.h`.
 - Keep implementation-entity data members private. Put private helpers before storage and preserve lock, lifetime, destructor-order, and debugger comments.
