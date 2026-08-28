@@ -1006,7 +1006,7 @@ void CommandBufferWGPU::SetDescriptorSet(const SetDescriptorSetDesc& setDescript
     DescriptorSetWGPU& descriptorSet = *(DescriptorSetWGPU*)setDescriptorSetDesc.descriptorSet;
     BindPoint bindPoint = setDescriptorSetDesc.bindPoint == BindPoint::INHERIT ? m_BindPoint : setDescriptorSetDesc.bindPoint;
     uint32_t bindGroupIndex = m_PipelineLayout ? m_PipelineLayout->GetDescriptorSetMapping(setDescriptorSetDesc.setIndex).bindGroupIndex : setDescriptorSetDesc.setIndex;
-    Vector<const DescriptorSetWGPU*>& descriptorSets = bindPoint == BindPoint::COMPUTE ? m_ComputeDescriptorSets : m_GraphicsDescriptorSets;
+    Vector<DescriptorSetWGPU*>& descriptorSets = bindPoint == BindPoint::COMPUTE ? m_ComputeDescriptorSets : m_GraphicsDescriptorSets;
     Vector<uint64_t>& descriptorSetVersions = bindPoint == BindPoint::COMPUTE ? m_ComputeDescriptorSetVersions : m_GraphicsDescriptorSetVersions;
 
     if (bindGroupIndex >= descriptorSets.size())
@@ -1041,7 +1041,7 @@ void CommandBufferWGPU::MarkDescriptorSetDirty(BindPoint bindPoint, uint32_t bin
 }
 
 void CommandBufferWGPU::MarkDescriptorSetsDirty(BindPoint bindPoint) {
-    Vector<const DescriptorSetWGPU*>& descriptorSets = bindPoint == BindPoint::COMPUTE ? m_ComputeDescriptorSets : m_GraphicsDescriptorSets;
+    Vector<DescriptorSetWGPU*>& descriptorSets = bindPoint == BindPoint::COMPUTE ? m_ComputeDescriptorSets : m_GraphicsDescriptorSets;
     Vector<uint8_t>& dirtySets = bindPoint == BindPoint::COMPUTE ? m_ComputeDescriptorSetDirty : m_GraphicsDescriptorSetDirty;
     for (uint8_t& dirty : dirtySets)
         dirty = 1;
@@ -1069,7 +1069,7 @@ void CommandBufferWGPU::BindDescriptorSets(BindPoint bindPoint) {
                 continue;
             }
 
-            const DescriptorSetWGPU* descriptorSet = m_ComputeDescriptorSets[i];
+            DescriptorSetWGPU* descriptorSet = m_ComputeDescriptorSets[i];
             WGPUBindGroup bindGroup = descriptorSet ? (mapping ? descriptorSet->GetBindGroup(*mapping) : descriptorSet->GetBindGroup()) : nullptr;
             if (bindGroup) {
                 wgpuComputePassEncoderSetBindGroup(m_ComputePass, i, bindGroup, 0, nullptr);
@@ -1101,7 +1101,7 @@ void CommandBufferWGPU::BindDescriptorSets(BindPoint bindPoint) {
             continue;
         }
 
-        const DescriptorSetWGPU* descriptorSet = m_GraphicsDescriptorSets[i];
+        DescriptorSetWGPU* descriptorSet = m_GraphicsDescriptorSets[i];
         WGPUBindGroup bindGroup = descriptorSet ? (mapping ? descriptorSet->GetBindGroup(*mapping) : descriptorSet->GetBindGroup()) : nullptr;
         if (bindGroup) {
             wgpuRenderPassEncoderSetBindGroup(m_RenderPass, i, bindGroup, 0, nullptr);

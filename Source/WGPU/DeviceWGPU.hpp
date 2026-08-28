@@ -307,7 +307,18 @@ Result DeviceWGPU::CreateInstanceAndDevice(const DeviceCreationDesc& desc) {
         requiredFeatures[requiredFeatureNum++] = (WGPUFeatureName)WGPUNativeFeature_TimestampQueryInsidePasses;
     }
 
+    WGPUNativeLimits adapterNativeLimits = WGPU_NATIVE_LIMITS_INIT;
+    WGPULimits adapterLimits = WGPU_LIMITS_INIT;
+    adapterLimits.nextInChain = &adapterNativeLimits.chain;
+    if (wgpuAdapterGetLimits(m_Adapter, &adapterLimits) != WGPUStatus_Success)
+        return Result::FAILURE;
+
+    WGPUNativeLimits requiredNativeLimits = WGPU_NATIVE_LIMITS_INIT;
+    requiredNativeLimits.maxBindingArrayElementsPerShaderStage = adapterNativeLimits.maxBindingArrayElementsPerShaderStage;
+    requiredNativeLimits.maxBindingArraySamplerElementsPerShaderStage = adapterNativeLimits.maxBindingArraySamplerElementsPerShaderStage;
+
     WGPULimits requiredLimits = WGPU_LIMITS_INIT;
+    requiredLimits.nextInChain = &requiredNativeLimits.chain;
     requiredLimits.maxImmediateSize = 256;
 
     WGPUDeviceExtras deviceExtras = {};

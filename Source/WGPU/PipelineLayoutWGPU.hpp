@@ -1,10 +1,15 @@
 // © 2026 NVIDIA Corporation
 
-static void FillLayoutEntry(WGPUBindGroupLayoutEntry& entry, DescriptorType descriptorType, WGPUShaderStage visibility, WGPUTextureSampleType textureSampleType, WGPUTextureViewDimension textureViewDimension, WGPUBool textureMultisampled, WGPUTextureFormat storageTextureFormat, WGPUTextureViewDimension storageTextureViewDimension, WGPUStorageTextureAccess storageTextureAccess, uint32_t binding, uint32_t bindingArraySize = 0) {
+static inline void FillLayoutEntry(WGPUBindGroupLayoutEntry& entry, DescriptorType descriptorType, WGPUShaderStage visibility, WGPUTextureSampleType textureSampleType, WGPUTextureViewDimension textureViewDimension, WGPUBool textureMultisampled, WGPUTextureFormat storageTextureFormat, WGPUTextureViewDimension storageTextureViewDimension, WGPUStorageTextureAccess storageTextureAccess, uint32_t binding, WGPUBindGroupLayoutEntryExtras* extras = nullptr) {
     entry = WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT;
     entry.binding = binding;
     entry.visibility = visibility;
-    entry.bindingArraySize = bindingArraySize;
+
+    if (extras) {
+        *extras = {};
+        extras->chain.sType = (WGPUSType)WGPUSType_BindGroupLayoutEntryExtras;
+        entry.nextInChain = &extras->chain;
+    }
 
     switch (descriptorType) {
         case DescriptorType::SAMPLER:
@@ -35,12 +40,12 @@ static void FillLayoutEntry(WGPUBindGroupLayoutEntry& entry, DescriptorType desc
     }
 }
 
-static void FillLayoutEntry(WGPUBindGroupLayoutEntry& entry, const DescriptorRangeMappingWGPU& range, uint32_t binding, uint32_t bindingArraySize = 0) {
-    FillLayoutEntry(entry, range.type, range.visibility, range.textureSampleType, range.textureViewDimension, range.textureMultisampled, range.storageTextureFormat, range.storageTextureViewDimension, range.storageTextureAccess, binding, bindingArraySize);
+static inline void FillLayoutEntry(WGPUBindGroupLayoutEntry& entry, const DescriptorRangeMappingWGPU& range, uint32_t binding, WGPUBindGroupLayoutEntryExtras* extras = nullptr) {
+    FillLayoutEntry(entry, range.type, range.visibility, range.textureSampleType, range.textureViewDimension, range.textureMultisampled, range.storageTextureFormat, range.storageTextureViewDimension, range.storageTextureAccess, binding, extras);
 }
 
-static void FillLayoutEntry(WGPUBindGroupLayoutEntry& entry, const DescriptorRangeDesc& range, uint32_t binding, uint32_t bindingArraySize = 0) {
-    FillLayoutEntry(entry, range.descriptorType, GetShaderStageFlags(range.shaderStages), WGPUTextureSampleType_Float, WGPUTextureViewDimension_2D, WGPU_FALSE, WGPUTextureFormat_Undefined, WGPUTextureViewDimension_2D, WGPUStorageTextureAccess_WriteOnly, binding, bindingArraySize);
+static inline void FillLayoutEntry(WGPUBindGroupLayoutEntry& entry, const DescriptorRangeDesc& range, uint32_t binding, WGPUBindGroupLayoutEntryExtras* extras = nullptr) {
+    FillLayoutEntry(entry, range.descriptorType, GetShaderStageFlags(range.shaderStages), WGPUTextureSampleType_Float, WGPUTextureViewDimension_2D, WGPU_FALSE, WGPUTextureFormat_Undefined, WGPUTextureViewDimension_2D, WGPUStorageTextureAccess_WriteOnly, binding, extras);
 }
 
 static bool IsDynamicOffsetRootDescriptor(DescriptorType descriptorType) {
@@ -756,13 +761,18 @@ Result PipelineLayoutWGPU::Create(const PipelineLayoutDesc& pipelineLayoutDesc) 
         mapping.bindGroupIndex = set.registerSpace;
 
         uint32_t entryNum = 0;
+        uint32_t arrayNum = 0;
         for (uint32_t j = 0; j < set.rangeNum; j++) {
             const DescriptorRangeDesc& range = set.ranges[j];
-            entryNum += (range.flags & DescriptorRangeBits::ARRAY) ? 1 : range.descriptorNum;
+            bool isArray = (range.flags & DescriptorRangeBits::ARRAY) != 0;
+            entryNum += isArray ? 1 : range.descriptorNum;
+            arrayNum += isArray ? 1 : 0;
         }
 
         Scratch<WGPUBindGroupLayoutEntry> entries = NRI_ALLOCATE_SCRATCH(m_Device, WGPUBindGroupLayoutEntry, entryNum);
+        Scratch<WGPUBindGroupLayoutEntryExtras> entryExtras = NRI_ALLOCATE_SCRATCH(m_Device, WGPUBindGroupLayoutEntryExtras, arrayNum);
         uint32_t entryOffset = 0;
+        uint32_t entryExtraOffset = 0;
         uint32_t descriptorOffset = 0;
         for (uint32_t j = 0; j < set.rangeNum; j++) {
             const DescriptorRangeDesc& range = set.ranges[j];
@@ -777,9 +787,12 @@ Result PipelineLayoutWGPU::Create(const PipelineLayoutDesc& pipelineLayoutDesc) 
             rangeMapping.storageTextureFormat = range.descriptorType == DescriptorType::STORAGE_TEXTURE ? WGPUTextureFormat_R32Float : WGPUTextureFormat_Undefined;
             rangeMapping.isArray = isArray;
 
-            if (isArray)
-                FillLayoutEntry(entries[entryOffset++], rangeMapping, bindingBase, range.descriptorNum);
-            else {
+            if (isArray) {
+                WGPUBindGroupLayoutEntryExtras& extras = entryExtras[entryExtraOffset++];
+                FillLayoutEntry(entries[entryOffset], rangeMapping, bindingBase, &extras);
+                extras.count = range.descriptorNum;
+                entryOffset++;
+            } else {
                 for (uint32_t k = 0; k < range.descriptorNum; k++)
                     FillLayoutEntry(entries[entryOffset++], rangeMapping, bindingBase + k);
             }
@@ -978,15 +991,23 @@ Result PipelineLayoutWGPU::CreatePipelineLayout(const ShaderDesc* shaderDescs, u
             continue;
 
         uint32_t entryNum = 0;
-        for (const DescriptorRangeMappingWGPU& range : mapping.ranges)
+        uint32_t arrayNum = 0;
+        for (const DescriptorRangeMappingWGPU& range : mapping.ranges) {
             entryNum += range.isArray ? 1 : range.descriptorNum;
+            arrayNum += range.isArray ? 1 : 0;
+        }
 
         Scratch<WGPUBindGroupLayoutEntry> entries = NRI_ALLOCATE_SCRATCH(m_Device, WGPUBindGroupLayoutEntry, entryNum);
+        Scratch<WGPUBindGroupLayoutEntryExtras> entryExtras = NRI_ALLOCATE_SCRATCH(m_Device, WGPUBindGroupLayoutEntryExtras, arrayNum);
         uint32_t entryOffset = 0;
+        uint32_t entryExtraOffset = 0;
         for (const DescriptorRangeMappingWGPU& range : mapping.ranges) {
-            if (range.isArray)
-                FillLayoutEntry(entries[entryOffset++], range, range.bindingBase, range.descriptorNum);
-            else {
+            if (range.isArray) {
+                WGPUBindGroupLayoutEntryExtras& extras = entryExtras[entryExtraOffset++];
+                FillLayoutEntry(entries[entryOffset], range, range.bindingBase, &extras);
+                extras.count = range.descriptorNum;
+                entryOffset++;
+            } else {
                 for (uint32_t i = 0; i < range.descriptorNum; i++)
                     FillLayoutEntry(entries[entryOffset++], range, range.bindingBase + i);
             }
