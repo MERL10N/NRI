@@ -998,7 +998,8 @@ NriBits(PipelineLayoutBits, uint8_t,
 
 NriBits(DescriptorPoolBits, uint8_t,
     NONE                                    = 0,
-    ALLOW_UPDATE_AFTER_SET                  = NriBit(0)     // allows "DescriptorSetBits::ALLOW_UPDATE_AFTER_SET"
+    ALLOW_UPDATE_AFTER_SET                  = NriBit(0),    // allows "DescriptorSetBits::ALLOW_UPDATE_AFTER_SET"
+    COPY_SOURCE                             = NriBit(1)     // allows allocated descriptor sets to be used as sources in "CopyDescriptorRanges"; such sets can't be bound
 );
 
 NriBits(DescriptorSetBits, uint8_t,
@@ -1166,7 +1167,7 @@ NriStruct(CopyDescriptorRangeDesc) {
     uint32_t dstRangeIndex;
     uint32_t dstBaseDescriptor;
     // Source & count
-    const NriPtr(DescriptorSet) srcDescriptorSet;
+    const NriPtr(DescriptorSet) srcDescriptorSet; // must be allocated from a "DescriptorPool" with "DescriptorPoolBits::COPY_SOURCE"
     uint32_t srcRangeIndex;
     uint32_t srcBaseDescriptor;
     uint32_t descriptorNum;         // can be "ALL" (source)

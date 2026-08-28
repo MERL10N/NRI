@@ -418,6 +418,11 @@ static bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& videoEncodeD
 NRI_INLINE Result CommandBufferVal::Begin(const DescriptorPool* descriptorPool) {
     NRI_RETURN_ON_FAILURE(&m_Device, !m_IsRecordingStarted, Result::FAILURE, "already in the recording state");
 
+    if (descriptorPool) {
+        const DescriptorPoolVal& descriptorPoolVal = *(DescriptorPoolVal*)descriptorPool;
+        NRI_RETURN_ON_FAILURE(&m_Device, !descriptorPoolVal.IsCopySource(), Result::INVALID_ARGUMENT, "'descriptorPool' must not have 'DescriptorPoolBits::COPY_SOURCE'");
+    }
+
     DescriptorPool* descriptorPoolImpl = NRI_GET_IMPL(DescriptorPool, descriptorPool);
 
     Result result = GetCoreInterfaceImpl().BeginCommandBuffer(*GetImpl(), descriptorPoolImpl);
@@ -728,6 +733,9 @@ NRI_INLINE void CommandBufferVal::SetPipeline(const Pipeline& pipeline) {
 NRI_INLINE void CommandBufferVal::SetDescriptorPool(const DescriptorPool& descriptorPool) {
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
 
+    const DescriptorPoolVal& descriptorPoolVal = (const DescriptorPoolVal&)descriptorPool;
+    NRI_RETURN_ON_FAILURE(&m_Device, !descriptorPoolVal.IsCopySource(), ReturnVoid(), "'descriptorPool' must not have 'DescriptorPoolBits::COPY_SOURCE'");
+
     DescriptorPool* descriptorPoolImpl = NRI_GET_IMPL(DescriptorPool, &descriptorPool);
 
     GetCoreInterfaceImpl().CmdSetDescriptorPool(*GetImpl(), *descriptorPoolImpl);
@@ -739,6 +747,9 @@ NRI_INLINE void CommandBufferVal::SetDescriptorSet(const SetDescriptorSetDesc& s
     NRI_RETURN_ON_FAILURE(&m_Device, setDescriptorSetDesc.descriptorSet, ReturnVoid(), "'descriptorSet' is NULL");
     NRI_RETURN_ON_FAILURE(&m_Device, setDescriptorSetDesc.bindPoint < BindPoint::MAX_NUM, ReturnVoid(), "'bindPoint' is invalid");
     NRI_RETURN_ON_FAILURE(&m_Device, setDescriptorSetDesc.setIndex < m_DescriptorSets.size(), ReturnVoid(), "'setIndex=%u' is out of bounds", setDescriptorSetDesc.setIndex);
+
+    const DescriptorSetVal& descriptorSetVal = *(DescriptorSetVal*)setDescriptorSetDesc.descriptorSet;
+    NRI_RETURN_ON_FAILURE(&m_Device, !descriptorSetVal.IsCopySource(), ReturnVoid(), "'descriptorSet' must not be allocated from a pool with 'DescriptorPoolBits::COPY_SOURCE'");
 
     auto descriptorSetBindingDescImpl = setDescriptorSetDesc;
     descriptorSetBindingDescImpl.descriptorSet = NRI_GET_IMPL(DescriptorSet, setDescriptorSetDesc.descriptorSet);

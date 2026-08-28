@@ -1137,6 +1137,8 @@ NRI_INLINE void DeviceVal::CopyDescriptorRanges(const CopyDescriptorRangeDesc* c
         DescriptorSetVal& dstSetVal = *(DescriptorSetVal*)copyDescriptorSetDesc.dstDescriptorSet;
         DescriptorSetVal& srcSetVal = *(DescriptorSetVal*)copyDescriptorSetDesc.srcDescriptorSet;
 
+        NRI_RETURN_ON_FAILURE(this, srcSetVal.IsCopySource(), ReturnVoid(), "'[%u].srcDescriptorSet' must be allocated from a pool with 'DescriptorPoolBits::COPY_SOURCE'", i);
+
         const DescriptorSetDesc& dstSetDesc = dstSetVal.GetDesc();
         const DescriptorSetDesc& srcSetDesc = srcSetVal.GetDesc();
 

@@ -17,7 +17,11 @@ struct DescriptorSetVal final : public ObjectVal {
         return *m_Desc;
     }
 
-    void SetImpl(DescriptorSet* impl, const DescriptorSetDesc* desc);
+    inline bool IsCopySource() const {
+        return m_IsCopySource;
+    }
+
+    void SetImpl(DescriptorSet* impl, const DescriptorSetDesc* desc, bool isCopySource);
 
     //================================================================================================================
     // NRI
@@ -27,6 +31,7 @@ struct DescriptorSetVal final : public ObjectVal {
 
 private:
     const DescriptorSetDesc* m_Desc = nullptr; // .natvis
+    bool m_IsCopySource = false;
 };
 
 } // namespace nri

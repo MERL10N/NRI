@@ -2,6 +2,7 @@
 
 Result DescriptorPoolD3D12::Create(const DescriptorPoolDesc& descriptorPoolDesc) {
     std::array<uint32_t, DescriptorHeapType::MAX_NUM> descriptorHeapSize = {};
+    const D3D12_DESCRIPTOR_HEAP_FLAGS heapFlags = (descriptorPoolDesc.flags & DescriptorPoolBits::COPY_SOURCE) ? D3D12_DESCRIPTOR_HEAP_FLAG_NONE : D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
     descriptorHeapSize[DescriptorHeapType::SAMPLER] += descriptorPoolDesc.samplerMaxNum;
 
@@ -22,13 +23,14 @@ Result DescriptorPoolD3D12::Create(const DescriptorPoolDesc& descriptorPoolDesc)
         descriptorHeapDesc = {};
         if (descriptorHeapSize[i]) {
             ComPtr<ID3D12DescriptorHeap> descriptorHeap;
-            D3D12_DESCRIPTOR_HEAP_DESC desc = {(D3D12_DESCRIPTOR_HEAP_TYPE)i, descriptorHeapSize[i], D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, NODE_MASK};
+            D3D12_DESCRIPTOR_HEAP_DESC desc = {(D3D12_DESCRIPTOR_HEAP_TYPE)i, descriptorHeapSize[i], heapFlags, NODE_MASK};
             HRESULT hr = m_Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&descriptorHeap));
             NRI_RETURN_ON_BAD_HRESULT(&m_Device, hr, "ID3D12Device::CreateDescriptorHeap");
 
             descriptorHeapDesc.heap = descriptorHeap;
             descriptorHeapDesc.baseHandleCPU = descriptorHeap->GetCPUDescriptorHandleForHeapStart().ptr;
-            descriptorHeapDesc.baseHandleGPU = descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
+            if (heapFlags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
+                descriptorHeapDesc.baseHandleGPU = descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr;
             descriptorHeapDesc.descriptorSize = m_Device->GetDescriptorHandleIncrementSize((D3D12_DESCRIPTOR_HEAP_TYPE)i);
 
             m_DescriptorHeaps[m_DescriptorHeapNum++] = descriptorHeap;
