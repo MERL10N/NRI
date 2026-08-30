@@ -202,22 +202,23 @@ Supported:
 
 ## ENTITIES
 
-| NRI                     | *D3D11*                                 | *D3D12*                         | VK                           | WGPU                                      |
-|-------------------------|-----------------------------------------|---------------------------------|------------------------------|-------------------------------------------|
-| `Device`                | `ID3D11Device`                          | `ID3D12Device`                  | `VkDevice`                   | `WGPUDevice`                              |
-| `CommandBuffer`         | `ID3D11DeviceContext` (deferred)        | `ID3D12CommandList`             | `VkCommandBuffer`            | `WGPUCommandBuffer`                       |
-| `CommandQueue`          | `ID3D11DeviceContext` (immediate)       | `ID3D12CommandQueue`            | `VkQueue`                    | `WGPUQueue`                               |
-| `Fence`                 | `ID3D11Fence`                           | `ID3D12Fence`                   | `VkSemaphore` (timeline)     | N/A                                       |
-| `CommandAllocator`      | N/A                                     | `ID3D12CommandAllocator`        | `VkCommandPool`              | N/A                                       |
-| `Buffer`                | `ID3D11Buffer`                          | `ID3D12Resource`                | `VkBuffer`                   | `WGPUBuffer`                              |
-| `Texture`               | `ID3D11Texture`                         | `ID3D12Resource`                | `VkImage`                    | `WGPUTexture`                             |
-| `Memory`                | N/A                                     | `ID3D12Heap`                    | `VkDeviceMemory`             | N/A                                       |
-| `Descriptor`            | `ID3D11*View` or `ID3D11SamplerState`   | `D3D12_CPU_DESCRIPTOR_HANDLE`   | `Vk*View` or `VkSampler`     | `WGPUTextureView`, `WGPUBuffer`, `WGPUSampler` |
-| `DescriptorSet`         | N/A                                     | N/A                             | `VkDescriptorSet`            | N/A                                       |
-| `DescriptorPool`        | N/A                                     | `ID3D12DescriptorHeap`          | `VkDescriptorPool`           | N/A                                       |
-| `PipelineLayout`        | N/A                                     | `ID3D12RootSignature`           | `VkPipelineLayout`           | N/A                                       |
-| `Pipeline`              | `ID3D11*Shader` and `ID3D11*State`      | `ID3D12StateObject`             | `VkPipeline`                 | N/A                                       |
-| `AccelerationStructure` | N/A                                     | `ID3D12Resource`                | `VkAccelerationStructure`    | N/A                                       |
+## ENTITIES
+| NRI                     | *D3D11*                                 | *D3D12*                         | VK                           | WGPU               | Metal                  |                         
+|-------------------------|-----------------------------------------|---------------------------------|------------------------------|-------------------------------------------| -------------------------|
+| `Device`                | `ID3D11Device`                          | `ID3D12Device`                  | `VkDevice`                   | `WGPUDevice`       | `MTL::Device`           |
+| `CommandBuffer`         | `ID3D11DeviceContext` (deferred)        | `ID3D12CommandList`             | `VkCommandBuffer`            | `WGPUCommandBuffer`                       | `MTL4::CommandBuffer` |
+| `CommandQueue`          | `ID3D11DeviceContext` (immediate)       | `ID3D12CommandQueue`            | `VkQueue`                    | `WGPUQueue`        |  `MTL4::CommandQueue`|
+| `Fence`                 | `ID3D11Fence`                           | `ID3D12Fence`                   | `VkSemaphore` (timeline)     | N/A                | `MTL::SharedEvent`      |
+| `CommandAllocator`      | N/A                                     | `ID3D12CommandAllocator`        | `VkCommandPool`              | N/A                | `MTL4::CommandAllocator`|
+| `Buffer`                | `ID3D11Buffer`                          | `ID3D12Resource`                | `VkBuffer`                   | `WGPUBuffer`       | `MTL::Buffer`           |
+| `Texture`               | `ID3D11Texture`                         | `ID3D12Resource`                | `VkImage`                    | `WGPUTexture`      | `MTL::Texture`          |
+| `Memory`                | N/A                                     | `ID3D12Heap`                    | `VkDeviceMemory`             | N/A                | `MTL::Heap`             |
+| `Descriptor`            | `ID3D11*View` or `ID3D11SamplerState`   | `D3D12_CPU_DESCRIPTOR_HANDLE`   | `Vk*View` or `VkSampler`     | `WGPUTextureView`, `WGPUBuffer`, `WGPUSampler` | `MTL::SamplerState` |
+| `DescriptorSet`         | N/A                                     | N/A                             | `VkDescriptorSet`            | N/A                |  `MTL::ResourceID`      |
+| `DescriptorPool`        | N/A                                     | `ID3D12DescriptorHeap`          | `VkDescriptorPool`           | N/A                | `MTL4::ArgumentTable`   |
+| `PipelineLayout`        | N/A                                     | `ID3D12RootSignature`           | `VkPipelineLayout`           | N/A                | `MTL4::ArgumentTable`   |
+| `Pipeline`              | `ID3D11*Shader` and `ID3D11*State`      | `ID3D12StateObject`             | `VkPipeline`                 | N/A                | `MTL::RenderPipelineState` |
+| `AccelerationStructure` | N/A                                    | `ID3D12Resource`                | `VkAccelerationStructure`    | N/A              | `MTL::AccelerationStructure`|  }                       
 
 ## LICENSE
 
