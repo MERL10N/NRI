@@ -839,10 +839,12 @@ static Result NRI_CALL CreateImgui(Device&, const ImguiDesc&, Imgui*& imgui) {
 static void NRI_CALL DestroyImgui(Imgui*) {
 }
 
-static void NRI_CALL CmdCopyImguiData(CommandBuffer&, Streamer&, Imgui&, const CopyImguiDataDesc&) {
+static void NRI_CALL CmdCopyImguiData(CommandBuffer&, Streamer&, Imgui& imgui, const CopyImguiDataDesc&, ImguiRenderData& imguiRenderData) {
+    imguiRenderData = {};
+    imguiRenderData.imgui = &imgui;
 }
 
-static void NRI_CALL CmdDrawImgui(CommandBuffer&, Imgui&, const DrawImguiDesc&) {
+static void NRI_CALL CmdDrawImgui(CommandBuffer&, const ImguiRenderData&, const DrawImguiDesc&) {
 }
 
 Result DeviceNONE::FillFunctionTable(ImguiInterface& table) const {
@@ -1252,12 +1254,22 @@ static Result NRI_CALL CreateStreamer(Device&, const StreamerDesc&, Streamer*& s
 static void NRI_CALL DestroyStreamer(Streamer*) {
 }
 
+static StreamerCopyBatch NRI_CALL BeginStreamerCopyBatch(Streamer&) {
+    static std::atomic_uint64_t copyBatch = 0;
+
+    return copyBatch.fetch_add(1, std::memory_order_relaxed) + 1;
+}
+
 static Buffer* NRI_CALL GetStreamerConstantBuffer(Streamer&) {
     return DummyObject<Buffer>();
 }
 
 static uint32_t NRI_CALL StreamConstantData(Streamer&, const void*, uint32_t) {
     return 0;
+}
+
+static void* NRI_CALL StreamHostData(Streamer&, const void*, uint64_t, uint32_t) {
+    return nullptr;
 }
 
 static BufferOffset NRI_CALL StreamBufferData(Streamer&, const StreamBufferDataDesc&) {
@@ -1271,16 +1283,18 @@ static BufferOffset NRI_CALL StreamTextureData(Streamer&, const StreamTextureDat
 static void NRI_CALL EndStreamerFrame(Streamer&) {
 }
 
-static void NRI_CALL CmdCopyStreamedData(CommandBuffer&, Streamer&) {
+static void NRI_CALL CmdCopyStreamedData(CommandBuffer&, Streamer&, StreamerCopyBatch) {
 }
 
 Result DeviceNONE::FillFunctionTable(StreamerInterface& table) const {
     table.CreateStreamer = ::CreateStreamer;
     table.DestroyStreamer = ::DestroyStreamer;
+    table.BeginStreamerCopyBatch = ::BeginStreamerCopyBatch;
     table.GetStreamerConstantBuffer = ::GetStreamerConstantBuffer;
     table.StreamBufferData = ::StreamBufferData;
     table.StreamTextureData = ::StreamTextureData;
     table.StreamConstantData = ::StreamConstantData;
+    table.StreamHostData = ::StreamHostData;
     table.EndStreamerFrame = ::EndStreamerFrame;
     table.CmdCopyStreamedData = ::CmdCopyStreamedData;
 

@@ -172,6 +172,16 @@ NriStruct(SampleLocation) {
     int8_t x, y; // [-8; 7]
 };
 
+NriStruct(BufferOffset) {
+    NriPtr(Buffer) buffer;
+    uint64_t offset;
+};
+
+NriStruct(DataSize) {
+    const void* data;
+    uint64_t size;
+};
+
 #pragma endregion
 
 //============================================================================================================================================================================================
