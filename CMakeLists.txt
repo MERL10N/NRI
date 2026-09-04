@@ -820,6 +820,12 @@ if(NRI_ENABLE_MTL_SUPPORT)
             Source/MTL/DeviceMTL.h
             Source/MTL/MTLImpl.cpp
             Source/MTL/DeviceMTL.hpp
+            Source/MTL/CommandAllocatorMTL.hpp
+            Source/MTL/CommandAllocatorMTL.h
+            Source/MTL/CommandBufferMTL.hpp
+            Source/MTL/CommandBufferMTL.h
+            Source/MTL/SwapChainMTL.hpp
+            Source/MTL/SwapChainMTL.h
     )
     target_sources(NRI_MTL
             PRIVATE
