@@ -173,6 +173,16 @@ NriStruct(SampleLocation) {
     int8_t x, y; // [-8; 7]
 };
 
+NriStruct(BufferOffset) {
+    NriPtr(Buffer) buffer;
+    uint64_t offset;
+};
+
+NriStruct(DataSize) {
+    const void* data;
+    uint64_t size;
+};
+
 #pragma endregion
 
 //============================================================================================================================================================================================
@@ -1724,7 +1734,9 @@ NriStruct(DrawIndexedDesc) {            // see NRI_FILL_DRAW_INDEXED_DESC
 };
 
 NriStruct(DispatchDesc) {
-    uint32_t x, y, z;
+    uint32_t workGroupNumX;
+    uint32_t workGroupNumY;
+    uint32_t workGroupNumZ;
 };
 
 // Modified draw command signatures, if the bound pipeline layout has "PipelineLayoutBits::ENABLE_DRAW_PARAMETERS_EMULATION"
