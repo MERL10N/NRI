@@ -418,6 +418,11 @@ static bool IsVideoAV1EncodePictureDescValid(const VideoEncodeDesc& videoEncodeD
 NRI_INLINE Result CommandBufferVal::Begin(const DescriptorPool* descriptorPool) {
     NRI_RETURN_ON_FAILURE(&m_Device, !m_IsRecordingStarted, Result::FAILURE, "already in the recording state");
 
+    if (descriptorPool) {
+        const DescriptorPoolVal& descriptorPoolVal = *(DescriptorPoolVal*)descriptorPool;
+        NRI_RETURN_ON_FAILURE(&m_Device, !descriptorPoolVal.IsCopySource(), Result::INVALID_ARGUMENT, "'descriptorPool' must not have 'DescriptorPoolBits::COPY_SOURCE'");
+    }
+
     DescriptorPool* descriptorPoolImpl = NRI_GET_IMPL(DescriptorPool, descriptorPool);
 
     Result result = GetCoreInterfaceImpl().BeginCommandBuffer(*GetImpl(), descriptorPoolImpl);
@@ -540,6 +545,8 @@ NRI_INLINE void CommandBufferVal::ClearAttachments(const ClearAttachmentDesc* cl
         bool isColor = clearAttachmentDesc.planes & PlaneBits::COLOR;
         bool isDepthStencil = clearAttachmentDesc.planes & (PlaneBits::DEPTH | PlaneBits::STENCIL);
         NRI_RETURN_ON_FAILURE(&m_Device, isColor != isDepthStencil, ReturnVoid(), "'[%u].planes' must represent a color or a depth-stencil", i);
+        NRI_RETURN_ON_FAILURE(&m_Device, !rectNum || !isColor || deviceDesc.features.rectColorClears, ReturnVoid(), "'features.rectColorClears' is false");
+        NRI_RETURN_ON_FAILURE(&m_Device, !rectNum || !isDepthStencil || deviceDesc.features.rectDepthStencilClears, ReturnVoid(), "'features.rectDepthStencilClears' is false");
 
         if (clearAttachmentDesc.planes & PlaneBits::COLOR) {
             NRI_RETURN_ON_FAILURE(&m_Device, clearAttachmentDesc.colorAttachmentIndex < deviceDesc.shaderStage.fragment.attachmentMaxNum, ReturnVoid(), "'[%u].colorAttachmentIndex=%u' is out of bounds", i, clearAttachmentDesc.colorAttachmentIndex);
@@ -726,6 +733,9 @@ NRI_INLINE void CommandBufferVal::SetPipeline(const Pipeline& pipeline) {
 NRI_INLINE void CommandBufferVal::SetDescriptorPool(const DescriptorPool& descriptorPool) {
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
 
+    const DescriptorPoolVal& descriptorPoolVal = (const DescriptorPoolVal&)descriptorPool;
+    NRI_RETURN_ON_FAILURE(&m_Device, !descriptorPoolVal.IsCopySource(), ReturnVoid(), "'descriptorPool' must not have 'DescriptorPoolBits::COPY_SOURCE'");
+
     DescriptorPool* descriptorPoolImpl = NRI_GET_IMPL(DescriptorPool, &descriptorPool);
 
     GetCoreInterfaceImpl().CmdSetDescriptorPool(*GetImpl(), *descriptorPoolImpl);
@@ -737,6 +747,9 @@ NRI_INLINE void CommandBufferVal::SetDescriptorSet(const SetDescriptorSetDesc& s
     NRI_RETURN_ON_FAILURE(&m_Device, setDescriptorSetDesc.descriptorSet, ReturnVoid(), "'descriptorSet' is NULL");
     NRI_RETURN_ON_FAILURE(&m_Device, setDescriptorSetDesc.bindPoint < BindPoint::MAX_NUM, ReturnVoid(), "'bindPoint' is invalid");
     NRI_RETURN_ON_FAILURE(&m_Device, setDescriptorSetDesc.setIndex < m_DescriptorSets.size(), ReturnVoid(), "'setIndex=%u' is out of bounds", setDescriptorSetDesc.setIndex);
+
+    const DescriptorSetVal& descriptorSetVal = *(DescriptorSetVal*)setDescriptorSetDesc.descriptorSet;
+    NRI_RETURN_ON_FAILURE(&m_Device, !descriptorSetVal.IsCopySource(), ReturnVoid(), "'descriptorSet' must not be allocated from a pool with 'DescriptorPoolBits::COPY_SOURCE'");
 
     auto descriptorSetBindingDescImpl = setDescriptorSetDesc;
     descriptorSetBindingDescImpl.descriptorSet = NRI_GET_IMPL(DescriptorSet, setDescriptorSetDesc.descriptorSet);
@@ -1123,10 +1136,10 @@ NRI_INLINE void CommandBufferVal::BuildBottomLevelAccelerationStructure(const Bu
 
     Scratch<BuildBottomLevelAccelerationStructureDesc> buildBottomLevelAccelerationStructureDescsImpl = NRI_ALLOCATE_SCRATCH(m_Device, BuildBottomLevelAccelerationStructureDesc, buildBottomLevelAccelerationStructureDescNum);
     Scratch<BottomLevelGeometryDesc> geometriesImplScratch = NRI_ALLOCATE_SCRATCH(m_Device, BottomLevelGeometryDesc, geometryTotalNum);
-    Scratch<BottomLevelMicromapDesc> micromapsImplScratch = NRI_ALLOCATE_SCRATCH(m_Device, BottomLevelMicromapDesc, micromapTotalNum);
+    Scratch<BottomLevelTrianglesMicromapDesc> micromapsImplScratch = NRI_ALLOCATE_SCRATCH(m_Device, BottomLevelTrianglesMicromapDesc, micromapTotalNum);
 
     BottomLevelGeometryDesc* geometriesImpl = geometriesImplScratch;
-    BottomLevelMicromapDesc* micromapsImpl = micromapsImplScratch;
+    BottomLevelTrianglesMicromapDesc* micromapsImpl = micromapsImplScratch;
 
     for (uint32_t i = 0; i < buildBottomLevelAccelerationStructureDescNum; i++) {
         const BuildBottomLevelAccelerationStructureDesc& in = buildBottomLevelAccelerationStructureDescs[i];
@@ -1144,7 +1157,7 @@ NRI_INLINE void CommandBufferVal::BuildBottomLevelAccelerationStructure(const Bu
         out.geometries = geometriesImpl;
         out.scratchBuffer = NRI_GET_IMPL(Buffer, in.scratchBuffer);
 
-        ConvertBotomLevelGeometries(in.geometries, in.geometryNum, geometriesImpl, micromapsImpl);
+        ConvertBottomLevelGeometries(in.geometries, in.geometryNum, geometriesImpl, micromapsImpl);
     }
 
     GetRayTracingInterfaceImpl().CmdBuildBottomLevelAccelerationStructures(*GetImpl(), buildBottomLevelAccelerationStructureDescsImpl, buildBottomLevelAccelerationStructureDescNum);
@@ -1203,7 +1216,7 @@ NRI_INLINE void CommandBufferVal::CopyAccelerationStructure(AccelerationStructur
     GetRayTracingInterfaceImpl().CmdCopyAccelerationStructure(*GetImpl(), dstImpl, srcImpl, copyMode);
 }
 
-NRI_INLINE void CommandBufferVal::WriteMicromapsSizes(const Micromap* const* micromaps, uint32_t micromapNum, QueryPool& queryPool, uint32_t queryPoolOffset) {
+NRI_INLINE void CommandBufferVal::WriteMicromapSizes(const Micromap* const* micromaps, uint32_t micromapNum, QueryPool& queryPool, uint32_t queryPoolOffset) {
     const QueryPoolVal& queryPoolVal = (QueryPoolVal&)queryPool;
     bool isTypeValid = queryPoolVal.GetQueryType() == QueryType::MICROMAP_COMPACTED_SIZE;
 
@@ -1224,10 +1237,10 @@ NRI_INLINE void CommandBufferVal::WriteMicromapsSizes(const Micromap* const* mic
 
     QueryPool& queryPoolImpl = *NRI_GET_IMPL(QueryPool, &queryPool);
 
-    GetRayTracingInterfaceImpl().CmdWriteMicromapsSizes(*GetImpl(), micromapsImpl, micromapNum, queryPoolImpl, queryPoolOffset);
+    GetRayTracingInterfaceImpl().CmdWriteMicromapSizes(*GetImpl(), micromapsImpl, micromapNum, queryPoolImpl, queryPoolOffset);
 }
 
-NRI_INLINE void CommandBufferVal::WriteAccelerationStructuresSizes(const AccelerationStructure* const* accelerationStructures, uint32_t accelerationStructureNum, QueryPool& queryPool, uint32_t queryPoolOffset) {
+NRI_INLINE void CommandBufferVal::WriteAccelerationStructureSizes(const AccelerationStructure* const* accelerationStructures, uint32_t accelerationStructureNum, QueryPool& queryPool, uint32_t queryPoolOffset) {
     const QueryPoolVal& queryPoolVal = (QueryPoolVal&)queryPool;
     bool isTypeValid = queryPoolVal.GetQueryType() == QueryType::ACCELERATION_STRUCTURE_SIZE || queryPoolVal.GetQueryType() == QueryType::ACCELERATION_STRUCTURE_COMPACTED_SIZE;
 
@@ -1248,7 +1261,7 @@ NRI_INLINE void CommandBufferVal::WriteAccelerationStructuresSizes(const Acceler
 
     QueryPool& queryPoolImpl = *NRI_GET_IMPL(QueryPool, &queryPool);
 
-    GetRayTracingInterfaceImpl().CmdWriteAccelerationStructuresSizes(*GetImpl(), accelerationStructuresImpl, accelerationStructureNum, queryPoolImpl, queryPoolOffset);
+    GetRayTracingInterfaceImpl().CmdWriteAccelerationStructureSizes(*GetImpl(), accelerationStructuresImpl, accelerationStructureNum, queryPoolImpl, queryPoolOffset);
 }
 
 NRI_INLINE void CommandBufferVal::DispatchRays(const DispatchRaysDesc& dispatchRaysDesc) {
@@ -1257,18 +1270,18 @@ NRI_INLINE void CommandBufferVal::DispatchRays(const DispatchRaysDesc& dispatchR
 
     NRI_RETURN_ON_FAILURE(&m_Device, m_IsRecordingStarted, ReturnVoid(), "the command buffer must be in the recording state");
     NRI_RETURN_ON_FAILURE(&m_Device, !m_IsRenderPass, ReturnVoid(), "must be called outside of 'CmdBeginRendering/CmdEndRendering'");
-    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.raygenShader.buffer, ReturnVoid(), "'raygenShader.buffer' is NULL");
-    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.raygenShader.size != 0, ReturnVoid(), "'raygenShader.size' is 0");
-    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.raygenShader.offset % align == 0, ReturnVoid(), "'raygenShader.offset' is misaligned");
-    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.missShaders.offset % align == 0, ReturnVoid(), "'missShaders.offset' is misaligned");
-    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.hitShaderGroups.offset % align == 0, ReturnVoid(), "'hitShaderGroups.offset' is misaligned");
-    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.callableShaders.offset % align == 0, ReturnVoid(), "'callableShaders.offset' is misaligned");
+    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.raygenShaderRecord.buffer, ReturnVoid(), "'raygenShaderRecord.buffer' is NULL");
+    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.raygenShaderRecord.size != 0, ReturnVoid(), "'raygenShaderRecord.size' is 0");
+    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.raygenShaderRecord.offset % align == 0, ReturnVoid(), "'raygenShaderRecord.offset' is misaligned");
+    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.missShaderBindingTable.offset % align == 0, ReturnVoid(), "'missShaderBindingTable.offset' is misaligned");
+    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.hitShaderBindingTable.offset % align == 0, ReturnVoid(), "'hitShaderBindingTable.offset' is misaligned");
+    NRI_RETURN_ON_FAILURE(&m_Device, dispatchRaysDesc.callableShaderBindingTable.offset % align == 0, ReturnVoid(), "'callableShaderBindingTable.offset' is misaligned");
 
     auto dispatchRaysDescImpl = dispatchRaysDesc;
-    dispatchRaysDescImpl.raygenShader.buffer = NRI_GET_IMPL(Buffer, dispatchRaysDesc.raygenShader.buffer);
-    dispatchRaysDescImpl.missShaders.buffer = NRI_GET_IMPL(Buffer, dispatchRaysDesc.missShaders.buffer);
-    dispatchRaysDescImpl.hitShaderGroups.buffer = NRI_GET_IMPL(Buffer, dispatchRaysDesc.hitShaderGroups.buffer);
-    dispatchRaysDescImpl.callableShaders.buffer = NRI_GET_IMPL(Buffer, dispatchRaysDesc.callableShaders.buffer);
+    dispatchRaysDescImpl.raygenShaderRecord.buffer = NRI_GET_IMPL(Buffer, dispatchRaysDesc.raygenShaderRecord.buffer);
+    dispatchRaysDescImpl.missShaderBindingTable.buffer = NRI_GET_IMPL(Buffer, dispatchRaysDesc.missShaderBindingTable.buffer);
+    dispatchRaysDescImpl.hitShaderBindingTable.buffer = NRI_GET_IMPL(Buffer, dispatchRaysDesc.hitShaderBindingTable.buffer);
+    dispatchRaysDescImpl.callableShaderBindingTable.buffer = NRI_GET_IMPL(Buffer, dispatchRaysDesc.callableShaderBindingTable.buffer);
 
     GetRayTracingInterfaceImpl().CmdDispatchRays(*GetImpl(), dispatchRaysDescImpl);
 }

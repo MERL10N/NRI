@@ -173,6 +173,16 @@ NriStruct(SampleLocation) {
     int8_t x, y; // [-8; 7]
 };
 
+NriStruct(BufferOffset) {
+    NriPtr(Buffer) buffer;
+    uint64_t offset;
+};
+
+NriStruct(DataSize) {
+    const void* data;
+    uint64_t size;
+};
+
 #pragma endregion
 
 //============================================================================================================================================================================================
@@ -674,9 +684,9 @@ NriStruct(BarrierDesc) {
 // https://docs.vulkan.org/refpages/latest/refpages/source/VkImageType.html
 // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_dimension
 NriEnum(TextureType, uint8_t,
-    TEXTURE_1D,
+    TEXTURE_1D, // WGPU: arrays and mipmaps are unsupported
     TEXTURE_2D,
-    TEXTURE_3D
+    TEXTURE_3D  // arrays are unsupported
 );
 
 // NRI tries to ease your life and avoid using "queue ownership transfers" (see "TextureBarrierDesc").
@@ -999,7 +1009,8 @@ NriBits(PipelineLayoutBits, uint8_t,
 
 NriBits(DescriptorPoolBits, uint8_t,
     NONE                                    = 0,
-    ALLOW_UPDATE_AFTER_SET                  = NriBit(0)     // allows "DescriptorSetBits::ALLOW_UPDATE_AFTER_SET"
+    ALLOW_UPDATE_AFTER_SET                  = NriBit(0),    // allows "DescriptorSetBits::ALLOW_UPDATE_AFTER_SET"
+    COPY_SOURCE                             = NriBit(1)     // allows allocated descriptor sets to be used as sources in "CopyDescriptorRanges"; such sets can't be bound
 );
 
 NriBits(DescriptorSetBits, uint8_t,
@@ -1167,7 +1178,7 @@ NriStruct(CopyDescriptorRangeDesc) {
     uint32_t dstRangeIndex;
     uint32_t dstBaseDescriptor;
     // Source & count
-    const NriPtr(DescriptorSet) srcDescriptorSet;
+    const NriPtr(DescriptorSet) srcDescriptorSet; // must be allocated from a "DescriptorPool" with "DescriptorPoolBits::COPY_SOURCE"
     uint32_t srcRangeIndex;
     uint32_t srcBaseDescriptor;
     uint32_t descriptorNum;         // can be "ALL" (source)
@@ -1448,8 +1459,8 @@ NriEnum(BlendFactor, uint8_t,   // RGB                               ALPHA
     ONE_MINUS_DST_ALPHA,        // 1 - D.a                           1 - D.a
     CONSTANT_COLOR,             // C.r, C.g, C.b                     C.a
     ONE_MINUS_CONSTANT_COLOR,   // 1 - C.r, 1 - C.g, 1 - C.b         1 - C.a
-    CONSTANT_ALPHA,             // C.a                               C.a
-    ONE_MINUS_CONSTANT_ALPHA,   // 1 - C.a                           1 - C.a
+    CONSTANT_ALPHA,             // C.a                               C.a (for RGB requires "features.constantAlphaBlendFactors")
+    ONE_MINUS_CONSTANT_ALPHA,   // 1 - C.a                           1 - C.a (for RGB requires "features.constantAlphaBlendFactors")
     SRC_ALPHA_SATURATE,         // min(S0.a, 1 - D.a)                1
     SRC1_COLOR,                 // S1.r, S1.g, S1.b                  S1.a
     ONE_MINUS_SRC1_COLOR,       // 1 - S1.r, 1 - S1.g, 1 - S1.b      1 - S1.a
@@ -1723,7 +1734,9 @@ NriStruct(DrawIndexedDesc) {            // see NRI_FILL_DRAW_INDEXED_DESC
 };
 
 NriStruct(DispatchDesc) {
-    uint32_t x, y, z;
+    uint32_t workGroupNumX;
+    uint32_t workGroupNumY;
+    uint32_t workGroupNumZ;
 };
 
 // Modified draw command signatures, if the bound pipeline layout has "PipelineLayoutBits::ENABLE_DRAW_PARAMETERS_EMULATION"
@@ -2184,6 +2197,10 @@ NriStruct(DeviceDesc) {
         bool additionalShadingRates;                              // see "ShadingRate"
         bool sumShadingRateCombiner;                              // see "ShadingRateCombiner::SUM"
 
+        // Clear
+        bool rectColorClears;                                     // see "CmdClearAttachments"
+        bool rectDepthStencilClears;                              // see "CmdClearAttachments"
+
         // Resolve
         bool regionResolve;                                       // see "CmdResolveTexture"
         bool resolveOpMinMax;                                     // see "ResolveOp"
@@ -2202,6 +2219,7 @@ NriStruct(DeviceDesc) {
         bool componentSwizzle;                                    // see "ComponentSwizzle" (unsupported only in D3D11)
         bool independentFrontAndBackStencilReferenceAndMasks;     // see "StencilAttachmentDesc::back"
         bool filterOpMinMax;                                      // see "FilterOp"
+        bool constantAlphaBlendFactors;                           // see "BlendFactor::CONSTANT_ALPHA" and "BlendFactor::ONE_MINUS_CONSTANT_ALPHA"
         bool logicOp;                                             // see "LogicOp"
         bool depthBoundsTest;                                     // see "DepthAttachmentDesc::boundsTest"
         bool drawIndirectCount;                                   // see "countBuffer" and "countBufferOffset"

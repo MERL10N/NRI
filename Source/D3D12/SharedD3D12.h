@@ -138,7 +138,7 @@ inline uint32_t GetSubresourceIndex(uint32_t layerOffset, uint32_t resourceLayer
     return mipOffset + (layerOffset + planeIndex * resourceLayerNum) * resourceMipNum;
 }
 
-void ConvertBotomLevelGeometries(const BottomLevelGeometryDesc* geometries, uint32_t geometryNum,
+void ConvertBottomLevelGeometries(const BottomLevelGeometryDesc* geometries, uint32_t geometryNum,
     D3D12_RAYTRACING_GEOMETRY_DESC* geometryDescs,
     D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC* triangleDescs,
     D3D12_RAYTRACING_GEOMETRY_OMM_LINKAGE_DESC* micromapDescs);
@@ -164,7 +164,7 @@ D3D12_CULL_MODE GetCullMode(CullMode cullMode);
 D3D12_STENCIL_OP GetStencilOp(StencilOp stencilFunc);
 UINT8 GetRenderTargetWriteMask(ColorWriteBits colorWriteMask);
 D3D12_LOGIC_OP GetLogicOp(LogicOp logicOp);
-D3D12_BLEND GetBlend(BlendFactor blendFactor);
+D3D12_BLEND GetBlend(BlendFactor blendFactor, bool isAlphaBlend);
 D3D12_BLEND_OP GetBlendOp(BlendOp blendFunc);
 D3D12_DESCRIPTOR_RANGE_TYPE GetDescriptorRangesType(DescriptorType descriptorType);
 D3D12_RESOURCE_DIMENSION GetResourceDimension(TextureType textureType);

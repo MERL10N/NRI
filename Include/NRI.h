@@ -39,7 +39,7 @@ Implicit:
 #pragma once
 
 #define NRI_VERSION 181
-#define NRI_VERSION_DATE "19 August 2026"
+#define NRI_VERSION_DATE "1 September 2026"
 
 // C/C++ compatible interface (auto-selection or via "NRI_FORCE_C" macro)
 #include "NRIDescs.h"
@@ -184,7 +184,7 @@ NriStruct(CoreInterface) {
         // Graphics
         void                (NRI_CALL *CmdBeginRendering)           (NriRef(CommandBuffer) commandBuffer, const NriRef(RenderingDesc) renderingDesc);
         // {                {
-            // Clear
+            // Clear ("rects" require the corresponding "features.rectColorClears" or "features.rectDepthStencilClears")
             void                (NRI_CALL *CmdClearAttachments)     (NriRef(CommandBuffer) commandBuffer, const NriPtr(ClearAttachmentDesc) clearAttachmentDescs, uint32_t clearAttachmentDescNum, const NriPtr(Rect) rects, uint32_t rectNum);
 
             // Draw

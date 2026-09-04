@@ -1,15 +1,17 @@
 ---
 name: nri-review
-description: Review NRI changes for merge readiness, graphics-API correctness, backend parity, validation coverage, duplication, simplification, and build risk.
+description: Review NRI changes or the current tree for graphics-API correctness, backend parity, validation coverage, duplication, simplification, and build risk.
 ---
 
 # NRI Review
 
 Read `../nri-coding-standard/SKILL.md` completely before reviewing. Treat it as the coding-policy checklist; this skill defines the review method.
 
+When the review touches WGPU, read `../../todo-wgpu.md` completely. When it touches video, read `../../todo-video.md` completely. Treat these files as maintained investigation context, not as pre-established findings; verify every relevant item against the review target.
+
 Review exactly the target and comparison basis specified by the user. Clarify only when genuine ambiguity could change the findings.
 
-Record the exact baseline ref and commit. Include committed and uncommitted changes. If the verdict is against current `main`, verify that the local ref matches the remote before comparing.
+Record the exact target and comparison basis, including refs and commits when applicable. Include committed and uncommitted changes when reviewing a diff. If the review is against current `main`, verify that the local ref matches the remote before comparing.
 
 ## Map the Feature
 
@@ -31,14 +33,14 @@ Review the whole feature neighborhood, not only the last commit or added lines.
 - Apply scratch initialization requirements to native input and input/output structures. Pure output arrays without `sType`/`pNext` do not need redundant initialization.
 - Keep direct native API mirrors in native terminology even when the NRI-facing concept uses different terminology.
 - Compare D3D12 and Vulkan resource states, access/stages, queues, ownership, synchronization, setup/reference/reconstructed pictures, offsets, feedback, and object lifetimes.
-- Different native requirements are valid only when the NRI contract lets callers discover and satisfy them.
+- Different native requirements are valid only when the NRI contract lets callers discover and satisfy them. Treat cross-backend differences as investigation leads, not proof of a defect; confirm the contract and units of each native API before deciding that one backend is wrong.
 - Check zero and maximum counts, sparse or duplicate slots, aliasing, optional pointers, nonzero offsets, narrowing, partial construction, rollback, and destruction.
 - Check relevant combinations of codec, encode/decode, frame type, neutral/native arguments, host/buffer sources, coincident/distinct pictures, Validation/direct use, and Agility/non-Agility.
-- Verify uncertain GAPI rules with primary documentation or primary implementation sources; identify inferences.
+- Verify uncertain GAPI rules with primary documentation or primary implementation sources; identify inferences. Distinguish quantities such as logical and physical or block-rounded extents, texels and blocks, row size and row pitch, and resources and subresources. Include relevant padding, edge, feature, and version rules before declaring a native violation.
 
 ## Duplication and Simplification
 
-Use this pass for substantial implementation changes or when maintainability is in scope. Correctness and merge risk come first.
+Use this pass for substantial implementation changes or when maintainability is in scope. Correctness and regression risk come first.
 
 - Compare file-local helpers and substantial workflows across backends.
 - Look for equivalent bodies with the same or different names, terminology, capitalization, or backend suffixes.
@@ -47,9 +49,9 @@ Use this pass for substantial implementation changes or when maintainability is 
 - Share only genuinely backend-independent reused logic. Keep one-off and native-specific helpers local.
 - Retain duplication when abstraction would worsen pointer lifetime, diagnostics, performance, or native clarity; state that reason.
 
-## Merge Verdict
+## Review Verdict
 
-A blocker is a supported valid path that can fail, crash, access missing storage, use invalid native data, violate an undiscoverable resource-state contract, advertise unsupported behavior, break Validation or interface wiring, leak or misuse lifetime, fail a required build, or prevent a clean merge.
+A blocker is a supported valid path that can fail, crash, access missing storage, use invalid native data, violate an undiscoverable resource-state contract, advertise unsupported behavior, break Validation or interface wiring, leak or misuse lifetime, fail a required build, or otherwise make the reviewed state unacceptable.
 
 Incomplete functionality is non-blocking when explicitly unsupported, accurately reported, and harmless to existing NRI. ABI changes alone are not findings for v181 when recompilation is accepted.
 
@@ -58,11 +60,12 @@ One reachable blocker controls the verdict.
 ## Verification and Report
 
 - Run `git diff --check`, check for accidental edits, and verify CRLF.
-- Build every affected backend and feature gate. For Windows video merge readiness, normally cover Agility and non-Agility D3D12, Vulkan, Debug, and Release; include shared consumers such as WGPU when public/shared headers changed.
+- Build every affected backend and feature gate. For generic verification, cover every backend available through CMake: D3D12 (both Agility and non-Agility), Vulkan, D3D11, and WGPU, in both Debug and Release configurations.
 - For non-Agility D3D12 verification, confirm that the build selected the Windows SDK 10.0.20348 headers; a downlevel target alone may still compile against newer installed headers.
+- For findings that predict a native validation failure or incorrect output, run the smallest relevant existing test on the unchanged reviewed tree when practical and record whether it reproduces. A test that passes only after a proposed fix does not establish that the baseline fails; if both pass, reconcile the behavior with the exact native rule before retaining the finding.
 - Distinguish compilation from runtime coverage and list important untested paths.
 - Review the exact final tree, not an earlier iteration.
 
 Report findings first by severity. Give exact file/line, reachable path, violated NRI or native rule, affected backend/mode, why Validation or capabilities do not prevent it, and a concrete fix.
 
-End with blocker and useful non-blocker counts, verification performed and omitted, and an explicit `MERGEABLE` or `NOT MERGEABLE` verdict.
+End with blocker and useful non-blocker counts, verification performed and omitted, and an explicit `PASS` or `FAIL` verdict.

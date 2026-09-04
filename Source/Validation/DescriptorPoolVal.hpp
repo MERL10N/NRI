@@ -99,7 +99,7 @@ NRI_INLINE Result DescriptorPoolVal::AllocateDescriptorSets(const PipelineLayout
 
     for (uint32_t i = 0; i < instanceNum; i++) {
         DescriptorSetVal* descriptorSetVal = &m_DescriptorSets[m_DescriptorSetsNum++];
-        descriptorSetVal->SetImpl(descriptorSets[i], &descriptorSetDesc);
+        descriptorSetVal->SetImpl(descriptorSets[i], &descriptorSetDesc, IsCopySource());
         descriptorSets[i] = (DescriptorSet*)descriptorSetVal;
     }
 
