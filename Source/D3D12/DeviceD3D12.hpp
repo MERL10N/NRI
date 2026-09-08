@@ -953,8 +953,10 @@ void DeviceD3D12::FillDesc(bool disableD3D12EnhancedBarrier) {
     for (; currentShaderModel >= (uint32_t)D3D_SHADER_MODEL_6_0; currentShaderModel--) {
         D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = {(D3D_SHADER_MODEL)currentShaderModel};
         hr = m_Device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel));
-        if (SUCCEEDED(hr))
+        if (SUCCEEDED(hr)) {
+            currentShaderModel = (uint32_t)shaderModel.HighestShaderModel;
             break;
+        }
     }
     if (currentShaderModel < D3D_SHADER_MODEL_6_0)
         currentShaderModel = D3D_SHADER_MODEL_5_1;
@@ -1395,7 +1397,7 @@ Result DeviceD3D12::GetDescriptorHandle(D3D12_DESCRIPTOR_HEAP_TYPE type, Descrip
             DescriptorHandle handle = {};
             handle.heapType = type;
             handle.heapIndex = heapIndex;
-            handle.heapOffset = i;
+            handle.heapOffsetPlusOne = i + 1;
 
             freeDescriptors.push_back(handle);
         }
@@ -1419,7 +1421,7 @@ DescriptorHandleCPU DeviceD3D12::GetDescriptorHandleCPU(const DescriptorHandle& 
     ExclusiveScope lock(m_DescriptorHeapLock);
 
     const DescriptorHeapDesc& descriptorHeapDesc = m_DescriptorHeaps[descriptorHandle.heapIndex];
-    DescriptorHandleCPU descriptorHandleCPU = descriptorHeapDesc.baseHandleCPU + descriptorHandle.heapOffset * descriptorHeapDesc.descriptorSize;
+    DescriptorHandleCPU descriptorHandleCPU = descriptorHeapDesc.baseHandleCPU + (descriptorHandle.heapOffsetPlusOne - 1) * descriptorHeapDesc.descriptorSize;
 
     return descriptorHandleCPU;
 }
