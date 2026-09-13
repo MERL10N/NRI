@@ -1,6 +1,19 @@
-//
+// © 2026 NVIDIA Corporation
 
-#ifndef NRI_COMMANDBUFFERMTL_H
-#define NRI_COMMANDBUFFERMTL_H
+#pragma once
 
-#endif // NRI_COMMANDBUFFERMTL_H
+namespace nri {
+    struct CommandBufferMTL final : public DeviceBase {
+
+        inline const DeviceDesc& GetDesc() const override {
+            return m_Desc;
+        }
+
+        void Destruct() override {}
+
+    private:
+
+        DeviceDesc m_Desc = {};
+    };
+}
+
