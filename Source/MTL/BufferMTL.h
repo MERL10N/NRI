@@ -2,22 +2,28 @@
 
 #pragma once
 
-struct BufferMTL final : public DebugNameBase {
+namespace nri {
+    struct BufferMTL final : public DebugNameBase {
 
-    inline BufferMTL(DeviceMTL& device)
-        : m_Device(device) {
-    }
+        inline BufferMTL(DeviceMTL& device)
+            : m_Device(device) {
+        }
 
-    ~BufferMTL();
+        ~BufferMTL();
 
-    inline DeviceMTL& GetDevice() {
-        return m_Device;
-    }
+        inline DeviceMTL& GetDevice() {
+            return m_Device;
+        }
 
-    Result Create(MemoryLocation location, const BufferDesc& bufferDesc);
+        inline const BufferDesc& GetDesc() const {
+            return m_Desc;
+        }
 
-private:
-    DeviceMTL& m_Device;
-    MTL::Buffer* m_Buffer = nullptr;
-    BufferDesc m_Desc = {};
-};
+        Result Create(MemoryLocation location, const BufferDesc& bufferDesc);
+
+    private:
+        DeviceMTL& m_Device;
+        MTL::Buffer* m_Buffer = nullptr;
+        BufferDesc m_Desc = {};
+    };
+}

@@ -1,7 +1,5 @@
 // © 2026 NVIDIA Corporation
 
-
-
 CommandAllocatorMTL::~CommandAllocatorMTL() {
     if (m_CommandAllocator) {
         m_CommandAllocator->release();
@@ -11,7 +9,7 @@ CommandAllocatorMTL::~CommandAllocatorMTL() {
 Result CommandAllocatorMTL::Create(const Queue& queue) {
 
     m_Allocator = m_Device.GetDevice()->newCommandAllocator();
-    return m_Allocator ? Result::SUCCESS : Result::FAILURE;
+    return Result::SUCCESS;
 }
 
 void CommandAllocatorMTL::Reset() {

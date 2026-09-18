@@ -23,6 +23,7 @@ namespace nri {
      void CommitResidencySet();
 
      Result Create(const DeviceCreationDesc& desc);
+     Result FillFunctionTable(CoreInterface& table) const override;
 
      void Destruct() override {
 
