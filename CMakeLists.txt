@@ -826,6 +826,10 @@ if(NRI_ENABLE_MTL_SUPPORT)
             Source/MTL/CommandBufferMTL.h
             Source/MTL/SwapChainMTL.hpp
             Source/MTL/SwapChainMTL.h
+            Source/MTL/BufferMTL.hpp
+            Source/MTL/BufferMTL.h
+            Source/MTL/SharedMTL.hpp
+            Source/MTL/SharedMTL.h
     )
     target_sources(NRI_MTL
             PRIVATE
