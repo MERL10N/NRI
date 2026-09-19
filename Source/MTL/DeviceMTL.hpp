@@ -2,49 +2,51 @@
 
 #pragma once
 
-DeviceMTL::DeviceMTL(const CallbackInterface& callbacks, const AllocationCallbacks& allocationCallbacks)
-    : DeviceBase(callbacks, allocationCallbacks) {
+namespace nri {
+    DeviceMTL::DeviceMTL(const CallbackInterface& callbacks, const AllocationCallbacks& allocationCallbacks)
+        : DeviceBase(callbacks, allocationCallbacks) {
 
-    m_Desc.graphicsAPI = GraphicsAPI::MTL;
-    m_Desc.nriVersion  = NRI_VERSTION;
+        m_Desc.graphicsAPI = GraphicsAPI::MTL;
+        m_Desc.nriVersion  = NRI_VERSTION;
 
-}
-
-DeviceMTL::~DeviceMTL() {
-    if (m_Device)
-        m_Device->release();
-
-    if (m_ResidencySet)
-        m_ResidencySet->release();
-}
-
-Result DeviceMTL::Create(const DeviceCreationDesc& desc) {
-
-    if (!m_Device)
-        m_Device = MTL::CreateSystemDefaultDevice();
-
-    if (m_Device) {
-        std::cout << "Metal-compatible device initialised";
     }
 
-    // Initialise ResidencySet Descriptor
-    MTL::ResidencySetDescriptor* residencySetDescriptor = MTL::ResidencySetDescriptor::alloc()->init();
+    DeviceMTL::~DeviceMTL() {
+        if (m_Device)
+            m_Device->release();
 
-    NS::Error* residencyError = nullptr;
-    m_ResidencySet = m_Device->newResidencySet(residencySetDescriptor, &residencyError);
-    residencySetDescriptor->release();
+        if (m_ResidencySet)
+            m_ResidencySet->release();
+    }
 
-    m_ResidencySet->requestResidency();
-}
+    Result DeviceMTL::Create(const DeviceCreationDesc& desc) {
 
-DeviceMTL::AddToResidencySet(const MTL::Allocation* allocation) {
-    m_ResidencySet->addAllocation(allocation);
-}
+        if (!m_Device)
+            m_Device = MTL::CreateSystemDefaultDevice();
 
-DeviceMTL::RemoveFromResidencySet(const MTL::Allocation* allocation) {
-    m_ResidencySet->removeAllocation(allocation);
-}
+        if (m_Device) {
+            std::cout << "Metal-compatible device initialised";
+        }
 
-DeviceMTL::CommitResidencySet() {
-    m_ResidencySet->commit();
+        // Initialise ResidencySet Descriptor
+        MTL::ResidencySetDescriptor* residencySetDescriptor = MTL::ResidencySetDescriptor::alloc()->init();
+
+        NS::Error* residencyError = nullptr;
+        m_ResidencySet = m_Device->newResidencySet(residencySetDescriptor, &residencyError);
+        residencySetDescriptor->release();
+
+        m_ResidencySet->requestResidency();
+    }
+
+    DeviceMTL::AddToResidencySet(const MTL::Allocation* allocation) {
+        m_ResidencySet->addAllocation(allocation);
+    }
+
+    DeviceMTL::RemoveFromResidencySet(const MTL::Allocation* allocation) {
+        m_ResidencySet->removeAllocation(allocation);
+    }
+
+    DeviceMTL::CommitResidencySet() {
+        m_ResidencySet->commit();
+    }
 }
